@@ -1,0 +1,21 @@
+{
+  "name": "cupi Dashboard",
+  "short_name": "cupi",
+  "description": "Advanced financial analytics platform for modern investors",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0613",
+  "theme_color": "#8257e6",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
