@@ -13,7 +13,7 @@ export const PromptSuggestions = ({
 			<div className="flex items-center justify-center mb-4">
 				<Image
 					src="/logo.png"
-					alt="Gangstr"
+					alt="cUPI"
 					width={80}
 					height={80}
 					className="rounded-full"

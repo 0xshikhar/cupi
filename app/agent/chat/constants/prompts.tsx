@@ -123,10 +123,10 @@ export const ACTION_PROMPTS: ActionPrompt[] = [
 		prompt: "Show my PNL",
 	},
 	{
-		id: "pnl-my-gangstr",
-		name: "PNL - my Gangstr",
+		id: "pnl-my-cupi",
+		name: "PNL - my cUPI",
 		icon: <LineChart className="h-4 w-4" />,
-		prompt: "Show my Gangstr PNL",
+		prompt: "Show my cUPI PNL",
 	},
 	{
 		id: "pnl-token",
@@ -245,10 +245,10 @@ export const ACTION_PROMPTS: ActionPrompt[] = [
 		prompt: "How do limit orders work?",
 	},
 	{
-		id: "learn-gangstr",
-		name: "Learn Gangstr",
+		id: "learn-cupi",
+		name: "Learn cUPI",
 		icon: <GraduationCap className="h-4 w-4" />,
-		prompt: "What is Gangstr?",
+		prompt: "What is cUPI?",
 	},
 	{
 		id: "learn-stop-loss",
