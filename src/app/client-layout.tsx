@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Provider from "./privy-provider";
+import Providers from "./providers";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import { MobileNav } from "@/components/molecule/mobile-nav";
@@ -36,7 +36,7 @@ export default function ClientLayout({
   }, [isMobile]);
 
   return (
-    <Provider>
+    <Providers>
       {/* Layout with Sidebar */}
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar - positioned with proper z-index */}
@@ -67,6 +67,6 @@ export default function ClientLayout({
           <MobileNav />
         </div>
       </div>
-    </Provider>
+    </Providers>
   );
 }

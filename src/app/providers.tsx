@@ -2,8 +2,10 @@
 
 import { PrivyProvider } from '@privy-io/react-auth';
 import React from 'react';
+import { TRPCReactProvider } from '@/trpc/react';
+import { type AppRouter } from '@/server/api/root';
 
-export default function Provider({ children }: { children: React.ReactNode }) {
+export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <PrivyProvider
@@ -12,7 +14,7 @@ export default function Provider({ children }: { children: React.ReactNode }) {
         appearance: {
           theme: 'dark',
           accentColor: '#8257e6',
-          logo: '/logo.png', 
+          logo: '/logo.png',
           showWalletLoginFirst: true,
         },
         embeddedWallets: {
@@ -23,7 +25,9 @@ export default function Provider({ children }: { children: React.ReactNode }) {
         // Will rely on Privy's default chain support
       }}
     >
-      {children}
+      <TRPCReactProvider>
+        {children}
+      </TRPCReactProvider>
     </PrivyProvider>
   );
 }
