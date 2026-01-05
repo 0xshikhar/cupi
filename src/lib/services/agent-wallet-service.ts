@@ -1,7 +1,9 @@
+import type { Address } from "viem";
+
 export class AgentWalletService {
     static async getOrCreateSmartWallet(userWalletAddress: string): Promise<{
-        smartWalletAddress?: string;
-        signerPrivateKey: string;
+        smartWalletAddress?: Address;
+        signerPrivateKey: `0x${string}`;
         agentId: string;
         isNewWallet: boolean;
     }> {
@@ -12,5 +14,14 @@ export class AgentWalletService {
             agentId: "placeholder_agent_id",
             isNewWallet: true,
         };
+    }
+
+    static async updateSmartWalletAddress(
+        agentId: string,
+        smartWalletAddress: Address
+    ): Promise<void> {
+        console.log(
+            `[Placeholder] updateSmartWalletAddress agentId=${agentId} smartWalletAddress=${smartWalletAddress}`
+        );
     }
 }
