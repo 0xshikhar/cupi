@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { startupService } from '../../../lib/services/startup';
+import { startupService } from '@/lib/services/startup';
 
 let isInitialized = false;
 
