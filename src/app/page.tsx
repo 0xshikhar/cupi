@@ -5,7 +5,6 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useUnifiedWallet } from "@/lib/hooks/useUnifiedWallet";
 import { Button } from "@/components/ui/button";
 import TopUpModal from "@/components/TopUpModal";
-import AutoInvestFlow from "@/components/AutoInvestFlow";
 import {
   ArrowRight,
   Zap,
@@ -26,7 +25,6 @@ export default function HomePage() {
   const { activeWalletAddress, activeWalletStatus } = useUnifiedWallet();
   const [isConnecting, setIsConnecting] = useState(false);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
-  const [isAutoInvestOpen, setIsAutoInvestOpen] = useState(false);
   const [lastTopUpAmount, setLastTopUpAmount] = useState<string>("");
   const [lastTopUpToken, setLastTopUpToken] = useState<string>("");
   const router = useRouter();
@@ -64,13 +62,6 @@ export default function HomePage() {
     setLastTopUpToken(token);
     // Redirect to dashboard after top-up
     router.push("/dashboard");
-  };
-
-  const handleInvestmentComplete = (success: boolean) => {
-    if (success) {
-      // Redirect to dashboard after successful investment
-      router.push("/dashboard");
-    }
   };
 
   const getConnectionStatus = () => {
@@ -265,14 +256,6 @@ export default function HomePage() {
         isOpen={showTopUpModal}
         onClose={() => setShowTopUpModal(false)}
         onSuccess={handleTopUpSuccess}
-      />
-
-      <AutoInvestFlow
-        isOpen={isAutoInvestOpen}
-        onClose={() => setIsAutoInvestOpen(false)}
-        amount={lastTopUpAmount}
-        token={lastTopUpToken}
-        onInvestmentComplete={handleInvestmentComplete}
       />
     </div>
   );
