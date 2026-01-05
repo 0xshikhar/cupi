@@ -95,7 +95,10 @@ export async function prepareAgentkitAndWalletProvider(
     // 3. Create signer from smart wallet private key
     try {
       const signerStartTime = Date.now();
-      const signer = privateKeyToAccount(signerPrivateKey);
+      const normalizedSignerPrivateKey = (signerPrivateKey.startsWith("0x")
+        ? signerPrivateKey
+        : `0x${signerPrivateKey}`) as `0x${string}`;
+      const signer = privateKeyToAccount(normalizedSignerPrivateKey);
       console.log(
         `[SMART WALLET] Signer created for address: ${signer.address} in ${
           Date.now() - signerStartTime
@@ -137,7 +140,7 @@ export async function prepareAgentkitAndWalletProvider(
           );
 
         let walletProvider: WalletProvider;
-        let finalSmartWalletAddress: string;
+        let finalSmartWalletAddress: Address;
 
         try {
           console.log(
@@ -151,7 +154,7 @@ export async function prepareAgentkitAndWalletProvider(
             throw new Error("SmartWalletProvider is null after configuration");
           }
 
-          finalSmartWalletAddress = walletProvider.getAddress();
+          finalSmartWalletAddress = walletProvider.getAddress() as Address;
           console.log(
             `[SMART WALLET] SmartWalletProvider initialized successfully in ${
               Date.now() - providerStartTime
@@ -217,7 +220,7 @@ export async function prepareAgentkitAndWalletProvider(
                 paymasterUrl: undefined,
               });
 
-              finalSmartWalletAddress = walletProvider.getAddress();
+              finalSmartWalletAddress = walletProvider.getAddress() as Address;
               console.log(
                 `[AGENT WALLET] Successfully connected to existing smart wallet: ${finalSmartWalletAddress}`
               );
@@ -239,7 +242,7 @@ export async function prepareAgentkitAndWalletProvider(
               );
               // If we still can't connect, let's just use the basic configuration without smart wallet address
               // This should allow the SDK to handle the existing wallet automatically
-              finalSmartWalletAddress = "unknown"; // We'll get it later from the provider
+              // finalSmartWalletAddress = "unknown"; // We'll get it later from the provider
               throw smartWalletError; // Re-throw the original error for now
             }
           } else {
