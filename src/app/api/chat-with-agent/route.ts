@@ -4,16 +4,6 @@ import { prepareAgentkitAndWalletProvider } from "../agent/prepare-agentkit";
 import { decrypt } from "@/lib/crypto-utils";
 import { rateLimit } from "@/lib/rate-limiter";
 import { ApiError, ErrorCode, withErrorHandling } from "@/lib/error-handler";
-import {
-  calculateRiskScore,
-  createRiskProfile,
-  computeMetricsAndAllocation,
-} from "@/lib/risk";
-import { RISK_QUESTIONNAIRE } from "@/lib/risk/constants";
-
-// Use shared questionnaire from lib/risk/constants
-// Feature flag to enable/disable onboarding questionnaire in chat
-const ENABLE_RISK_QUESTIONNAIRE = process.env.ENABLE_RISK_QUESTIONNAIRE === 'true';
 
 /**
  * Handles chat interaction with an agent
@@ -240,9 +230,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     messageHistory || [],
     decryptedPrivateKey,
     walletData.walletPublicKey,
-    sessionData.agent_scratchpad || "",
-    userProfile.risk_profile || "",
-    JSON.parse(userProfile.other_user_info || "{}") // Parse as object for enhanced implementation
+    sessionData.agent_scratchpad || ""
   );
 
   // Update session data if needed
@@ -258,29 +246,10 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
       });
   }
 
-  // Update user profile if needed
-  if (result.risk_profile || result.other_user_info) {
-    await prisma.userProfile
-      .update({
-        where: { userWalletAddress },
-        data: {
-          risk_profile: result.risk_profile || userProfile.risk_profile,
-          other_user_info:
-            result.other_user_info || userProfile.other_user_info,
-        },
-      })
-      .catch((error: Error) => {
-        console.error("Error updating user profile:", error);
-        // Non-critical error, continue without throwing
-      });
-  }
-
   return NextResponse.json({
     agent_response: result.agent_response,
     walletAction: result.walletAction,
     agent_scratchpad: result.agent_scratchpad,
-    risk_profile: result.risk_profile,
-    other_user_info: result.other_user_info,
   });
 });
 
@@ -295,130 +264,9 @@ async function processHybridAgentInteraction(
   messageHistory: any[],
   safeWalletPrivateKey: string,
   safeWalletPublicKey: string,
-  agent_scratchpad: string,
-  risk_profile: string,
-  other_user_info: object
+  agent_scratchpad: string
 ) {
   try {
-    console.log("🚀 Starting Hybrid Agent Interaction...\n");
-
-    const lastMessage = messageHistory[messageHistory.length - 1];
-    const userMessage = lastMessage?.content || "";
-
-    // Read onboarding status from scratchpad if present
-    let onboardingComplete = false;
-    try {
-      const parsed = agent_scratchpad ? JSON.parse(agent_scratchpad) : null;
-      onboardingComplete = !!parsed?.onboarding_complete;
-    } catch {
-      // scratchpad may be plain text; ignore
-    }
-
-    // Helper intent detectors to reduce false positives for budget detection
-    const isTradeOrWalletCommand = (msg: string): boolean => {
-      const m = msg.toLowerCase();
-      return [
-        "swap",
-        "deposit",
-        "withdraw",
-        "transfer",
-        "send",
-        "balance",
-        "wallet",
-        "faucet",
-        "gas",
-        "approve",
-        "mint",
-        "vault",
-        "morpho",
-        "compound",
-        "aave",
-        "weth",
-        "usdc",
-        "eth",
-      ].some((k) => m.includes(k));
-    };
-
-    const isNumericOnly = (msg: string): boolean => {
-      return /^\s*\$?\s*\d{1,3}(?:,?\d{3})*(?:\.\d{1,2})?\s*$/.test(msg);
-    };
-
-    const isBudgetIntent = (msg: string): boolean => {
-      const m = msg.toLowerCase();
-      if (isNumericOnly(m)) return true;
-      return [
-        "budget",
-        "invest",
-        "investment",
-        "allocation",
-        "allocate",
-        "strategy",
-        "portfolio",
-      ].some((k) => m.includes(k));
-    };
-
-    // Check if this is a risk assessment related interaction
-    const isRiskAssessmentFlow = (() => {
-      if (!ENABLE_RISK_QUESTIONNAIRE) return false;
-      // If this looks like an initial greeting or very first interaction of the session,
-      // kick off the risk flow regardless of prior profile.
-      const isVeryEarlyConversation = (messageHistory?.length || 0) <= 2;
-      const isGreeting = /\b(hi|hello|hey|get started|start|begin)\b/i.test(
-        userMessage
-      );
-      if (!onboardingComplete || isVeryEarlyConversation || isGreeting) {
-        // Unless it's a clear trade/wallet command, we start/continue risk.
-        if (!isTradeOrWalletCommand(userMessage)) return true;
-      }
-      // After onboarding, route trade/wallet commands to general handler
-      if (isTradeOrWalletCommand(userMessage)) return false;
-      // User is in questionnaire flow
-      if (risk_profile && risk_profile.includes("currentQuestion")) return true;
-      // Questionnaire answer (A/B/C) only
-      if (
-        ["A", "B", "C"].includes(userMessage.toUpperCase()) &&
-        userMessage.trim().length === 1
-      )
-        return true;
-      // Explicit risk keywords
-      const m = userMessage.toLowerCase();
-      if (
-        m.includes("risk assessment") ||
-        m.includes("risk profile") ||
-        m.includes("start risk")
-      )
-        return true;
-      // Risk profile exists and message is clearly a budget intent
-      if (
-        risk_profile &&
-        risk_profile.includes("riskAssessment") &&
-        isBudgetIntent(userMessage)
-      )
-        return true;
-      return false;
-    })();
-
-    console.log(`🔍 Risk assessment flow detected: ${isRiskAssessmentFlow}`);
-    console.log(`📝 User message: "${userMessage}"`);
-    console.log(`📊 Risk profile exists: ${!!risk_profile}`);
-
-    // If this is risk assessment flow, handle it with the risk assessment logic
-    if (isRiskAssessmentFlow) {
-      console.log("📊 Routing to risk assessment handler...");
-      return await processRiskAssessmentInteraction(
-        agentkit,
-        userWalletAddress,
-        chain_id,
-        messageHistory,
-        safeWalletPrivateKey,
-        safeWalletPublicKey,
-        agent_scratchpad,
-        risk_profile,
-        other_user_info
-      );
-    }
-
-    // Otherwise, handle it with the original agent functionality using LangChain tools
     console.log("🤖 Routing to general agent handler...");
     return await processGeneralAgentInteraction(
       agentkit,
@@ -428,9 +276,7 @@ async function processHybridAgentInteraction(
       messageHistory,
       safeWalletPrivateKey,
       safeWalletPublicKey,
-      agent_scratchpad,
-      risk_profile,
-      other_user_info
+      agent_scratchpad
     );
   } catch (error) {
     console.error("❌ Error in processHybridAgentInteraction:", error);
@@ -450,9 +296,7 @@ async function processGeneralAgentInteraction(
   messageHistory: any[],
   safeWalletPrivateKey: string,
   safeWalletPublicKey: string,
-  agent_scratchpad: string,
-  risk_profile: string,
-  other_user_info: object
+  agent_scratchpad: string
 ) {
   try {
     console.log("🤖 Processing General Agent Interaction with AgentKit...");
@@ -590,9 +434,6 @@ async function processGeneralAgentInteraction(
       agent_response: text,
       walletAction: walletAction,
       agent_scratchpad: agent_scratchpad,
-      risk_profile: risk_profile,
-      other_user_info: JSON.stringify(other_user_info),
-      isRiskProfilingComplete: false,
     };
   } catch (error) {
     console.error("❌ Error in processGeneralAgentInteraction:", error);
@@ -617,249 +458,6 @@ async function processGeneralAgentInteraction(
       agent_response: fallbackResponse,
       walletAction: null,
       agent_scratchpad: agent_scratchpad,
-      risk_profile: risk_profile,
-      other_user_info: JSON.stringify(other_user_info),
-      isRiskProfilingComplete: false,
     };
   }
 }
-
-/**
- * Handle risk assessment specific interactions
- */
-async function processRiskAssessmentInteraction(
-  agentkit: any,
-  userWalletAddress: string,
-  chain_id: string,
-  messageHistory: any[],
-  safeWalletPrivateKey: string,
-  safeWalletPublicKey: string,
-  agent_scratchpad: string,
-  risk_profile: string,
-  other_user_info: object
-) {
-  try {
-    console.log("🚀 Starting Risk Profiling Agent Interaction...\n");
-
-    // Initialize default values
-    const currentRiskProfile = risk_profile ? JSON.parse(risk_profile) : null;
-    let updatedScratchpad = agent_scratchpad || "";
-    let updated_risk_profile = risk_profile || "";
-    let response = "";
-    let isRiskProfilingComplete = false;
-
-    // Check if risk profiling is already complete
-    if (currentRiskProfile && currentRiskProfile.riskAssessment) {
-      console.log("✅ Risk profile already exists:");
-      console.log(
-        `   - Risk Score: ${currentRiskProfile.riskAssessment.riskScore}/10`
-      );
-      console.log(
-        `   - Category: ${currentRiskProfile.riskAssessment.category}`
-      );
-      console.log(
-        `   - Aggressiveness: ${currentRiskProfile.riskAssessment.aggressiveness}`
-      );
-
-      // Check if we have a budget in the message
-      const lastMessage = messageHistory[messageHistory.length - 1];
-      if (lastMessage && lastMessage.content) {
-        const budgetMatch = lastMessage.content.match(
-          /\$?([0-9,]+(?:\.[0-9]{2})?)/
-        );
-        if (budgetMatch) {
-          const budget = parseFloat(budgetMatch[1].replace(/,/g, ""));
-          if (!isNaN(budget) && budget > 0) {
-            console.log(`💰 User provided budget: $${budget.toLocaleString()}`);
-
-            // Generate allocation with user's budget
-            const allocationResult = await computeMetricsAndAllocation(
-              currentRiskProfile,
-              budget,
-              agentkit
-            );
-
-            const allocationDetails = allocationResult.allocations
-              .map((a: any) => {
-                let details = `• ${a.name}: $${a.allocation.toFixed(
-                  2
-                )} (${a.percentage.toFixed(1)}%)`;
-
-                if (a.protocol) {
-                  details += ` [Protocol: ${a.protocol}`;
-                  if (
-                    a.protocol === "morpho" &&
-                    a.vaultName &&
-                    a.vaultAddress
-                  ) {
-                    details += ` | Vault: ${a.vaultName} | Address: ${a.vaultAddress}`;
-                  }
-                  details += `]`;
-                }
-                return details;
-              })
-              .join("\n");
-
-            // Mark onboarding complete after allocation is generated
-            updatedScratchpad = JSON.stringify({ onboarding_complete: true });
-
-            response = `🎉 Allocation Strategy Generated!
-
-📊 Your Risk Assessment:
-• Risk Score: ${currentRiskProfile.riskAssessment.riskScore}/10
-• Category: ${currentRiskProfile.riskAssessment.category}
-• Aggressiveness Factor: ${currentRiskProfile.riskAssessment.aggressiveness}
-• Strategy: ${currentRiskProfile.riskAssessment.description}
-
-💰 DeFi Allocation Strategy (Budget: $${budget.toLocaleString()}):
-${allocationDetails}
-
-📈 Summary:
-• Total Allocated: $${allocationResult.totalAllocated.toFixed(2)}
-• Budget Utilization: ${(allocationResult.utilization * 100).toFixed(1)}%
-
-Your allocation strategy is ready for implementation!
-
-You can now interact freely. Try commands like:
-• "Show my balance"
-• "Swap 0.05 ETH to WETH"
-• "Deposit 0.01 WETH to Morpho vault"
-• "Send me gas" (on testnet)`;
-          } else {
-            response = `Please provide a valid budget amount (e.g., $10,000 or 10000).`;
-          }
-        } else {
-          response = `Your risk profile is complete! You are classified as ${currentRiskProfile.riskAssessment.category} with a risk score of ${currentRiskProfile.riskAssessment.riskScore}/10.
-
-To generate your DeFi allocation strategy, please provide your investment budget (e.g., $10,000 or 10000).`;
-        }
-      } else {
-        response = `Your risk profile is complete! You are classified as ${currentRiskProfile.riskAssessment.category} with a risk score of ${currentRiskProfile.riskAssessment.riskScore}/10.
-
-To generate your DeFi allocation strategy, please provide your investment budget (e.g., $10,000 or 10000).`;
-      }
-      isRiskProfilingComplete = true;
-    } else {
-      // Start or continue risk profiling
-      const lastMessage = messageHistory[messageHistory.length - 1];
-
-      // Initialize or get current state
-      let currentQuestionIndex = 0;
-      let currentResponses: string[] = [];
-
-      if (currentRiskProfile) {
-        currentQuestionIndex = currentRiskProfile.currentQuestion || 0;
-        currentResponses = currentRiskProfile.responses || [];
-      }
-
-      // Check if we have a user response in the last message
-      if (
-        lastMessage &&
-        lastMessage.content &&
-        ["A", "B", "C"].includes(lastMessage.content.toUpperCase())
-      ) {
-        const userResponse = lastMessage.content.toUpperCase();
-        currentResponses.push(userResponse);
-        currentQuestionIndex++;
-
-        console.log(
-          `📝 User answered: ${userResponse} for question ${currentQuestionIndex}`
-        );
-      }
-
-      if (currentQuestionIndex >= RISK_QUESTIONNAIRE.questions.length) {
-        // All questions answered, calculate final risk profile
-        console.log("✅ All questions answered, calculating risk profile...");
-        const riskAssessment = calculateRiskScore(currentResponses);
-        const completeRiskProfile = createRiskProfile(riskAssessment, {
-          walletAddress: userWalletAddress,
-          chainId: chain_id,
-          ...other_user_info,
-        });
-
-        updated_risk_profile = JSON.stringify(completeRiskProfile);
-        updatedScratchpad = `Risk profiling completed. Final risk score: ${riskAssessment.riskScore}/10, Category: ${riskAssessment.category}, Aggressiveness: ${riskAssessment.aggressiveness}`;
-
-        response = `🎉 Risk profiling complete! 
-
-📊 Your Risk Assessment:
-• Risk Score: ${riskAssessment.riskScore}/10
-• Category: ${riskAssessment.category}
-• Aggressiveness Factor: ${riskAssessment.aggressiveness}
-• Strategy: ${riskAssessment.description}
-
-💡 Recommendations:
-• Allocation Strategy: ${completeRiskProfile.recommendations.allocationStrategy}
-• Max DeFi Exposure: ${completeRiskProfile.recommendations.maxDeFiExposure}
-• Protocol Selection: ${completeRiskProfile.recommendations.protocolSelection}
-• Risk Management: ${completeRiskProfile.recommendations.riskManagement}
-
-To generate your DeFi allocation strategy, please provide your investment budget (e.g., $10,000 or 10000).
-
-After the allocation is generated, you'll be able to perform wallet actions like swaps, deposits, and transfers.`;
-
-        isRiskProfilingComplete = true;
-      } else {
-        // Ask next question
-        const currentQuestion =
-          RISK_QUESTIONNAIRE.questions[currentQuestionIndex];
-
-        response = `Question ${currentQuestionIndex + 1} of ${
-          RISK_QUESTIONNAIRE.questions.length
-        }:
-
-${currentQuestion.question}
-
-Please respond with A, B, or C:
-
-${currentQuestion.options.map((opt) => `${opt.value}. ${opt.text}`).join("\n")}
-
-Your answer will help determine your risk tolerance for DeFi investments.`;
-
-        // Update the risk profile state to track progress
-        const updatedRiskProfileState = {
-          currentQuestion: currentQuestionIndex,
-          responses: currentResponses,
-          totalQuestions: RISK_QUESTIONNAIRE.questions.length,
-        };
-
-        updated_risk_profile = JSON.stringify(updatedRiskProfileState);
-        updatedScratchpad = `Asking question ${currentQuestionIndex + 1} of ${
-          RISK_QUESTIONNAIRE.questions.length
-        }. Waiting for user response.`;
-      }
-    }
-
-    // Create wallet action for receiving funds (example)
-    const walletAction = {
-      action: "receiveFunds",
-      toAddress: safeWalletPublicKey,
-      chain_id: chain_id,
-      amount: "0.01",
-      tokenName: "ETH",
-    };
-
-    return {
-      agent_response: response,
-      walletAction: walletAction,
-      agent_scratchpad: updatedScratchpad,
-      risk_profile: updated_risk_profile,
-      other_user_info: JSON.stringify(other_user_info),
-      isRiskProfilingComplete: isRiskProfilingComplete,
-    };
-  } catch (error) {
-    console.error("❌ Error in processRiskAssessmentInteraction:", error);
-    throw error;
-  }
-}
-
-// Duplicate calculateRiskScore removed; use the one from lib/risk
-
-/**
- * Creates a complete risk profile JSON
- */
-// Duplicate createRiskProfile removed; use the one from lib/risk
-
-// (removed) local fetchCompoundData – use lib/risk
-// (removed) local fetchMorphoVaults – use lib/risk
-// (removed) local risk helpers – use lib/risk
