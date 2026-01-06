@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
     // TODO: Add Privy auth verification here
-    const session = null;
+    const session: Record<string, unknown> | null = null;
 
     return {
         db: prisma,
