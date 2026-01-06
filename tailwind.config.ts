@@ -39,85 +39,56 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        // Premium Retro-Tech - Institutional Dark
-        background: "#000000",
-        foreground: "#E0E0E0",
+        // Peanut-inspired Palette
+        background: "#FFF5F5", // Soft Cream/Pink background
+        foreground: "#000000",
+
+        // Brand Colors
+        cupi: {
+          pink: "#FFD1DC", // Primary Brand Pink
+          cream: "#FFF5F5", // Background
+          black: "#000000", // Text/Borders
+          green: "#4ADE80", // Success
+          red: "#FF4444",   // Error
+        },
+
         card: {
-          DEFAULT: "#0F0F0F",
-          foreground: "#E0E0E0",
+          DEFAULT: "#FFFFFF",
+          foreground: "#000000",
         },
         popover: {
-          DEFAULT: "#0F0F0F",
-          foreground: "#E0E0E0",
+          DEFAULT: "#FFFFFF",
+          foreground: "#000000",
         },
         primary: {
-          DEFAULT: "#00FF95",
+          DEFAULT: "#FFD1DC", // Brand Pink
           foreground: "#000000",
-          50: "rgba(0, 255, 149, 0.1)",
-          100: "rgba(0, 255, 149, 0.2)",
-          200: "rgba(0, 255, 149, 0.3)",
-          300: "rgba(0, 255, 149, 0.4)",
-          400: "rgba(0, 255, 149, 0.5)",
-          500: "#00FF95",
-          600: "#3AFFB5",
-          700: "#00FF95",
-          800: "#00FF95",
-          900: "#00FF95",
         },
         secondary: {
-          DEFAULT: "#0A0A0A",
-          foreground: "#9A9A9A",
+          DEFAULT: "#FFFFFF",
+          foreground: "#000000",
         },
         muted: {
-          DEFAULT: "#0F0F0F",
+          DEFAULT: "#F5F5F5",
           foreground: "#666666",
         },
         accent: {
-          DEFAULT: "#3AFFB5",
+          DEFAULT: "#FFD1DC",
           foreground: "#000000",
         },
         destructive: {
           DEFAULT: "#FF4444",
-          foreground: "#E0E0E0",
+          foreground: "#FFFFFF",
         },
-        border: "#1A1A1A",
-        input: "#1A1A1A",
-        ring: "#00FF95",
+        border: "#000000", // High contrast borders
+        input: "#FFFFFF",
+        ring: "#FFD1DC",
         chart: {
-          "1": "#00FF95",
-          "2": "#3AFFB5",
-          "3": "#FF4444",
-          "4": "#00FF88",
-          "5": "#FFB800",
-        },
-        // Success, warning, error colors - Refined
-        success: {
-          DEFAULT: "#00FF88",
-          foreground: "#000000",
-          light: "rgba(0, 255, 136, 0.1)",
-        },
-        warning: {
-          DEFAULT: "#FFB800",
-          foreground: "#000000",
-          light: "rgba(255, 184, 0, 0.1)",
-        },
-        error: {
-          DEFAULT: "#FF4444",
-          foreground: "#E0E0E0",
-          light: "rgba(255, 68, 68, 0.1)",
-        },
-        // Premium grays - Institutional
-        gray: {
-          50: "#000000",
-          100: "#0A0A0A",
-          200: "#0F0F0F",
-          300: "#1A1A1A",
-          400: "#1A1A1A",
-          500: "#666666",
-          600: "#9A9A9A",
-          700: "#9A9A9A",
-          800: "#E0E0E0",
-          900: "#E0E0E0",
+          "1": "#FFD1DC",
+          "2": "#FFB8C6",
+          "3": "#FF9EAF",
+          "4": "#FF8498",
+          "5": "#FF6B81",
         },
       },
       screens: {
