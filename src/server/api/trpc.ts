@@ -118,7 +118,7 @@ export const protectedProcedure = t.procedure
         return next({
             ctx: {
                 // infers the `session` as non-nullable
-                session: { ...ctx.session },
+                session: ctx.session,
             },
         });
     });
