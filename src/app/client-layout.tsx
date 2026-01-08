@@ -1,71 +1,26 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Providers from "./providers";
-import Header from "@/components/Header";
-import Sidebar from "@/components/Sidebar";
-import { MobileNav } from "@/components/molecule/mobile-nav";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { BottomNav } from "@/components/BottomNav";
 
-/**
- * Client-side layout component that handles all interactive functionality
- */
 export default function ClientLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isMobile = useIsMobile();
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  const closeSidebar = () => {
-    setSidebarOpen(false);
-  };
-
-  // Mode removed: Pro-only experience
-
-  // Close sidebar when resizing from mobile to desktop
-  useEffect(() => {
-    if (!isMobile) {
-      setSidebarOpen(false);
-    }
-  }, [isMobile]);
-
   return (
     <Providers>
-      {/* Layout with Sidebar */}
-      <div className="flex h-screen overflow-hidden">
-        {/* Sidebar - positioned with proper z-index */}
-        <div className="z-30 lg:z-auto">
-          <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
-        </div>
+      <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto pb-24">
+          <div className="max-w-md mx-auto w-full min-h-full px-4 pt-6">
+            {children}
+          </div>
+        </main>
 
-        {/* Overlay for mobile sidebar */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/60 z-20 lg:hidden"
-            onClick={closeSidebar}
-          />
-        )}
-
-        {/* Main Content Area - ensuring there's proper spacing from sidebar */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-[var(--color-bg-primary)]">
-          {/* Header */}
-          <Header toggleSidebar={toggleSidebar} />
-
-          {/* Main Content with proper padding for fixed elements */}
-          <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-[var(--color-bg-primary)] pb-20 lg:pb-6">
-            {/* Content container with max width and proper spacing */}
-            <div className="max-w-7xl mx-auto w-full">{children}</div>
-          </main>
-
-          {/* Mobile Navigation */}
-          <MobileNav />
-        </div>
+        {/* Sticky Mobile Navigation */}
+        <BottomNav />
       </div>
     </Providers>
   );

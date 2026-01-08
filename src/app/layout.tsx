@@ -40,8 +40,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${orbitron.variable} ${shareTechMono.variable}`}>
-      <body className="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] min-h-screen">
+    <html lang="en" className={`${orbitron.variable} ${shareTechMono.variable}`}>
+      <body className="bg-background text-foreground min-h-screen">
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
