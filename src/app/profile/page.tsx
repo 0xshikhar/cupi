@@ -2,55 +2,103 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Share2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
-import { QrCode } from "lucide-react";
 
-export default function ReceivePage() {
+export default function ProfilePage() {
     const router = useRouter();
     const { user } = usePrivy();
-    const address = user?.wallet?.address || "0xMyWalletAddress...";
+
+    const menuItems = [
+        { icon: ShieldCheck, label: "Invite friends", href: "#" },
+        { icon: Award, label: "Your Badges", href: "#" },
+        { icon: Sparkles, label: "Points", href: "#" },
+    ];
+
+    const settingsItems = [
+        { icon: User, label: "Personal details", href: "#" },
+        { icon: Globe, label: "Regions & Verification", href: "#" },
+    ];
 
     return (
-        <div className="flex flex-col h-full bg-background px-4 pt-4 pb-safe-bottom">
-            <div className="flex items-center mb-6">
-                <Button variant="ghost" size="icon" onClick={() => router.back()} className="-ml-2">
-                    <ArrowLeft size={24} />
-                </Button>
-                <h1 className="text-xl font-bold ml-2">Receive</h1>
+        <div className="flex flex-col h-full gap-8 pb-24">
+            {/* Header */}
+            <div className="flex items-center justify-between py-2">
+                <button
+                    onClick={() => router.back()}
+                    className="p-2 border border-border rounded-lg hover:bg-secondary transition-colors"
+                >
+                    <ArrowLeft size={20} />
+                </button>
+
+                <button className="p-2 border border-border rounded-lg hover:bg-secondary transition-colors">
+                    <Share size={20} />
+                </button>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center gap-8 -mt-20">
-                <Card className="p-8 flex flex-col items-center gap-6 shadow-xl border-0 bg-white rounded-3xl w-full max-w-sm">
-                    <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-2xl font-bold text-primary-foreground mb-[-10px]">
-                        {user?.email?.address ? user.email.address[0].toUpperCase() : "U"}
-                    </div>
+            {/* Profile Info */}
+            <div className="flex flex-col items-center gap-4">
+                <div className="w-24 h-24 bg-primary/10 rounded-full border border-primary/20 flex items-center justify-center mb-2">
+                    <span className="text-3xl font-bold text-primary">SH</span>
+                </div>
 
-                    <div className="text-center">
-                        <h2 className="text-xl font-bold">{user?.email?.address || "User"}</h2>
-                        <p className="text-sm text-muted-foreground mt-1 break-all px-4">
-                            {address}
-                        </p>
-                    </div>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-3xl font-black tracking-tight">shikhar</h1>
+                    <button className="text-muted-foreground hover:text-foreground">
+                        <Copy size={16} />
+                    </button>
+                </div>
 
-                    <div className="bg-white p-2 rounded-xl border-2 border-dashed border-primary/30">
-                        {/* Placeholder for QR Code */}
-                        <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center text-muted-foreground">
-                            <QrCode size={64} className="opacity-20" />
+                <div className="bg-secondary/50 border border-border rounded-full px-6 py-3 flex items-center gap-3 cursor-pointer hover:bg-secondary transition-all">
+                    <span className="font-bold text-sm tracking-wide">cupi.xyz/shikhar</span>
+                    <Share size={14} className="text-muted-foreground" />
+                </div>
+            </div>
+
+            {/* Menu Group 1 */}
+            <div className="cupi-card overflow-hidden divide-y divide-border">
+                {menuItems.map((item, index) => (
+                    <div key={index} className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group">
+                        <div className="flex items-center gap-4 group-hover:gap-5 transition-all">
+                            <item.icon size={22} className="text-primary" />
+                            <span className="font-bold text-sm">{item.label}</span>
                         </div>
+                        <ChevronRight size={18} className="text-muted-foreground" />
                     </div>
+                ))}
+            </div>
 
-                    <div className="flex gap-3 w-full">
-                        <Button className="flex-1 rounded-xl" variant="outline">
-                            <Copy className="mr-2 h-4 w-4" /> Copy
-                        </Button>
-                        <Button className="flex-1 rounded-xl bg-primary text-primary-foreground">
-                            <Share2 className="mr-2 h-4 w-4" /> Share
-                        </Button>
+            {/* Menu Group 2 */}
+            <div className="cupi-card overflow-hidden divide-y divide-border">
+                {settingsItems.map((item, index) => (
+                    <div key={index} className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group">
+                        <div className="flex items-center gap-4 group-hover:gap-5 transition-all">
+                            <item.icon size={22} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                            <span className="font-bold text-sm">{item.label}</span>
+                        </div>
+                        <ChevronRight size={18} className="text-muted-foreground" />
                     </div>
-                </Card>
+                ))}
+
+                {/* Toggle Row */}
+                <div className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors">
+                    <div className="flex items-center gap-4">
+                        <Eye size={22} className="text-muted-foreground" />
+                        <span className="font-bold text-sm">Show my full name</span>
+                    </div>
+                    <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary/20">
+                        <span className="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-primary transition" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Backup */}
+            <div className="cupi-card p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group">
+                <div className="flex items-center gap-4 group-hover:gap-5 transition-all">
+                    <Cloud size={22} className="text-muted-foreground group-hover:text-foreground" />
+                    <span className="font-bold text-sm">Backup</span>
+                </div>
+                <ChevronRight size={18} className="text-muted-foreground" />
             </div>
         </div>
     );
