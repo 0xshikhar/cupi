@@ -1,138 +1,121 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { Plus, Send, ArrowDownLeft, QrCode, Scan, Copy, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet } from "lucide-react";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const { user, authenticated } = usePrivy();
-  const router = useRouter();
-  const [copied, setCopied] = useState(false);
 
-  // Mock Data
-  const balance = "1,234.56";
+  // Mock Data matching screenshot
+  const balance = "0.24";
   const recentTransactions = [
-    { id: 1, type: "received", from: "@alice", amount: "+$50.00", date: "2m ago", avatar: "A" },
-    { id: 2, type: "sent", to: "@bob", amount: "-$25.00", date: "1h ago", avatar: "B" },
-    { id: 3, type: "sent", to: "@charlie", amount: "-$120.00", date: "Yesterday", avatar: "C" },
+    { id: 1, title: "Cashback Reward", type: "Rewards", amount: "+$0.07", status: "success", icon: <Zap size={20} /> },
+    { id: 2, title: "Cashback Reward", type: "Rewards", amount: "+$0.09", status: "success", icon: <Zap size={20} /> },
+    { id: 3, title: "Cashback Reward", type: "Rewards", amount: "+$0.08", status: "success", icon: <Zap size={20} /> },
+    { id: 4, title: "Welcome to CUPI", type: "Setup", amount: "", status: "success", icon: <Shield size={20} /> },
   ];
 
-  const copyAddress = () => {
-    if (user?.wallet?.address) {
-      navigator.clipboard.writeText(user.wallet.address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   return (
-    <div className="flex flex-col gap-6 pb-24">
-      {/* Header / Balance Section */}
-      <section className="flex flex-col items-center justify-center pt-8 pb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-medium text-muted-foreground bg-secondary px-3 py-1 rounded-full border border-border/50">
-            {authenticated ? user?.email?.address || "Connected" : "Guest"}
-          </span>
-        </div>
+    <div className="flex flex-col gap-6">
+      {/* Header Profile / Points */}
+      <header className="flex items-center justify-between pt-2">
+        <Link href="/profile">
+          <div className="flex items-center gap-3 bg-secondary/50 border border-border rounded-full px-3 py-1.5 transition-all hover:bg-secondary cursor-pointer">
+            <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary-foreground">
+              SH
+            </div>
+            <span className="font-bold text-sm tracking-wide">shikhar</span>
+          </div>
+        </Link>
 
-        <div className="text-5xl font-bold tracking-tight mb-2">
-          ${balance}
+        <div className="flex items-center gap-1.5 font-bold cursor-pointer hover:opacity-70 bg-secondary/30 px-3 py-1.5 rounded-full border border-border">
+          <Sparkles size={14} className="text-primary fill-primary" />
+          <span className="text-sm">Points</span>
         </div>
+      </header>
 
-        <div
-          onClick={copyAddress}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors bg-white/50 px-2 py-1 rounded-md"
-        >
-          <span>{user?.wallet?.address ? `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}` : "0x..."}</span>
-          {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+      {/* Balance */}
+      <div className="flex flex-col justify-center py-6 text-center">
+        <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest mb-2">Total Balance</span>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-6xl font-black tracking-tighter tabular-nums">${balance}</span>
         </div>
-      </section>
+      </div>
 
-      {/* Main Actions */}
-      <section className="grid grid-cols-2 gap-4 px-4">
-        <Button
-          size="lg"
-          className="h-16 text-lg font-medium rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => router.push("/send")}
-        >
-          <Send className="mr-2 h-5 w-5" />
+      {/* Add / Withdraw Row */}
+      <div className="flex gap-4">
+        <button className="flex-1 bg-secondary hover:bg-secondary/80 border border-border rounded-xl py-4 font-bold transition-all flex items-center justify-center gap-2">
+          <ArrowDownLeft size={18} strokeWidth={2.5} />
+          Add
+        </button>
+        <button className="flex-1 bg-secondary hover:bg-secondary/80 border border-border rounded-xl py-4 font-bold transition-all flex items-center justify-center gap-2">
+          <ArrowUpRight size={18} strokeWidth={2.5} />
+          Withdraw
+        </button>
+      </div>
+
+      {/* Send / Request Large Buttons */}
+      <div className="grid grid-cols-2 gap-4">
+        <Link href="/send" className="btn-primary flex items-center justify-center gap-2 text-lg">
+          <ArrowUpRight size={20} strokeWidth={3} />
           Send
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-16 text-lg font-medium rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 bg-white border border-border/10"
-          onClick={() => router.push("/receive")}
-        >
-          <ArrowDownLeft className="mr-2 h-5 w-5" />
+        </Link>
+        <button className="btn-primary flex items-center justify-center gap-2 text-lg opacity-90 hover:opacity-100">
+          <ArrowDownLeft size={20} strokeWidth={3} />
           Request
-        </Button>
-      </section>
+        </button>
+      </div>
 
-      {/* Secondary Actions */}
-      <section className="grid grid-cols-4 gap-2 px-4">
-        <div className="flex flex-col items-center gap-1">
-          <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl bg-white/60 border-0 shadow-sm">
-            <Plus size={24} />
-          </Button>
-          <span className="text-xs font-medium text-muted-foreground">Top Up</span>
+      {/* Promo Card */}
+      <div className="cupi-card p-5 relative overflow-hidden group">
+        <button className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
+          <Minus size={16} />
+        </button>
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-primary/10 rounded-full text-primary">
+            <Wallet size={24} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg leading-tight">Invite friends. Get cashback</h3>
+            <p className="text-muted-foreground text-sm mt-1 leading-relaxed">
+              Earn badges and rewards for every friend who joins CUPI.
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col items-center gap-1">
-          <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl bg-white/60 border-0 shadow-sm">
-            <QrCode size={24} />
-          </Button>
-          <span className="text-xs font-medium text-muted-foreground">Code</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl bg-white/60 border-0 shadow-sm">
-            <Scan size={24} />
-          </Button>
-          <span className="text-xs font-medium text-muted-foreground">Scan</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl bg-white/60 border-0 shadow-sm">
-            <span className="font-bold">...</span>
-          </Button>
-          <span className="text-xs font-medium text-muted-foreground">More</span>
-        </div>
-      </section>
+      </div>
 
       {/* Activity Feed */}
-      <section className="px-4 mt-2">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-lg">Activity</h3>
-          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">Show all</Button>
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-bold text-xl tracking-tight">Activity</h2>
+          <Link href="/activity" className="font-bold text-sm text-primary hover:underline">
+            View all
+          </Link>
         </div>
 
         <div className="flex flex-col gap-3">
           {recentTransactions.map((tx) => (
-            <Card key={tx.id} className="p-4 flex items-center justify-between border-0 shadow-sm bg-white/80 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-                  tx.type === 'received' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                )}>
-                  {tx.avatar}
+            <div key={tx.id} className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 cursor-pointer group border-none bg-secondary/20 hover:shadow-none">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-primary shadow-sm">
+                  {tx.icon}
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-medium text-sm">{tx.type === 'received' ? `Received from ${tx.from}` : `Sent to ${tx.to}`}</span>
-                  <span className="text-xs text-muted-foreground">{tx.date}</span>
+                  <span className="font-bold text-sm leading-tight">{tx.title}</span>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
+                    <span>{tx.type}</span>
+                    {tx.status === 'success' && <CheckCircle size={10} className="text-primary fill-primary" />}
+                  </div>
                 </div>
               </div>
-              <div className={cn(
-                "font-semibold",
-                tx.type === 'received' ? "text-green-600" : "text-foreground"
-              )}>
-                {tx.amount}
-              </div>
-            </Card>
+              {tx.amount && <span className={`font-bold text-lg ${tx.amount.startsWith('+') ? 'text-primary' : ''}`}>{tx.amount}</span>}
+              {!tx.amount && <MoreHorizontal size={20} className="text-muted-foreground" />}
+            </div>
           ))}
         </div>
-      </section>
+      </div>
     </div>
   );
 }
