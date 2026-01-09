@@ -1,7 +1,21 @@
 import React from 'react';
 import { MapPin, MessageCircle, ShieldCheck, Heart, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
+
 export function ProductFeatures() {
+  const { login, authenticated } = usePrivy();
+  const router = useRouter();
+
+  const handleAppAccess = () => {
+    if (authenticated) {
+      router.push('/home');
+    } else {
+      login();
+    }
+  };
+
   return (
     <section className="py-24 bg-white dark:bg-brand-dark">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-24">
@@ -16,8 +30,12 @@ export function ProductFeatures() {
             <p className="text-xl font-bold text-muted-foreground">
               Tapping into the world's most advanced payment rail. We don't charge you to spend your own money.
             </p>
-            <Button size="lg" className="bg-black text-white rounded-xl px-10 h-14 font-black text-lg sticker-effect">
-              JOIN THE WAITLIST
+            <Button
+              size="lg"
+              onClick={handleAppAccess}
+              className="bg-black text-white rounded-xl px-10 h-14 font-black text-lg sticker-effect"
+            >
+              {authenticated ? "OPEN DASHBOARD" : "JOIN THE WAITLIST"}
             </Button>
           </div>
           <div className="bg-brand-green-light rounded-[3rem] border-4 border-black p-8 sticker-effect aspect-square flex items-center justify-center relative overflow-hidden">

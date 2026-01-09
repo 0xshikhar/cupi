@@ -3,11 +3,25 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Cloud, Zap } from 'lucide-react';
+import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
 export function HeroSection() {
+  const { login, authenticated } = usePrivy();
+  const router = useRouter();
+
+  const handleAppAccess = () => {
+    if (authenticated) {
+      router.push('/home');
+    } else {
+      login();
+    }
+  };
+
   return (
     <section className="relative pt-32 pb-24 overflow-hidden bg-white dark:bg-brand-dark cloud-bg">
       {/* Animated Clouds */}
       <motion.div
+        // ... (keep animations same)
         animate={{ x: [0, 20, 0], y: [0, -10, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
         className="absolute top-20 left-[10%] opacity-20 hidden lg:block"
@@ -40,8 +54,12 @@ export function HeroSection() {
             Scan any UPI QR and pay instantly from your self-custody wallet.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
-            <Button size="lg" className="bg-brand-green text-black hover:bg-brand-green-dark rounded-xl h-16 sm:h-20 px-8 sm:px-12 text-xl sm:text-2xl font-black border-4 border-black shadow-sticker active:translate-y-1 active:shadow-sticker-hover transition-all">
-              GET STARTED
+            <Button
+              size="lg"
+              onClick={handleAppAccess}
+              className="bg-brand-green text-black hover:bg-brand-green-dark rounded-xl h-16 sm:h-20 px-8 sm:px-12 text-xl sm:text-2xl font-black border-4 border-black shadow-sticker active:translate-y-1 active:shadow-sticker-hover transition-all"
+            >
+              {authenticated ? "OPEN DASHBOARD" : "GET STARTED"}
             </Button>
             <div className="flex flex-col items-center sm:items-start">
               <span className="text-xs font-black uppercase text-brand-green">Available on</span>

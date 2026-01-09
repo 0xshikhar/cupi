@@ -10,28 +10,28 @@ export const SUPPORTED_CHAINS: ChainInfo[] = [
         chainId: 8453, // Base Mainnet chain ID
     },
     {
-        id:"ethereum-mainnet",
-        name:"Ethereum Mainnet",
-        networkId:"ethereum-mainnet",
-        chainId:1,
+        id: "ethereum-mainnet",
+        name: "Ethereum Mainnet",
+        networkId: "ethereum-mainnet",
+        chainId: 1,
     },
     {
-        id:"ethereum-sepolia",
-        name:"Ethereum Sepolia (Testnet)",
-        networkId:"ethereum-sepolia",
-        chainId:11155111,
+        id: "ethereum-sepolia",
+        name: "Ethereum Sepolia (Testnet)",
+        networkId: "ethereum-sepolia",
+        chainId: 11155111,
     },
     {
-        id:"arbitrum-mainnet",
-        name:"Arbitrum Mainnet",
-        networkId:"arbitrum-mainnet",
-        chainId:42161,
+        id: "arbitrum-mainnet",
+        name: "Arbitrum Mainnet",
+        networkId: "arbitrum-mainnet",
+        chainId: 42161,
     },
     {
-        id:"arbitrum-sepolia",
-        name:"Arbitrum Sepolia (Testnet)",
-        networkId:"arbitrum-sepolia",
-        chainId:421613,
+        id: "arbitrum-sepolia",
+        name: "Arbitrum Sepolia (Testnet)",
+        networkId: "arbitrum-sepolia",
+        chainId: 421613,
     },
     {
         id: "base-sepolia",
@@ -117,29 +117,50 @@ export const CHAIN_TOKENS: Record<string, TokenInfo[]> = {
     ],
 };
 
+// ERC20 ABI for token transfers
+export const ERC20_ABI = [
+    {
+        constant: false,
+        inputs: [
+            { name: '_to', type: 'address' },
+            { name: '_value', type: 'uint256' }
+        ],
+        name: 'transfer',
+        outputs: [{ name: '', type: 'bool' }],
+        type: 'function'
+    },
+    {
+        constant: true,
+        inputs: [{ name: '_owner', type: 'address' }],
+        name: 'balanceOf',
+        outputs: [{ name: 'balance', type: 'uint256' }],
+        type: 'function'
+    }
+] as const;
+
 // API function to fetch real recommendations
 export async function fetchRecommendations(userWalletAddress?: string): Promise<Recommendation[]> {
     try {
-        const url = userWalletAddress 
+        const url = userWalletAddress
             ? `/api/recommendations?userWalletAddress=${userWalletAddress}`
             : '/api/recommendations';
-        
+
         const response = await fetch(url);
-        
+
         if (!response.ok) {
             throw new Error(`Failed to fetch recommendations: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.success || !data.data) {
             throw new Error('Invalid recommendations response format');
         }
-        
+
         return data.data;
     } catch (error) {
         console.error('[DATA] Error fetching recommendations:', error);
-        
+
         // Fallback to empty array or basic recommendations
         return [
             {
@@ -160,21 +181,21 @@ export async function fetchRecommendations(userWalletAddress?: string): Promise<
 export async function fetchMarketData() {
     try {
         const response = await fetch('/api/market/data');
-        
+
         if (!response.ok) {
             throw new Error(`Failed to fetch market data: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.success || !data.data) {
             throw new Error('Invalid market data response format');
         }
-        
+
         return data.data;
     } catch (error) {
         console.error('[DATA] Error fetching market data:', error);
-        
+
         // Fallback to basic market data structure
         return {
             tvlData: {
@@ -200,21 +221,21 @@ export async function fetchMarketData() {
 export async function fetchMarketInsights(): Promise<MarketInsight[]> {
     try {
         const response = await fetch('/api/market/insights');
-        
+
         if (!response.ok) {
             throw new Error(`Failed to fetch market insights: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.success || !data.data) {
             throw new Error('Invalid market insights response format');
         }
-        
+
         return data.data;
     } catch (error) {
         console.error('[DATA] Error fetching market insights:', error);
-        
+
         // Fallback to basic insights
         return [
             {
@@ -233,21 +254,21 @@ export async function fetchMarketInsights(): Promise<MarketInsight[]> {
 export async function fetchUserPortfolios(userWalletAddress: string) {
     try {
         const response = await fetch(`/api/portfolio?userWalletAddress=${userWalletAddress}`);
-        
+
         if (!response.ok) {
             throw new Error(`Failed to fetch portfolios: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.success || !data.data) {
             throw new Error('Invalid portfolios response format');
         }
-        
+
         return data.data;
     } catch (error) {
         console.error('[DATA] Error fetching user portfolios:', error);
-        
+
         // Return empty portfolios array
         return [];
     }
@@ -257,21 +278,21 @@ export async function fetchUserPortfolios(userWalletAddress: string) {
 export async function fetchVaultPositions(userWalletAddress: string) {
     try {
         const response = await fetch(`/api/vault/status?userWalletAddress=${userWalletAddress}`);
-        
+
         if (!response.ok) {
             throw new Error(`Failed to fetch vault positions: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.success || !data.data) {
             throw new Error('Invalid vault positions response format');
         }
-        
+
         return data.data;
     } catch (error) {
         console.error('[DATA] Error fetching vault positions:', error);
-        
+
         return {
             vaults: [],
             summary: {

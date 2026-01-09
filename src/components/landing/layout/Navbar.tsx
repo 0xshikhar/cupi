@@ -1,8 +1,21 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
 
 export function Navbar() {
+  const { login, authenticated } = usePrivy();
+  const router = useRouter();
+
+  const handleAppAccess = () => {
+    if (authenticated) {
+      router.push('/home');
+    } else {
+      login();
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center p-6">
       <div className="w-full max-w-5xl flex items-center justify-between px-8 py-4 bg-white dark:bg-zinc-900 border-4 border-black rounded-full shadow-sticker transition-transform hover:scale-[1.01]">
@@ -20,8 +33,11 @@ export function Navbar() {
           <a href="#how-it-works" className="hover:text-brand-green transition-colors">Fees</a>
           <a href="#faq" className="hover:text-brand-green transition-colors">Help</a>
         </div>
-        <Button className="bg-brand-green text-black hover:bg-brand-green-dark border-2 border-black rounded-full font-black px-8 h-12 shadow-sticker-hover active:translate-y-1 transition-all">
-          GET THE APP
+        <Button
+          onClick={handleAppAccess}
+          className="bg-brand-green text-black hover:bg-brand-green-dark border-2 border-black rounded-full font-black px-8 h-12 shadow-sticker-hover active:translate-y-1 transition-all"
+        >
+          {authenticated ? "OPEN APP" : "GET THE APP"}
         </Button>
       </div>
     </nav>

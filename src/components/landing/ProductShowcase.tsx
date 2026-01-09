@@ -4,12 +4,26 @@ import { motion } from 'framer-motion';
 import { Smartphone, CheckCircle2, QrCode, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
 export function ProductShowcase() {
   const [amount, setAmount] = useState('100');
+  const { login, authenticated } = usePrivy();
+  const router = useRouter();
+
+  const handleAppAccess = () => {
+    if (authenticated) {
+      router.push('/home');
+    } else {
+      login();
+    }
+  };
+
   return (
     <section className="py-24 bg-white dark:bg-brand-dark">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Step Flow */}
+// ... (keep step flow same)
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-32">
           <div className="flex flex-col items-center text-center space-y-4">
             <div className="w-24 h-24 bg-brand-green-light border-4 border-black rounded-3xl flex items-center justify-center sticker-effect">
@@ -72,7 +86,10 @@ export function ProductShowcase() {
                   <span className="ml-auto font-black pr-2 text-sm">UPI FAST</span>
                 </div>
               </div>
-              <Button className="w-full bg-black text-white h-14 rounded-xl font-black text-lg hover:bg-zinc-800">
+              <Button
+                onClick={handleAppAccess}
+                className="w-full bg-black text-white h-14 rounded-xl font-black text-lg hover:bg-zinc-800"
+              >
                 TRY A SCAN NOW
               </Button>
             </div>
