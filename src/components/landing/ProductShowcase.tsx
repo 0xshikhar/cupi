@@ -1,3 +1,4 @@
+"use client"
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Smartphone, CheckCircle2, QrCode, ArrowRight } from 'lucide-react';
@@ -51,9 +52,9 @@ export function ProductShowcase() {
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase">You Send (USDC)</label>
                 <div className="flex items-center gap-2 border-2 border-black rounded-xl p-2 bg-muted/20">
-                  <Input 
-                    type="number" 
-                    value={amount} 
+                  <Input
+                    type="number"
+                    value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="border-none bg-transparent text-2xl font-black focus-visible:ring-0"
                   />

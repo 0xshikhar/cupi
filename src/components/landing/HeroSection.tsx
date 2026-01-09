@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,7 @@ export function HeroSection() {
             Scan any UPI QR and pay instantly from your self-custody wallet.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
-            <Button size="lg" className="bg-brand-green text-black hover:bg-brand-green-dark rounded-full h-16 sm:h-20 px-8 sm:px-12 text-xl sm:text-2xl font-black border-4 border-black shadow-sticker active:translate-y-1 active:shadow-sticker-hover transition-all">
+            <Button size="lg" className="bg-brand-green text-black hover:bg-brand-green-dark rounded-xl h-16 sm:h-20 px-8 sm:px-12 text-xl sm:text-2xl font-black border-4 border-black shadow-sticker active:translate-y-1 active:shadow-sticker-hover transition-all">
               GET STARTED
             </Button>
             <div className="flex flex-col items-center sm:items-start">

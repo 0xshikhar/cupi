@@ -14,21 +14,21 @@ export function ProductFeatures() {
               0 Fees.
             </h2>
             <p className="text-xl font-bold text-muted-foreground">
-              Tapping into the world's most advanced payment rail. We don't charge you to spend your own money. 
+              Tapping into the world's most advanced payment rail. We don't charge you to spend your own money.
             </p>
-            <Button size="lg" className="bg-black text-white rounded-full px-10 h-14 font-black text-lg sticker-effect">
+            <Button size="lg" className="bg-black text-white rounded-xl px-10 h-14 font-black text-lg sticker-effect">
               JOIN THE WAITLIST
             </Button>
           </div>
           <div className="bg-brand-green-light rounded-[3rem] border-4 border-black p-8 sticker-effect aspect-square flex items-center justify-center relative overflow-hidden">
-             <MapPin size={200} className="text-brand-green opacity-20 absolute" />
-             <div className="text-center relative z-10 space-y-4">
-                <div className="text-6xl font-black">100%</div>
-                <p className="font-black uppercase tracking-widest">Merchant Coverage</p>
-                <div className="flex justify-center gap-2">
-                   {[1,2,3,4,5].map(i => <div key={i} className="w-3 h-3 bg-black rounded-full" />)}
-                </div>
-             </div>
+            <MapPin size={200} className="text-brand-green opacity-20 absolute" />
+            <div className="text-center relative z-10 space-y-4">
+              <div className="text-6xl font-black">100%</div>
+              <p className="font-black uppercase tracking-widest">Merchant Coverage</p>
+              <div className="flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map(i => <div key={i} className="w-3 h-3 bg-black rounded-full" />)}
+              </div>
+            </div>
           </div>
         </div>
         {/* Block 2: Chat Mockup */}
@@ -61,7 +61,7 @@ export function ProductFeatures() {
               Paying as <br /> <span className="text-brand-green">easy as text.</span>
             </h2>
             <p className="text-xl font-bold text-muted-foreground">
-              No complex wallet addresses. No long waiting times. Just scan and confirm. 
+              No complex wallet addresses. No long waiting times. Just scan and confirm.
             </p>
           </div>
         </div>

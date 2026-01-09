@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Shield, RefreshCcw, Landmark, Users, CreditCard } from 'lucide-react';
