@@ -150,3 +150,6 @@ typescript/.pnp.*
 
 .env
 .env.local.example
+
+# Prisma generated files
+generated/

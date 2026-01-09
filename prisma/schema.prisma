@@ -1,22 +1,28 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
+
 model User {
-  id            String        @id @default(uuid())
-  walletAddress String        @unique
-  privyUserId   String?       @unique
-  username      String?
-  email         String?       @unique
-  phone         String?       @unique
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  preferences   Json?
+  id                    String        @id @default(uuid())
+  walletAddress         String        @unique
+  privyUserId           String?       @unique
+  username              String?
+  email                 String?       @unique
+  phone                 String?       @unique
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  preferences           Json?
+  
+  // Coinbase Agent Wallet
+  agentWalletAddress    String?
+  agentWalletCreatedAt  DateTime?
 
   // Relations
   wallets       Wallet[]
