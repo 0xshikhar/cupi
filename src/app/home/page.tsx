@@ -1,12 +1,28 @@
 "use client";
 
-import React from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet } from "lucide-react";
+import React, { useState } from "react";
+import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2 } from "lucide-react";
 import Link from "next/link";
+import TopUpModal from "@/components/TopUpModal";
+import { toast } from "sonner";
 
 export default function DashboardPage() {
-  const { user, authenticated } = usePrivy();
+  const {
+    userWalletAddress,
+    agentWalletAddress,
+    isLoading,
+    isCreatingWallet,
+    error
+  } = useAuthWallet();
+
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+
+  const handleTopUpSuccess = (amount: string, token: string) => {
+    toast.success(`Successfully deposited ${amount} ${token}!`);
+    setIsTopUpOpen(false);
+    // Balance will be updated on next page load/refresh
+  };
 
   // Mock Data matching screenshot
   const balance = "0.24";
@@ -17,6 +33,41 @@ export default function DashboardPage() {
     { id: 4, title: "Welcome to CUPI", type: "Setup", amount: "", status: "success", icon: <Shield size={20} /> },
   ];
 
+  // Show loading state while wallet is being set up
+  if (isLoading || isCreatingWallet) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <div className="text-center">
+          <h3 className="font-bold text-lg mb-1">
+            {isCreatingWallet ? "Creating your wallet..." : "Setting up your account..."}
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            This will only take a moment
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if wallet creation failed
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center max-w-sm">
+          <h3 className="font-bold text-lg mb-2 text-destructive">Wallet Setup Failed</h3>
+          <p className="text-sm text-muted-foreground mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-primary"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header Profile / Points */}
@@ -24,9 +75,11 @@ export default function DashboardPage() {
         <Link href="/profile">
           <div className="flex items-center gap-3 bg-secondary/50 border border-border rounded-full px-3 py-1.5 transition-all hover:bg-secondary cursor-pointer">
             <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary-foreground">
-              SH
+              {userWalletAddress ? userWalletAddress.slice(2, 4).toUpperCase() : 'SH'}
             </div>
-            <span className="font-bold text-sm tracking-wide">shikhar</span>
+            <span className="font-bold text-sm tracking-wide">
+              {userWalletAddress ? `${userWalletAddress.slice(0, 6)}...${userWalletAddress.slice(-4)}` : 'shikhar'}
+            </span>
           </div>
         </Link>
 
@@ -35,6 +88,24 @@ export default function DashboardPage() {
           <span className="text-sm">Points</span>
         </div>
       </header>
+
+      {/* Wallet Info Banner (if agent wallet exists) */}
+      {agentWalletAddress && (
+        <div className="cupi-card p-4 bg-primary/5 border-primary/20">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-full">
+              <Wallet size={20} className="text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Agent Wallet</p>
+              <p className="text-sm font-mono font-bold">
+                {agentWalletAddress.slice(0, 8)}...{agentWalletAddress.slice(-6)}
+              </p>
+            </div>
+            <CheckCircle size={20} className="text-primary" />
+          </div>
+        </div>
+      )}
 
       {/* Balance */}
       <div className="flex flex-col justify-center py-6 text-center">
@@ -46,7 +117,10 @@ export default function DashboardPage() {
 
       {/* Add / Withdraw Row */}
       <div className="flex gap-4">
-        <button className="flex-1 bg-secondary hover:bg-secondary/80 border border-border rounded-xl py-4 font-bold transition-all flex items-center justify-center gap-2">
+        <button
+          onClick={() => setIsTopUpOpen(true)}
+          className="flex-1 bg-secondary hover:bg-secondary/80 border border-border rounded-xl py-4 font-bold transition-all flex items-center justify-center gap-2"
+        >
           <ArrowDownLeft size={18} strokeWidth={2.5} />
           Add
         </button>
@@ -55,6 +129,13 @@ export default function DashboardPage() {
           Withdraw
         </button>
       </div>
+
+      {/* Top-up Modal */}
+      <TopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        onSuccess={handleTopUpSuccess}
+      />
 
       {/* Send / Request Large Buttons */}
       <div className="grid grid-cols-2 gap-4">
