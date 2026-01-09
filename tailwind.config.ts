@@ -13,25 +13,13 @@ const config: Config = {
         sans: [
           "var(--font-share-tech-mono)",
           "IBM Plex Mono",
-          "Monaco",
-          "Courier New",
           "monospace",
         ],
         mono: [
           "var(--font-share-tech-mono)",
           "IBM Plex Mono",
-          "Monaco",
-          "Courier New",
           "monospace",
         ],
-        display: [
-          "var(--font-orbitron)",
-          "Inter",
-          "sans-serif",
-        ],
-      },
-      fontSize: {
-        "2xs": ["0.625rem", { lineHeight: "0.75rem" }], // 10px
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -39,60 +27,39 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        // Peanut-inspired Palette
-        background: "#FFF5F5", // Soft Cream/Pink background
-        foreground: "#000000",
-
-        // Brand Colors
-        cupi: {
-          pink: "#FFD1DC", // Primary Brand Pink
-          cream: "#FFF5F5", // Background
-          black: "#000000", // Text/Borders
-          green: "#4ADE80", // Success
-          red: "#FF4444",   // Error
-        },
-
+        background: "var(--background)",
+        foreground: "var(--foreground)",
         card: {
-          DEFAULT: "#FFFFFF",
-          foreground: "#000000",
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
         },
         popover: {
-          DEFAULT: "#FFFFFF",
-          foreground: "#000000",
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
         },
         primary: {
-          DEFAULT: "#FFD1DC", // Brand Pink
-          foreground: "#000000",
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
         },
         secondary: {
-          DEFAULT: "#FFFFFF",
-          foreground: "#000000",
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
         },
         muted: {
-          DEFAULT: "#F5F5F5",
-          foreground: "#666666",
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
         },
         accent: {
-          DEFAULT: "#FFD1DC",
-          foreground: "#000000",
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
         },
         destructive: {
           DEFAULT: "#FF4444",
           foreground: "#FFFFFF",
         },
-        border: "#000000", // High contrast borders
-        input: "#FFFFFF",
-        ring: "#FFD1DC",
-        chart: {
-          "1": "#FFD1DC",
-          "2": "#FFB8C6",
-          "3": "#FF9EAF",
-          "4": "#FF8498",
-          "5": "#FF6B81",
-        },
-      },
-      screens: {
-        xs: "480px",
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
       },
       spacing: {
         "safe-top": "env(safe-area-inset-top)",
