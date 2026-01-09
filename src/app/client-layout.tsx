@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import Providers from "./providers";
 import { BottomNav } from "@/components/BottomNav";
 
@@ -9,6 +10,15 @@ export default function ClientLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const isLandingPage = pathname === "/";
+
+  // Landing page has its own layout (Navbar + Footer), skip app layout
+  if (isLandingPage) {
+    return <Providers>{children}</Providers>;
+  }
+
+  // App pages get the mobile layout with BottomNav
   return (
     <Providers>
       <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">

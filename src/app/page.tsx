@@ -1,15 +1,15 @@
 import React from 'react';
-import { Navbar } from '@/components/layout/Navbar';
-import { HeroSection } from '@/components/home/HeroSection';
-import { ProductShowcase } from '@/components/home/ProductShowcase';
-import { FeatureGrid } from '@/components/home/FeatureGrid';
-import { SocialProof } from '@/components/home/SocialProof';
-import { ProductFeatures } from '@/components/home/ProductFeatures';
-import { FAQ } from '@/components/home/FAQ';
-import { CTASection } from '@/components/home/CTASection';
-import { Footer } from '@/components/layout/Footer';
+import { Navbar } from '@/components/landing/layout/Navbar';
+import { HeroSection } from '@/components/landing/HeroSection';
+import { ProductShowcase } from '@/components/landing/ProductShowcase';
+import { FeatureGrid } from '@/components/landing/FeatureGrid';
+import { SocialProof } from '@/components/landing/SocialProof';
+import { ProductFeatures } from '@/components/landing/ProductFeatures';
+import { FAQ } from '@/components/landing/FAQ';
+import { CTASection } from '@/components/landing/CTASection';
+import { Footer } from '@/components/landing/layout/Footer';
 import { Toaster } from '@/components/ui/sonner';
-export function HomePage() {
+export default function HomePage() {
   return (
     <div className="min-h-screen bg-white dark:bg-brand-dark selection:bg-brand-green selection:text-black font-sans">
       <Navbar />

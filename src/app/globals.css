@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import './landing.css';
 
 /* CUPI - Grid/Tech Theme */
 :root {
