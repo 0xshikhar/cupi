@@ -20,8 +20,6 @@
     "test:mainnet-readiness": "tsx scripts/test-mainnet-readiness.ts"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.6",
-    "@ai-sdk/groq": "^3.0.4",
     "@ai-sdk/openai": "^1.2.1",
     "@apollo/client": "^3.13.9",
     "@coinbase/agentkit": "^0.8.0",
