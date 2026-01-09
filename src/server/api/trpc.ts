@@ -4,6 +4,13 @@ import { ZodError } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
+type Session = {
+    user: {
+        id: string;
+        email: string;
+    };
+};
+
 /**
  * 1. CONTEXT
  *
@@ -18,17 +25,13 @@ import { prisma } from "@/lib/prisma";
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
     // TODO: Add Privy auth verification here
-<<<<<<< Updated upstream
-    const session: Record<string, unknown> | null = null;
-=======
     // Mock session for development/pivot
-    const session = {
+    const session: Session = {
         user: {
             id: "user_mock_id",
             email: "mock@cupi.fun"
         }
     };
->>>>>>> Stashed changes
 
     return {
         db: prisma,
@@ -128,11 +131,7 @@ export const protectedProcedure = t.procedure
         return next({
             ctx: {
                 // infers the `session` as non-nullable
-<<<<<<< Updated upstream
                 session: ctx.session,
-=======
-                session: { ...ctx.session, user: ctx.session.user },
->>>>>>> Stashed changes
             },
         });
     });
