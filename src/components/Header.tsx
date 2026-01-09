@@ -26,21 +26,15 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                 </button>
 
                 {/* Mobile logo - only show on mobile when sidebar is closed */}
-                <a
-
-                    href="https://cupi.xyz"
-                    className="lg:hidden flex items-center space-x-2 hover:opacity-90 transition-opacity cursor-pointer group"
-                >
-                    <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--color-bg-highlight)] border border-[var(--color-border)] group-hover:border-[var(--color-accent-primary)] transition-all duration-200 shadow-[0_0_8px_rgba(0,255,149,0.1)]">
-                        <Image src="/logo.png" alt="cUPI" width={20} height={20} />
-                    </div>
+                {/* Mobile logo - only show on mobile when sidebar is closed */}
+                <div className="lg:hidden flex items-center space-x-2">
                     <span className="text-lg font-black font-display tracking-tight">
+                        <span className="text-[var(--color-text-primary)] ml-0.5">c</span>
                         <span className="gradient-glow-text">
-                            GANGS
+                            UPI
                         </span>
-                        <span className="text-[var(--color-text-primary)] ml-0.5">TR</span>
                     </span>
-                </a>
+                </div>
             </div>
 
             {/* Right side actions */}
