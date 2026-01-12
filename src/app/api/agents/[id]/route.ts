@@ -8,22 +8,18 @@ export async function GET(
 ) {
   try {
     const id = params.id;
-    
+
     const agent = await prisma.agent.findUnique({
       where: { id },
-      include: {
-        strategy: true,
-
-      }
     });
-    
+
     if (!agent) {
       return NextResponse.json(
         { error: 'Agent not found' },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json({ agent });
   } catch (error) {
     console.error('Error fetching agent:', error);
@@ -43,7 +39,7 @@ export async function PATCH(
     const id = params.id;
     const body = await request.json();
     const { name, type, config, description, isActive } = body;
-    
+
     const agent = await prisma.agent.update({
       where: { id },
       data: {
@@ -55,7 +51,7 @@ export async function PATCH(
         updatedAt: new Date()
       }
     });
-    
+
     return NextResponse.json({ agent });
   } catch (error) {
     console.error('Error updating agent:', error);
@@ -73,11 +69,11 @@ export async function DELETE(
 ) {
   try {
     const id = params.id;
-    
+
     await prisma.agent.delete({
       where: { id }
     });
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting agent:', error);
