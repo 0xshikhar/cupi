@@ -4,14 +4,16 @@ const nextConfig = {
   async headers() {
     const isDev = process.env.NODE_ENV === 'development';
     const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
-    const allowedOrigins = isDev 
+    const allowedOrigins = isDev
       ? 'http://localhost:3000 https://auth.privy.io'
       : `https://auth.privy.io ${vercelUrl}`;
-    
+
     const frameAncestors = `frame-ancestors 'self' ${allowedOrigins}`.trim();
+    const frameSrc = "frame-src 'self' https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org";
     const connectSrc = isDev
-      ? "connect-src 'self' https://auth.privy.io https://api.privy.io https://rpc.ankr.com https://mainnet.infura.io https://polygon-rpc.com https://api.coingecko.com https://api.defillama.com wss://ws.blockchain.info"
-      : "connect-src 'self' https://auth.privy.io https://api.privy.io https://rpc.ankr.com https://mainnet.infura.io https://polygon-rpc.com https://api.coingecko.com https://api.defillama.com";
+      ? "connect-src 'self' https://auth.privy.io https://api.privy.io https://rpc.ankr.com https://mainnet.infura.io https://polygon-rpc.com https://api.coingecko.com https://api.defillama.com https://explorer-api.walletconnect.com https://clientstream.launchdarkly.com wss://ws.blockchain.info"
+      : "connect-src 'self' https://auth.privy.io https://api.privy.io https://rpc.ankr.com https://mainnet.infura.io https://polygon-rpc.com https://api.coingecko.com https://api.defillama.com https://explorer-api.walletconnect.com https://clientstream.launchdarkly.com";
+
 
     return [
       {
@@ -40,7 +42,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://auth.privy.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; ${connectSrc}; ${frameAncestors}`
+            value: `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' https://auth.privy.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; worker-src 'self' blob:; ${connectSrc}; ${frameSrc}; ${frameAncestors}`
           },
           {
             key: 'X-Frame-Options',
@@ -69,7 +71,15 @@ const nextConfig = {
         ].filter(header => header.value !== '')
       }
     ]
-  }
+  },
+  webpack: (config) => {
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      syncWebAssembly: true,
+    };
+    return config;
+  },
 };
 
 module.exports = nextConfig;
