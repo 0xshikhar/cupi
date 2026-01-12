@@ -173,26 +173,26 @@ function createRiskProfile(
         riskAssessment.aggressiveness === 0.7
           ? "Conservative"
           : riskAssessment.aggressiveness === 1.0
-          ? "Moderate"
-          : "Aggressive",
+            ? "Moderate"
+            : "Aggressive",
       maxDeFiExposure:
         riskAssessment.aggressiveness === 0.7
           ? "10-15%"
           : riskAssessment.aggressiveness === 1.0
-          ? "20-30%"
-          : "40-50%",
+            ? "20-30%"
+            : "40-50%",
       protocolSelection:
         riskAssessment.aggressiveness === 0.7
           ? "Established protocols only"
           : riskAssessment.aggressiveness === 1.0
-          ? "Mix of established and emerging"
-          : "Include experimental protocols",
+            ? "Mix of established and emerging"
+            : "Include experimental protocols",
       riskManagement:
         riskAssessment.aggressiveness === 0.7
           ? "High diversification, low leverage"
           : riskAssessment.aggressiveness === 1.0
-          ? "Moderate diversification"
-          : "Concentrated positions acceptable",
+            ? "Moderate diversification"
+            : "Concentrated positions acceptable",
     },
     metadata: {
       version: "1.0",
@@ -219,8 +219,7 @@ async function processDefiAllocation(
       userResponses.length !== RISK_QUESTIONNAIRE.questions.length
     ) {
       throw new Error(
-        `Expected ${RISK_QUESTIONNAIRE.questions.length} responses, got ${
-          userResponses?.length || 0
+        `Expected ${RISK_QUESTIONNAIRE.questions.length} responses, got ${userResponses?.length || 0
         }`
       );
     }

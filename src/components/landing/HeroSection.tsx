@@ -43,7 +43,7 @@ export function HeroSection() {
           className="space-y-8"
         >
           <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full border-2 border-black bg-brand-green-light text-black text-xs sm:text-sm font-black uppercase tracking-wider sticker-effect">
-            <Zap size={16} fill="currentColor" /> India's First Crypto-UPI Bridge
+            <Zap size={16} fill="currentColor" /> India&apos;s First Crypto-UPI Bridge
           </div>
           <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-[10rem] font-black text-black dark:text-white tracking-tighter leading-[0.9] sm:leading-[0.85] uppercase break-words">
             TAP. SCAN. <br />

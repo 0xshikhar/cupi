@@ -23,7 +23,7 @@ export function ProductShowcase() {
     <section className="py-24 bg-white dark:bg-brand-dark">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Step Flow */}
-// ... (keep step flow same)
+        {/* // ... (keep step flow same) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-32">
           <div className="flex flex-col items-center text-center space-y-4">
             <div className="w-24 h-24 bg-brand-green-light border-4 border-black rounded-3xl flex items-center justify-center sticker-effect">

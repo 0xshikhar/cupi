@@ -229,7 +229,7 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
                             wallets[0].chainId !== `eip155:${selectedChainInfo.chainId}` && (
                                 <div className="flex items-start gap-3 p-2 text-sm text-orange-700 bg-orange-50 dark:text-orange-300 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                                     <div className="w-4 h-4 rounded-full bg-orange-200 dark:bg-orange-800 flex-shrink-0 mt-0.5"></div>
-                                    <span className="text-xs">⚠️ You'll be prompted to switch to {selectedChainInfo.name} before depositing.</span>
+                                    <span className="text-xs">⚠️ You&apos;ll be prompted to switch to {selectedChainInfo.name} before depositing.</span>
                                 </div>
                             )}
                     </div>

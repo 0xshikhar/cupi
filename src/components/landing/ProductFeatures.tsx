@@ -23,12 +23,12 @@ export function ProductFeatures() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <h2 className="text-5xl md:text-7xl font-black uppercase leading-[0.9]">
-              India's UPI. <br />
+              India&apos;s UPI. <br />
               <span className="text-brand-green">1B+ Users.</span> <br />
               0 Fees.
             </h2>
             <p className="text-xl font-bold text-muted-foreground">
-              Tapping into the world's most advanced payment rail. We don't charge you to spend your own money.
+              Tapping into the world&apos;s most advanced payment rail. We don&apos;t charge you to spend your own money.
             </p>
             <Button
               size="lg"
@@ -64,7 +64,7 @@ export function ProductFeatures() {
                 Hey! Can I pay at a local grocery store with ETH?
               </div>
               <div className="bg-brand-green border-2 border-black p-4 rounded-2xl rounded-tr-none ml-auto max-w-[80%] font-bold text-black">
-                Absolutely! Just scan their UPI QR. We'll handle the conversion. 🚀
+                Absolutely! Just scan their UPI QR. We&apos;ll handle the conversion. 🚀
               </div>
               <div className="bg-white dark:bg-zinc-800 border-2 border-black p-4 rounded-2xl rounded-tl-none max-w-[80%] font-bold">
                 Is it really 0 fees?

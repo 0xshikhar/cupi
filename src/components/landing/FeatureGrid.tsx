@@ -34,7 +34,7 @@ export function FeatureGrid() {
           <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4 leading-[0.9]">
             Everything you need <br /> to <span className="text-brand-green italic">web3</span> your life.
           </h2>
-          <p className="text-muted-foreground text-xl font-bold max-w-xl">We've built a bridge that's faster than light and secure as a vault.</p>
+          <p className="text-muted-foreground text-xl font-bold max-w-xl">We&apos;ve built a bridge that&apos;s faster than light and secure as a vault.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           <FeatureCard
