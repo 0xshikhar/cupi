@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { isAddress } from 'viem';
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
@@ -69,19 +67,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updateData: any = {};
-    
+
     if (basicWalletAddress !== undefined) {
       updateData.basicWalletAddress = basicWalletAddress;
     }
-    
+
     if (proWalletAddress !== undefined) {
       updateData.proWalletAddress = proWalletAddress;
     }
-    
+
     if (riskProfile !== undefined) {
       updateData.risk_profile = riskProfile;
     }
-    
+
     if (otherUserInfo !== undefined) {
       updateData.other_user_info = otherUserInfo;
     }
@@ -96,7 +94,7 @@ export async function PATCH(request: NextRequest) {
     if (preferences !== undefined) {
       updatedUser = await prisma.user.upsert({
         where: { walletAddress: walletAddress },
-        update: { 
+        update: {
           preferences: preferences,
           updatedAt: new Date()
         },
@@ -124,14 +122,14 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
-    
+
     if (error instanceof Error && error.message.includes('Record to update not found')) {
       return NextResponse.json(
         { error: 'User profile not found' },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to update user profile' },
       { status: 500 }
@@ -169,7 +167,7 @@ export async function POST(request: NextRequest) {
     if (preferences !== undefined) {
       user = await prisma.user.upsert({
         where: { walletAddress: walletAddress },
-        update: { 
+        update: {
           preferences: preferences,
           updatedAt: new Date()
         },
