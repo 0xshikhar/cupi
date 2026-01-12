@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { PaymentStatus } from '@prisma/client';
 
-// GET /api/transactions - Get transactions with filtering options
+// GET /api/transactions - Get transactions (Payments) with filtering options
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -10,40 +11,45 @@ export async function GET(request: NextRequest) {
     const assetId = searchParams.get('assetId');
 
     const limit = parseInt(searchParams.get('limit') || '50', 10);
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: 'User ID is required' },
         { status: 400 }
       );
     }
-    
+
     // Build the where clause based on filters
-    const where: { 
-      userId: string; 
-      portfolioId?: string; 
-      assetId?: string 
-    } = { userId };
-    
+    // We assume userId maps to senderId for now, or we could check both sender and receiver
+    const where: any = {
+      OR: [
+        { senderId: userId },
+        { receiverId: userId }
+      ]
+    };
+
     if (portfolioId) {
       where.portfolioId = portfolioId;
+      // If portfolioId is specified, we might not need the OR userId check if portfolio implies user
+      // But let's keep it safe.
     }
-    
+
     if (assetId) {
       where.assetId = assetId;
     }
-    
-    const transactions = await prisma.transaction.findMany({
+
+    const transactions = await prisma.payment.findMany({
       where,
       include: {
-        asset: true
+        asset: true,
+        paymentLink: true
       },
       orderBy: {
-        date: 'desc'
+        createdAt: 'desc'
       },
       take: limit
     });
-    
+
     return NextResponse.json({ transactions });
   } catch (error) {
     console.error('Error fetching transactions:', error);
@@ -54,49 +60,51 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/transactions - Record a new transaction
+// POST /api/transactions - Record a new transaction (Payment)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
+    const {
       userId,
       portfolioId,
-      assetId, 
-      amount, 
-      price, 
-      type, 
-      date, 
-      hash, 
-      status,
-      metadata
+      assetId,
+      amount,
+      tokenAddress,
+      tokenSymbol,
+      chainId,
+      hash,
+      status
     } = body;
-    
-    if (!userId || !portfolioId || !assetId || amount === undefined || !type) {
+
+    if (!userId || !amount) {
       return NextResponse.json(
-        { error: 'User ID, Portfolio ID, Asset ID, amount, and type are required' },
+        { error: 'User ID and amount are required' },
         { status: 400 }
       );
     }
-    
-    const transaction = await prisma.transaction.create({
+
+    // Map status string to enum if possible
+    let paymentStatus: PaymentStatus = PaymentStatus.PENDING;
+    if (status === 'CONFIRMED' || status === 'COMPLETED') paymentStatus = PaymentStatus.CONFIRMED;
+    if (status === 'FAILED') paymentStatus = PaymentStatus.FAILED;
+
+    const transaction = await prisma.payment.create({
       data: {
-        userId,
-        portfolioId,
-        assetId,
-        amount,
-        price,
-        totalValue: amount * (price || 0),
-        type,
-        date: date ? new Date(date) : new Date(),
-        hash,
-        status: status || 'COMPLETED',
-        metadata
+        senderId: userId,
+        portfolioId: portfolioId || null,
+        assetId: assetId || null,
+        amount: amount,
+        tokenAddress: tokenAddress || '0x0000000000000000000000000000000000000000', // Default or require?
+        tokenSymbol: tokenSymbol || 'ETH', // Default or require?
+        chainId: chainId || 8453, // Default to Base
+        txHash: hash || null,
+        status: paymentStatus,
       },
       include: {
         asset: true
       }
     });
-    
+
     return NextResponse.json({ transaction }, { status: 201 });
   } catch (error) {
     console.error('Error creating transaction:', error);
