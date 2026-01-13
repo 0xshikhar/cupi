@@ -3,9 +3,10 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { Cloud } from 'lucide-react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
+
 export function CTASection() {
-  const { login } = usePrivy();
+  const router = useRouter();
 
   return (
     <section className="py-24 px-4 overflow-hidden relative">
@@ -40,11 +41,11 @@ export function CTASection() {
             Join 100,000+ early adopters.
           </p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
-            <Button onClick={login} size="lg" className="h-20 px-12 rounded-xl bg-black text-white hover:bg-zinc-800 font-black text-2xl border-4 border-black sticker-effect">
-              APP STORE
+            <Button onClick={() => router.push('/get-started')} size="lg" className="h-20 px-12 rounded-xl bg-black text-white hover:bg-zinc-800 font-black text-2xl border-4 border-black sticker-effect">
+              GET STARTED
             </Button>
-            <Button onClick={login} size="lg" className="h-20 px-12 rounded-xl bg-white text-black hover:bg-zinc-100 font-black text-2xl border-4 border-black sticker-effect">
-              PLAY STORE
+            <Button onClick={() => router.push('/get-started')} size="lg" className="h-20 px-12 rounded-xl bg-white text-black hover:bg-zinc-100 font-black text-2xl border-4 border-black sticker-effect">
+              OPEN APP
             </Button>
           </div>
           <div className="flex items-center justify-center gap-2 pt-6">

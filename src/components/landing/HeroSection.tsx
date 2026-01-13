@@ -3,18 +3,13 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Cloud, Zap } from 'lucide-react';
-import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
+
 export function HeroSection() {
-  const { login, authenticated } = usePrivy();
   const router = useRouter();
 
-  const handleAppAccess = () => {
-    if (authenticated) {
-      router.push('/home');
-    } else {
-      login();
-    }
+  const handleGetStarted = () => {
+    router.push('/get-started');
   };
 
   return (
@@ -56,10 +51,10 @@ export function HeroSection() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
             <Button
               size="lg"
-              onClick={handleAppAccess}
+              onClick={handleGetStarted}
               className="bg-brand-green text-black hover:bg-brand-green-dark rounded-xl h-16 sm:h-20 px-8 sm:px-12 text-xl sm:text-2xl font-black border-4 border-black shadow-sticker active:translate-y-1 active:shadow-sticker-hover transition-all"
             >
-              {authenticated ? "OPEN DASHBOARD" : "GET STARTED"}
+              GET STARTED
             </Button>
             <div className="flex flex-col items-center sm:items-start">
               <span className="text-xs font-black uppercase text-brand-green">Available on</span>
