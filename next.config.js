@@ -72,12 +72,31 @@ const nextConfig = {
       }
     ]
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
+    // Enable async WebAssembly
     config.experiments = {
       ...config.experiments,
       asyncWebAssembly: true,
-      syncWebAssembly: true,
+      layers: true,
     };
+
+    // Handle .wasm files properly
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'webassembly/async',
+    });
+
+    // Add fallbacks for Node.js globals (if not on server)
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+      };
+    }
+
     return config;
   },
 };
