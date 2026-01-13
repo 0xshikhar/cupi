@@ -10,7 +10,7 @@ import { toast } from "sonner";
 export default function DashboardPage() {
   const {
     userWalletAddress,
-    agentWalletAddress,
+    basicWalletAddress,
     isLoading,
     isCreatingWallet,
     error
@@ -89,17 +89,17 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Wallet Info Banner (if agent wallet exists) */}
-      {agentWalletAddress && (
+      {/* Wallet Info Banner (if basic wallet exists) */}
+      {basicWalletAddress && (
         <div className="cupi-card p-4 bg-primary/5 border-primary/20">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-full">
               <Wallet size={20} className="text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-xs font-medium text-muted-foreground">Agent Wallet</p>
+              <p className="text-xs font-medium text-muted-foreground">Basic Wallet</p>
               <p className="text-sm font-mono font-bold">
-                {agentWalletAddress.slice(0, 8)}...{agentWalletAddress.slice(-6)}
+                {basicWalletAddress.slice(0, 8)}...{basicWalletAddress.slice(-6)}
               </p>
             </div>
             <CheckCircle size={20} className="text-primary" />

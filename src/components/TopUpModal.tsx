@@ -42,7 +42,7 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
 
     const { sendTransaction } = useSendTransaction();
     const { wallets } = useWallets();
-    const { agentWalletAddress } = useAuthWallet();
+    const { basicWalletAddress } = useAuthWallet();
 
     // Reset form when modal closes
     useEffect(() => {
@@ -76,9 +76,9 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
     };
 
     const handleCopy = async () => {
-        if (!agentWalletAddress) return;
+        if (!basicWalletAddress) return;
         try {
-            await navigator.clipboard.writeText(agentWalletAddress);
+            await navigator.clipboard.writeText(basicWalletAddress);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
             toast.success("Address copied!");
@@ -88,7 +88,7 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
     };
 
     const handleDeposit = async () => {
-        if (!selectedChain || !selectedToken || !amount || !agentWalletAddress) {
+        if (!selectedChain || !selectedToken || !amount || !basicWalletAddress) {
             setError("Please fill in all fields");
             return;
         }
@@ -135,7 +135,7 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
 
             // Prepare transaction data
             const transactionData: any = {
-                to: agentWalletAddress,
+                to: basicWalletAddress,
             };
 
             if (selectedTokenInfo.symbol === "ETH") {
@@ -149,7 +149,7 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
                 transactionData.data = encodeFunctionData({
                     abi: ERC20_ABI,
                     functionName: "transfer",
-                    args: [agentWalletAddress as `0x${string}`, amountInWei],
+                    args: [basicWalletAddress as `0x${string}`, amountInWei],
                 });
             }
 
@@ -193,13 +193,13 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
 
                 <div className="space-y-3 py-2">
                     {/* Agent Wallet Address Display */}
-                    {agentWalletAddress && (
+                    {basicWalletAddress && (
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground">Your Wallet Address</label>
                             <div className="flex items-center gap-2 p-2 bg-muted/50 border rounded-lg">
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-mono text-muted-foreground whitespace-nowrap overflow-hidden">
-                                        {formatAddress(agentWalletAddress, 10, 10)}
+                                        {formatAddress(basicWalletAddress, 10, 10)}
                                     </div>
                                 </div>
                                 <Button
@@ -326,7 +326,7 @@ const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) =
                             !selectedChain ||
                             !selectedToken ||
                             !amount ||
-                            !agentWalletAddress ||
+                            !basicWalletAddress ||
                             !wallets ||
                             wallets.length === 0 ||
                             isDepositing ||
