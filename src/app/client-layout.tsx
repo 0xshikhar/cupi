@@ -3,7 +3,6 @@
 import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import Providers from "./providers";
 import { BottomNav } from "@/components/BottomNav";
 
 export default function ClientLayout({
@@ -14,9 +13,9 @@ export default function ClientLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
-  const isLandingPage = pathname === "/";
+  const isLandingPage = pathname === "/" || pathname === "/get-started";
 
-  // Redirect unauthenticated users to landing page
+  // Redirect unauthenticated users to landing page (except for get-started)
   useEffect(() => {
     if (ready && !authenticated && !isLandingPage) {
       console.log('[CLIENT LAYOUT] Redirecting unauthenticated user to landing page');
@@ -24,39 +23,35 @@ export default function ClientLayout({
     }
   }, [ready, authenticated, isLandingPage, router]);
 
-  // Landing page has its own layout (Navbar + Footer), skip app layout
+  // Landing page and get-started have their own layout (no BottomNav)
   if (isLandingPage) {
-    return <Providers>{children}</Providers>;
+    return <>{children}</>;
   }
 
   // Show loading state while checking authentication
   if (!ready) {
     return (
-      <Providers>
-        <div className="flex h-screen items-center justify-center bg-background">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
-      </Providers>
+      </div>
     );
   }
 
   // App pages get the mobile layout with BottomNav
   return (
-    <Providers>
-      <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto pb-24">
-          <div className="max-w-md mx-auto w-full min-h-full px-4 pt-6">
-            {children}
-          </div>
-        </main>
+    <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto pb-24">
+        <div className="max-w-md mx-auto w-full min-h-full px-4 pt-6">
+          {children}
+        </div>
+      </main>
 
-        {/* Sticky Mobile Navigation */}
-        <BottomNav />
-      </div>
-    </Providers>
+      {/* Sticky Mobile Navigation */}
+      <BottomNav />
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Orbitron, Share_Tech_Mono } from "next/font/google";
 import "./globals.css";
+import Providers from "./providers";
 import ClientLayout from "./client-layout";
 
 const orbitron = Orbitron({
@@ -16,8 +17,8 @@ const shareTechMono = Share_Tech_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "cupi Dashboard",
-  description: "Advanced financial analytics platform for modern investors",
+  title: "cUPI",
+  description: "Send & Pay money with a link/qr",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -42,7 +43,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${orbitron.variable} ${shareTechMono.variable}`}>
       <body className="bg-background text-foreground min-h-screen">
-        <ClientLayout>{children}</ClientLayout>
+        <Providers>
+          <ClientLayout>{children}</ClientLayout>
+        </Providers>
       </body>
     </html>
   );
