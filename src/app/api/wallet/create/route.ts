@@ -12,9 +12,11 @@ export async function POST(request: Request) {
     try {
         const { userWalletAddress } = await request.json();
 
-        console.log(`[WALLET CREATE] Creating wallet for user: ${userWalletAddress}`);
+        console.log('[API /wallet/create] POST request received');
+        console.log('[API /wallet/create] User wallet address:', userWalletAddress);
 
         if (!userWalletAddress) {
+            console.error('[API /wallet/create] Missing user wallet address');
             return NextResponse.json(
                 { error: 'User wallet address is required' },
                 { status: 400 }
@@ -22,16 +24,20 @@ export async function POST(request: Request) {
         }
 
         // Check if user exists
+        console.log('[API /wallet/create] Checking if user exists...');
         const user = await prisma.user.findUnique({
             where: { walletAddress: userWalletAddress }
         });
 
         if (!user) {
+            console.error('[API /wallet/create] User not found in database');
             return NextResponse.json(
                 { error: 'User not found. Please register first.' },
                 { status: 404 }
             );
         }
+
+        console.log('[API /wallet/create] User found:', user.id);
 
         // Check if user already has a Coinbase wallet
         if (user.agentWalletAddress) {
