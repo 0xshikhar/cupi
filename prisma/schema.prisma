@@ -245,3 +245,35 @@ model UserProfile {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
+
+model BasicAgentWallet {
+  id                  String    @id @default(uuid())
+  userWalletAddress   String    @unique
+  agentWalletAddress  String    @unique
+  encryptedPrivateKey String
+  encryptionSalt      String
+  walletType          String    @default("basic")
+  status              String    @default("active")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  lastUsedAt          DateTime?
+
+  @@index([userWalletAddress])
+  @@index([agentWalletAddress])
+  @@index([status])
+}
+
+model WalletUsageStats {
+  id                String    @id @default(uuid())
+  walletId          String
+  walletType        String
+  transactionCount  Int       @default(0)
+  totalGasUsed      Decimal   @default(0) @db.Decimal(20, 8)
+  totalVolumeUsd    Decimal   @default(0) @db.Decimal(20, 2)
+  lastTransactionAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([walletId])
+  @@index([walletType])
+}
