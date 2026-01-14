@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+
 import { basicAgentWalletService } from '@/lib/services/BasicAgentWalletService';
 import { isAddress, formatEther } from 'viem';
 
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error getting wallet balance:', error);
-    
+
     if (error instanceof Error && error.message.includes('not found')) {
       return NextResponse.json(
         { error: 'Basic wallet not found' },

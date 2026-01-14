@@ -56,13 +56,13 @@ export function HeroSection() {
             >
               GET STARTED
             </Button>
-            <div className="flex flex-col items-center sm:items-start">
+            {/* <div className="flex flex-col items-center sm:items-start">
               <span className="text-xs font-black uppercase text-brand-green">Available on</span>
               <div className="flex gap-4 opacity-70">
-                <span className="font-bold">iOS</span>
+                <span className="font-bold"></span>
                 <span className="font-bold">Android</span>
               </div>
-            </div>
+            </div> */}
           </div>
         </motion.div>
         {/* Floating Token Icons Decor */}

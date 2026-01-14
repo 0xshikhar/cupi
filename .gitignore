@@ -149,7 +149,6 @@ typescript/.pnp.*
 .vercel
 
 .env
-.env.local.example
 
 # Prisma generated files
 generated/
