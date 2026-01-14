@@ -4,48 +4,73 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, Camera, Image as ImageIcon, Zap, QrCode } from "lucide-react";
 import jsQR from "jsqr";
+import { QRCodeSVG } from "qrcode.react";
+import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { getUserProfile } from "@/app/actions/user";
 
 export default function ScanPage() {
     const router = useRouter();
+    const { userWalletAddress } = useAuthWallet();
     const [stream, setStream] = useState<MediaStream | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [scannedResult, setScannedResult] = useState<string | null>(null);
-    const [isScanning, setIsScanning] = useState(true);
+    const [isScanning, setIsScanning] = useState(false);
+    const [cameraStarted, setCameraStarted] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [profile, setProfile] = useState<any>(null);
 
-    // Initialize Camera
+    // Fetch user profile
     useEffect(() => {
-        const startCamera = async () => {
-            try {
-                const mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" }
-                });
-                setStream(mediaStream);
-                if (videoRef.current) {
-                    videoRef.current.srcObject = mediaStream;
-                    videoRef.current.onloadedmetadata = () => {
-                        videoRef.current?.play();
-                        requestAnimationFrame(tick);
-                    };
+        const fetchProfile = async () => {
+            if (userWalletAddress) {
+                try {
+                    const result = await getUserProfile(userWalletAddress);
+                    if (result.user) {
+                        setProfile(result.user);
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch profile:", error);
                 }
-            } catch (err) {
-                console.error("Error accessing camera:", err);
-                setError("Camera access denied or unavailable.");
             }
         };
+        fetchProfile();
+    }, [userWalletAddress]);
 
-        if (isScanning) {
-            startCamera();
+    // Start camera function (user-triggered)
+    const startCamera = async () => {
+        try {
+            setError(null);
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" }
+            });
+            setStream(mediaStream);
+            setCameraStarted(true);
+            setIsScanning(true);
+            if (videoRef.current) {
+                videoRef.current.srcObject = mediaStream;
+                videoRef.current.onloadedmetadata = () => {
+                    videoRef.current?.play();
+                    requestAnimationFrame(tick);
+                };
+            }
+        } catch (err) {
+            console.error("Error accessing camera:", err);
+            setError("Camera access denied or unavailable. Please check your browser settings.");
+            setCameraStarted(false);
+            setIsScanning(false);
         }
+    };
 
+    // Cleanup camera stream
+    useEffect(() => {
         return () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
         };
-    }, [isScanning]);
+    }, [stream]);
 
     // Continuous scanning loop
     const tick = () => {
@@ -122,12 +147,24 @@ export default function ScanPage() {
 
             {/* Camera View */}
             <div className="relative flex-1 bg-black overflow-hidden flex flex-col">
-                <video
-                    ref={videoRef}
-                    className="absolute inset-0 w-full h-full object-cover opacity-80"
-                    playsInline
-                    muted
-                />
+                {cameraStarted ? (
+                    <video
+                        ref={videoRef}
+                        className="absolute inset-0 w-full h-full object-cover opacity-80"
+                        playsInline
+                        muted
+                    />
+                ) : (
+                    <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+                        <button
+                            onClick={startCamera}
+                            className="flex flex-col items-center gap-4 p-8 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 hover:bg-white/20 transition-all"
+                        >
+                            <Camera size={48} className="text-[#00FF95]" />
+                            <span className="text-white font-bold text-lg">Start Scanning</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* Overlays */}
                 <div className="absolute inset-0 flex flex-col justify-between p-6 z-10">
@@ -183,13 +220,26 @@ export default function ScanPage() {
                     <h2 className="font-bold text-lg">My Code</h2>
                 </div>
 
-                <div className="p-4 border border-gray-200 rounded-2xl bg-white shadow-sm">
-                    <QrCode size={160} className="opacity-90" />
-                </div>
+                {userWalletAddress ? (
+                    <>
+                        <div className="p-4 border border-gray-200 rounded-2xl bg-white shadow-sm">
+                            <QRCodeSVG
+                                value={`https://cupi.vercel.app/${userWalletAddress}`}
+                                size={160}
+                                level="H"
+                                includeMargin={true}
+                            />
+                        </div>
 
-                <p className="text-xs text-center text-gray-400 font-mono">
-                    @shikhar • 0x1234...5678
-                </p>
+                        <p className="text-xs text-center text-gray-400 font-mono">
+                            {profile?.username ? `@${profile.username}` : userWalletAddress.slice(0, 6)} • {userWalletAddress.slice(0, 6)}...{userWalletAddress.slice(-4)}
+                        </p>
+                    </>
+                ) : (
+                    <div className="p-8 text-center">
+                        <p className="text-sm text-gray-400">Connect wallet to view your QR code</p>
+                    </div>
+                )}
             </div>
 
             <style jsx global>{`
