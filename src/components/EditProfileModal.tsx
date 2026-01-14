@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, User, MapPin, Briefcase, Globe, Twitter, Linkedin, Loader2, Save } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, User, MapPin, Briefcase, Globe, Twitter, Linkedin, Loader2, Save, Check, AlertCircle, AtSign } from "lucide-react";
 import { toast } from "sonner";
 import { updateUserProfile } from "@/app/actions/user";
 
@@ -22,6 +22,7 @@ export default function EditProfileModal({
 }: EditProfileModalProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
+        username: currentProfile?.username || "",
         fullName: currentProfile?.fullName || "",
         bio: currentProfile?.bio || "",
         region: currentProfile?.region || "",
@@ -30,8 +31,62 @@ export default function EditProfileModal({
         twitter: currentProfile?.twitter || "",
         linkedin: currentProfile?.linkedin || "",
     });
+    const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+    const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+    const [usernameError, setUsernameError] = useState<string | null>(null);
 
     if (!isOpen) return null;
+
+    // Check username availability
+    useEffect(() => {
+        const checkUsername = async () => {
+            if (formData.username === currentProfile?.username) {
+                setUsernameAvailable(true);
+                setUsernameError(null);
+                return;
+            }
+
+            if (formData.username.length < 3) {
+                setUsernameAvailable(null);
+                setUsernameError(null);
+                return;
+            }
+
+            const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+            if (!usernameRegex.test(formData.username)) {
+                setUsernameAvailable(false);
+                setUsernameError("Username must be 3-20 characters (letters, numbers, underscore only)");
+                return;
+            }
+
+            setIsCheckingUsername(true);
+            setUsernameError(null);
+
+            try {
+                const response = await fetch(`/api/users/check-username?username=${encodeURIComponent(formData.username)}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    setUsernameAvailable(data.available);
+                    if (!data.available) {
+                        setUsernameError("Username already taken");
+                    }
+                } else {
+                    setUsernameError(data.error || "Failed to check username");
+                    setUsernameAvailable(false);
+                }
+            } catch (error) {
+                console.error("Error checking username:", error);
+                setUsernameError("Failed to check username");
+                setUsernameAvailable(false);
+            } finally {
+                setIsCheckingUsername(false);
+            }
+        };
+
+        const debounce = setTimeout(checkUsername, 500);
+        return () => clearTimeout(debounce);
+    }, [formData.username, currentProfile?.username]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -43,6 +98,26 @@ export default function EditProfileModal({
         setIsLoading(true);
 
         try {
+            // Update username if changed
+            if (formData.username !== currentProfile?.username) {
+                const usernameResponse = await fetch("/api/users/update-username", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        walletAddress: userWalletAddress,
+                        username: formData.username,
+                    }),
+                });
+
+                if (!usernameResponse.ok) {
+                    const usernameData = await usernameResponse.json();
+                    toast.error(usernameData.error || "Failed to update username");
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // Update other profile fields
             const result = await updateUserProfile(userWalletAddress, formData);
             if (result.success) {
                 toast.success("Profile updated successfully!");
@@ -77,6 +152,37 @@ export default function EditProfileModal({
                     {/* Basic Info Group */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Basic Info</h3>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                <AtSign size={16} /> Username
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    name="username"
+                                    value={formData.username}
+                                    onChange={handleChange}
+                                    placeholder="username"
+                                    className="w-full bg-secondary/30 border border-border rounded-lg px-4 py-3 pr-10 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    {isCheckingUsername && <Loader2 className="animate-spin text-muted-foreground" size={18} />}
+                                    {!isCheckingUsername && usernameAvailable === true && (
+                                        <Check className="text-green-600" size={18} />
+                                    )}
+                                    {!isCheckingUsername && usernameAvailable === false && usernameError && (
+                                        <AlertCircle className="text-red-600" size={18} />
+                                    )}
+                                </div>
+                            </div>
+                            {usernameError && (
+                                <p className="text-sm text-red-600">{usernameError}</p>
+                            )}
+                            {usernameAvailable === true && formData.username !== currentProfile?.username && (
+                                <p className="text-sm text-green-600">Username is available!</p>
+                            )}
+                        </div>
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium flex items-center gap-2">
