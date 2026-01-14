@@ -18,6 +18,15 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   preferences   Json?
+  
+  // Profile Fields
+  fullName      String?
+  region        String?
+  bio           String?
+  jobTitle      String?
+  twitter       String?
+  linkedin      String?
+  website       String?
 
   // Coinbase Agent Wallet
   agentWalletAddress   String?
@@ -32,6 +41,21 @@ model User {
   portfolios   Portfolio[]
   strategies   Strategy[]
   agents       Agent[]
+  notifications Notification[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String?
+  type      String   // "ACCOUNT_CREATION", "REWARD", etc.
+  amount    String?
+  status    String   @default("unread") // "unread", "read"
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Wallet {
