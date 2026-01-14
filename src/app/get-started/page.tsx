@@ -56,8 +56,8 @@ export default function GetStartedPage() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-4 bg-white dark:bg-brand-dark">
                 <div className="text-center space-y-4 max-w-md animate-in fade-in zoom-in duration-500">
-                    <h1 className="text-4xl font-black uppercase tracking-tighter">
-                        Welcome to <span className="text-brand-green">CUPI</span>
+                    <h1 className="text-4xl font-black  tracking-tighter">
+                        WELCOME TO <span className="text-brand-green">cUPI</span>
                     </h1>
                     <p className="text-muted-foreground text-lg">
                         Connect your wallet to get started with instant crypto payments.

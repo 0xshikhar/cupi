@@ -13,7 +13,7 @@ export function BottomNav() {
         <div className="fixed bottom-0 left-0 right-0 p-4 z-50 pointer-events-none flex justify-center">
             <div className="w-full max-w-[400px] pointer-events-auto">
                 <nav className="mx-auto bg-black/90 backdrop-blur-md text-white rounded-2xl p-2 shadow-2xl flex justify-around items-center border border-white/10">
-                    <Link href="/" className={`p-3 rounded-xl transition-all ${isActive('/') ? 'text-primary bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                    <Link href="/home" className={`p-3 rounded-xl transition-all ${isActive('/') ? 'text-primary bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                         <Home size={24} strokeWidth={isActive('/') ? 2.5 : 2} />
                     </Link>
 

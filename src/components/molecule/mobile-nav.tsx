@@ -19,7 +19,7 @@ const MobileNav = () => {
   const navItems = [
     {
       label: "Home",
-      href: "/dashboard",
+      href: "/home",
       icon: Home,
     },
     {

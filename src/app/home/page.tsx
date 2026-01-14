@@ -97,7 +97,7 @@ export default function DashboardPage() {
               <Wallet size={20} className="text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-xs font-medium text-muted-foreground">Basic Wallet</p>
+              <p className="text-xs font-medium text-muted-foreground">App Wallet</p>
               <p className="text-sm font-mono font-bold">
                 {basicWalletAddress.slice(0, 8)}...{basicWalletAddress.slice(-6)}
               </p>
