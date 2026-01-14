@@ -17,16 +17,24 @@ export async function GET(request: Request) {
 
         console.log('[ACTIVITY] Fetching activity for:', address);
 
-        // Find user by wallet address
+        // Find basic wallet by agent wallet address
+        const basicWallet = await prisma.basicAgentWallet.findUnique({
+            where: { agentWalletAddress: address.toLowerCase() }
+        });
+
+        if (!basicWallet) {
+            console.log('[ACTIVITY] No basic wallet found for:', address);
+            return NextResponse.json({ transactions: [] });
+        }
+
+        // Find user by their wallet address
         const user = await prisma.user.findUnique({
-            where: { walletAddress: address },
+            where: { walletAddress: basicWallet.userWalletAddress }
         });
 
         if (!user) {
-            return NextResponse.json(
-                { error: 'User not found' },
-                { status: 404 }
-            );
+            console.log('[ACTIVITY] No user found for wallet:', basicWallet.userWalletAddress);
+            return NextResponse.json({ transactions: [] });
         }
 
         // Build query filter
