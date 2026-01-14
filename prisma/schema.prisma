@@ -42,6 +42,7 @@ model User {
   strategies   Strategy[]
   agents       Agent[]
   notifications Notification[]
+  transactions Transaction[]
 }
 
 model Notification {
@@ -300,4 +301,30 @@ model WalletUsageStats {
 
   @@index([walletId])
   @@index([walletType])
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type          String   // "DEPOSIT" | "WITHDRAWAL" | "PAYMENT_SENT" | "PAYMENT_RECEIVED"
+  amount        String
+  tokenSymbol   String
+  tokenAddress  String?
+  
+  txHash        String   @unique
+  chainId       Int
+  status        String   // "PENDING" | "CONFIRMED" | "FAILED"
+  
+  fromAddress   String
+  toAddress     String
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([txHash])
+  @@index([type])
+  @@index([createdAt])
 }
