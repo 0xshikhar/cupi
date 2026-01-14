@@ -20,7 +20,10 @@ export default function DashboardPage() {
 
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [balance, setBalance] = useState<string>("0.00");
+  const [isLoadingBalance, setIsLoadingBalance] = useState(true);
 
+  // Fetch notifications
   useEffect(() => {
     const fetchNotifications = async () => {
       if (userWalletAddress) {
@@ -33,14 +36,48 @@ export default function DashboardPage() {
     fetchNotifications();
   }, [userWalletAddress]);
 
+  // Fetch wallet balance
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (userWalletAddress) {
+        try {
+          setIsLoadingBalance(true);
+          const response = await fetch(`/api/wallet-balance?address=${basicWalletAddress}`);
+          const data = await response.json();
+
+          if (response.ok && data.totalUsd) {
+            setBalance(data.totalUsd);
+            console.log('[HOME] Balance fetched:', data);
+          } else {
+            console.error('[HOME] Failed to fetch balance:', data.error);
+            setBalance("0.00");
+          }
+        } catch (error) {
+          console.error('[HOME] Error fetching balance:', error);
+          setBalance("0.00");
+        } finally {
+          setIsLoadingBalance(false);
+        }
+      } else {
+        setBalance("0.00");
+        setIsLoadingBalance(false);
+      }
+    };
+    fetchBalance();
+  }, [userWalletAddress]);
+
   const handleTopUpSuccess = (amount: string, token: string) => {
     toast.success(`Successfully deposited ${amount} ${token}!`);
     setIsTopUpOpen(false);
-    // Balance will be updated on next page load/refresh
+    // Refresh balance after deposit
+    if (userWalletAddress) {
+      fetch(`/api/wallet-balance?address=${basicWalletAddress}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.totalUsd) setBalance(data.totalUsd);
+        });
+    }
   };
-
-  // Mock Data matching screenshot
-  const balance = "0.24";
 
   // Map notification type to icon
   const getIconForType = (type: string) => {
@@ -127,7 +164,11 @@ export default function DashboardPage() {
       <div className="flex flex-col justify-center py-6 text-center">
         <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest mb-2">Total Balance</span>
         <div className="flex items-center justify-center gap-2">
-          <span className="text-6xl font-black tracking-tighter tabular-nums">${balance}</span>
+          {isLoadingBalance ? (
+            <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+          ) : (
+            <span className="text-6xl font-black tracking-tighter tabular-nums">${balance}</span>
+          )}
         </div>
       </div>
 
