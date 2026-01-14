@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2 } from "lucide-react";
 import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
 import { getUserProfile } from "@/app/actions/user";
 import { toast } from "sonner";
@@ -103,15 +103,19 @@ export default function ProfilePage() {
                 <div className="flex flex-col items-center gap-1">
                     <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-black tracking-tight">
-                            {showFullName && profile?.fullName ? profile.fullName : (profile?.username || "User")}
+                            {profile?.username ? `@${profile.username}` : "@user"}
                         </h1>
                         <button
-                            onClick={() => handleCopy(userWalletAddress)}
-                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="p-2 hover:bg-secondary rounded-full transition-colors"
+                            title="Edit username"
                         >
-                            <Copy size={16} />
+                            <Edit2 size={18} className="text-muted-foreground" />
                         </button>
                     </div>
+                    {showFullName && profile?.fullName && (
+                        <p className="text-sm font-medium text-muted-foreground">{profile.fullName}</p>
+                    )}
                     {profile?.jobTitle && (
                         <p className="text-sm font-medium text-muted-foreground">{profile.jobTitle}</p>
                     )}
