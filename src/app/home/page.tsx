@@ -8,6 +8,7 @@ import TopUpModal from "@/components/TopUpModal";
 import { toast } from "sonner";
 
 import { getUserNotifications } from "@/app/actions/user";
+import { useActivityFeed, ActivityItem } from "@/lib/hooks/useActivityFeed";
 
 export default function DashboardPage() {
   const {
@@ -24,8 +25,10 @@ export default function DashboardPage() {
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [username, setUsername] = useState<string | null>(null);
   const [isLoadingUsername, setIsLoadingUsername] = useState(true);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+
+  // Use shared activity feed hook
+  const { activities, isLoading: isLoadingFeed } = useActivityFeed();
+  const recentActivity = activities.slice(0, 5);
 
   // Fetch notifications and username
   useEffect(() => {
@@ -86,31 +89,6 @@ export default function DashboardPage() {
     fetchBalance();
   }, [basicWalletAddress]);
 
-  // Fetch on-chain transactions
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      if (basicWalletAddress) {
-        try {
-          setIsLoadingTransactions(true);
-          console.log('[HOME] Fetching on-chain transactions for:', basicWalletAddress);
-          const response = await fetch(`/api/wallet-activity?address=${basicWalletAddress}`);
-          const data = await response.json();
-
-          if (response.ok && data.transactions) {
-            setTransactions(data.transactions);
-            console.log('[HOME] Transactions fetched:', data.transactions.length);
-          } else {
-            console.error('[HOME] Failed to fetch transactions:', data.error);
-          }
-        } catch (error) {
-          console.error('[HOME] Error fetching transactions:', error);
-        } finally {
-          setIsLoadingTransactions(false);
-        }
-      }
-    };
-    fetchTransactions();
-  }, [basicWalletAddress]);
 
   const handleTopUpSuccess = (amount: string, token: string) => {
     toast.success(`Successfully deposited ${amount} ${token}!`);
@@ -295,47 +273,54 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          {isLoadingTransactions ? (
+          {isLoadingFeed ? (
             <div className="cupi-card p-6 flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : transactions.length === 0 ? (
-            <div className="cupi-card p-6 flex flex-col items-center justify-center text-center gap-2 border-dashed border-2">
-              <Sparkles size={24} className="text-muted-foreground" />
-              <p className="text-sm font-medium text-muted-foreground">No recent activity</p>
+          ) : recentActivity.length === 0 ? (
+            <div className="cupi-card p-8 text-center">
+              <div className="bg-secondary/50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Sparkles size={20} className="text-muted-foreground" />
+              </div>
+              <p className="text-muted-foreground font-medium">No activity yet</p>
             </div>
           ) : (
-            transactions.slice(0, 10).map((tx) => {
-              const amount = (parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || '18'))).toFixed(4);
-              const isSent = tx.type === 'sent';
+            recentActivity.map((item, index) => {
+              const date = new Date(item.timestamp);
+
+              // Helper for Icon
+              const getIcon = (item: ActivityItem) => {
+                if (item.type === 'NOTIFICATION') {
+                  if (item.notificationType === 'REWARD') return <Zap size={18} />;
+                  if (item.notificationType === 'WELCOME') return <Shield size={18} />;
+                  return <Sparkles size={18} />;
+                }
+                if (item.isIncoming) return <ArrowDownLeft size={18} className="text-green-600" strokeWidth={2.5} />;
+                return <ArrowUpRight size={18} className="text-red-600" strokeWidth={2.5} />;
+              };
 
               return (
-                <div key={tx.hash} className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 cursor-pointer group border-none bg-secondary/20 hover:shadow-none">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full border border-border flex items-center justify-center shadow-sm ${isSent ? 'bg-red-50' : 'bg-green-50'
+                <div key={item.id} className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${item.type === 'NOTIFICATION' ? 'bg-white border-border text-primary' :
+                      item.isIncoming ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
                       }`}>
-                      {isSent ? (
-                        <ArrowUpRight size={20} className="text-red-600" />
-                      ) : (
-                        <ArrowDownLeft size={20} className="text-green-600" />
-                      )}
+                      {getIcon(item)}
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-bold text-sm leading-tight">
-                        {isSent ? 'Sent' : 'Received'} {tx.tokenSymbol}
-                      </span>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
-                        <span>{tx.chainName}</span>
-                        <span>•</span>
-                        <span>{new Date(tx.timeStamp * 1000).toLocaleDateString()}</span>
-                        {!tx.isError && <CheckCircle size={10} className="text-primary fill-primary" />}
+                      <span className="font-bold text-sm line-clamp-1">{item.title}</span>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>{date.toLocaleDateString()}</span>
+                        {(item.status === 'success' && item.source !== 'SYSTEM') && <CheckCircle size={10} className="text-primary fill-primary" />}
                       </div>
                     </div>
                   </div>
-                  <span className={`font-bold text-lg ${isSent ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                    {isSent ? '-' : '+'}{amount} {tx.tokenSymbol}
-                  </span>
+                  {item.amount && (
+                    <span className={`font-bold text-base ${item.isIncoming ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {item.isIncoming ? '+' : '-'}{item.amount}
+                    </span>
+                  )}
                 </div>
               );
             })
