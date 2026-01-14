@@ -19,6 +19,17 @@ export async function POST(request: Request) {
 
     // Create or update user in database
     console.log('[API /auth/user] Upserting user in database...');
+
+    // Generate random username for new users
+    const generateRandomUsername = () => {
+      const adjectives = ['cool', 'happy', 'swift', 'bright', 'smart', 'quick', 'lucky', 'bold'];
+      const nouns = ['panda', 'tiger', 'eagle', 'wolf', 'fox', 'bear', 'lion', 'hawk'];
+      const randomNum = Math.floor(Math.random() * 9999);
+      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const noun = nouns[Math.floor(Math.random() * nouns.length)];
+      return `${adj}${noun}${randomNum}`;
+    };
+
     const user = await prisma.user.upsert({
       where: {
         walletAddress: walletAddress
@@ -26,6 +37,7 @@ export async function POST(request: Request) {
       update: {},
       create: {
         walletAddress: walletAddress,
+        username: generateRandomUsername(), // Auto-generate username
         notifications: {
           create: [
             {
