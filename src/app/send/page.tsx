@@ -1,12 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet } from "lucide-react";
+import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send } from "lucide-react";
 import Link from "next/link";
+import PayToUsernameModal from "@/components/PayToUsernameModal";
+import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
 
 export default function SendPage() {
     const router = useRouter();
+    const { userWalletAddress } = useAuthWallet();
+    const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+
+    const handlePaymentSuccess = () => {
+        // Refresh or update UI after successful payment
+        console.log("Payment successful!");
+    };
 
     return (
         <div className="flex flex-col h-full gap-6">
@@ -21,9 +30,29 @@ export default function SendPage() {
                 <h1 className="text-xl font-bold tracking-tight">Send</h1>
             </div>
 
+            {/* Pay by Username Card */}
+            <div className="cupi-card p-6 text-center space-y-5 bg-primary/5 border-primary/30">
+                <div className="w-14 h-14 bg-primary/20 rounded-full mx-auto flex items-center justify-center text-primary">
+                    <Send size={24} />
+                </div>
+                <div>
+                    <h2 className="font-bold text-lg">Pay by Username</h2>
+                    <p className="text-muted-foreground font-medium text-sm mt-1">
+                        Send money to friends instantly using their username.
+                    </p>
+                </div>
+                <button
+                    onClick={() => setIsPayModalOpen(true)}
+                    className="btn-primary w-full flex items-center justify-center gap-2"
+                >
+                    <Send size={18} />
+                    Pay Friend
+                </button>
+            </div>
+
             {/* Send with Link Card */}
-            <div className="cupi-card p-6 text-center space-y-5 bg-secondary/20 border-primary/20">
-                <div className="w-14 h-14 bg-primary/10 rounded-full mx-auto flex items-center justify-center text-primary">
+            <div className="cupi-card p-6 text-center space-y-5 bg-secondary/20 border-border">
+                <div className="w-14 h-14 bg-secondary rounded-full mx-auto flex items-center justify-center text-foreground">
                     <LinkIcon size={24} />
                 </div>
                 <div>
@@ -32,7 +61,7 @@ export default function SendPage() {
                         Instant transfer via any messaging app.
                     </p>
                 </div>
-                <button className="btn-primary w-full flex items-center justify-center gap-2">
+                <button className="btn-primary w-full flex items-center justify-center gap-2 opacity-90">
                     <LinkIcon size={18} />
                     Create Payment Link
                 </button>
@@ -95,6 +124,14 @@ export default function SendPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Payment Modal */}
+            <PayToUsernameModal
+                isOpen={isPayModalOpen}
+                onClose={() => setIsPayModalOpen(false)}
+                senderWalletAddress={userWalletAddress}
+                onPaymentSuccess={handlePaymentSuccess}
+            />
         </div>
     );
 }
