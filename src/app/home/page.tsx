@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
 import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2 } from "lucide-react";
 import Link from "next/link";
 import TopUpModal from "@/components/TopUpModal";
 import { toast } from "sonner";
+
+import { getUserNotifications } from "@/app/actions/user";
 
 export default function DashboardPage() {
   const {
@@ -17,6 +19,19 @@ export default function DashboardPage() {
   } = useAuthWallet();
 
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (userWalletAddress) {
+        const result = await getUserNotifications(userWalletAddress);
+        if (result.notifications) {
+          setNotifications(result.notifications);
+        }
+      }
+    };
+    fetchNotifications();
+  }, [userWalletAddress]);
 
   const handleTopUpSuccess = (amount: string, token: string) => {
     toast.success(`Successfully deposited ${amount} ${token}!`);
@@ -26,12 +41,13 @@ export default function DashboardPage() {
 
   // Mock Data matching screenshot
   const balance = "0.24";
-  const recentTransactions = [
-    { id: 1, title: "Cashback Reward", type: "Rewards", amount: "+$0.07", status: "success", icon: <Zap size={20} /> },
-    { id: 2, title: "Cashback Reward", type: "Rewards", amount: "+$0.09", status: "success", icon: <Zap size={20} /> },
-    { id: 3, title: "Cashback Reward", type: "Rewards", amount: "+$0.08", status: "success", icon: <Zap size={20} /> },
-    { id: 4, title: "Welcome to CUPI", type: "Setup", amount: "", status: "success", icon: <Shield size={20} /> },
-  ];
+
+  // Map notification type to icon
+  const getIconForType = (type: string) => {
+    if (type === 'REWARD' || type === 'ACCOUNT_CREATION_REWARD') return <Zap size={20} />;
+    if (type === 'ACCOUNT_CREATION' || type === 'WELCOME') return <Shield size={20} />;
+    return <Sparkles size={20} />;
+  };
 
   // Show loading state while wallet is being set up
   if (isLoading || isCreatingWallet) {
@@ -177,24 +193,33 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          {recentTransactions.map((tx) => (
-            <div key={tx.id} className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 cursor-pointer group border-none bg-secondary/20 hover:shadow-none">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-primary shadow-sm">
-                  {tx.icon}
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-sm leading-tight">{tx.title}</span>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
-                    <span>{tx.type}</span>
-                    {tx.status === 'success' && <CheckCircle size={10} className="text-primary fill-primary" />}
+          {notifications.length === 0 ? (
+            <div className="cupi-card p-6 flex flex-col items-center justify-center text-center gap-2 border-dashed border-2">
+              <Sparkles size={24} className="text-muted-foreground" />
+              <p className="text-sm font-medium text-muted-foreground">No recent activity</p>
+            </div>
+          ) : (
+            notifications.map((tx) => (
+              <div key={tx.id} className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 cursor-pointer group border-none bg-secondary/20 hover:shadow-none">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-primary shadow-sm">
+                    {getIconForType(tx.type)}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm leading-tight">{tx.title}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
+                      <span>{tx.message}</span>
+                      {tx.status === 'success' || tx.status === 'unread' || tx.status === 'read' ? (
+                        <CheckCircle size={10} className="text-primary fill-primary" />
+                      ) : null}
+                    </div>
                   </div>
                 </div>
+                {tx.amount && <span className={`font-bold text-lg ${tx.amount.startsWith('+') ? 'text-primary' : ''}`}>{tx.amount}</span>}
+                {!tx.amount && <MoreHorizontal size={20} className="text-muted-foreground" />}
               </div>
-              {tx.amount && <span className={`font-bold text-lg ${tx.amount.startsWith('+') ? 'text-primary' : ''}`}>{tx.amount}</span>}
-              {!tx.amount && <MoreHorizontal size={20} className="text-muted-foreground" />}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
