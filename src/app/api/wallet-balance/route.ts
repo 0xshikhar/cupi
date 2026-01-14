@@ -21,7 +21,7 @@ const USDC_ADDRESSES = {
 
 // Approximate prices (can be updated to use real-time API later)
 const PRICES = {
-    ETH: 3000, // $3000 per ETH
+    ETH: 3321,
     USDC: 1,   // $1 per USDC
 };
 

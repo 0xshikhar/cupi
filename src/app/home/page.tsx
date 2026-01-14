@@ -39,9 +39,10 @@ export default function DashboardPage() {
   // Fetch wallet balance
   useEffect(() => {
     const fetchBalance = async () => {
-      if (userWalletAddress) {
+      if (basicWalletAddress) {
         try {
           setIsLoadingBalance(true);
+          console.log('[HOME] Fetching balance for basic wallet:', basicWalletAddress);
           const response = await fetch(`/api/wallet-balance?address=${basicWalletAddress}`);
           const data = await response.json();
 
@@ -59,22 +60,30 @@ export default function DashboardPage() {
           setIsLoadingBalance(false);
         }
       } else {
+        console.log('[HOME] Basic wallet address not available yet');
         setBalance("0.00");
         setIsLoadingBalance(false);
       }
     };
     fetchBalance();
-  }, [userWalletAddress]);
+  }, [basicWalletAddress]);
 
   const handleTopUpSuccess = (amount: string, token: string) => {
     toast.success(`Successfully deposited ${amount} ${token}!`);
     setIsTopUpOpen(false);
     // Refresh balance after deposit
-    if (userWalletAddress) {
+    if (basicWalletAddress) {
+      console.log('[HOME] Refreshing balance after top-up');
       fetch(`/api/wallet-balance?address=${basicWalletAddress}`)
         .then(res => res.json())
         .then(data => {
-          if (data.totalUsd) setBalance(data.totalUsd);
+          if (data.totalUsd) {
+            setBalance(data.totalUsd);
+            console.log('[HOME] Balance refreshed:', data);
+          }
+        })
+        .catch(error => {
+          console.error('[HOME] Error refreshing balance:', error);
         });
     }
   };
