@@ -189,7 +189,37 @@ export async function POST(request: Request) {
             },
         });
 
-        // 10. Create notifications
+        // 10. Create transaction records for both sender and receiver
+        await prisma.transaction.createMany({
+            data: [
+                {
+                    userId: sender.id,
+                    type: 'PAYMENT_SENT',
+                    amount: amount,
+                    tokenSymbol: token,
+                    tokenAddress: token === 'USDC' ? USDC_ADDRESS : '0x0000000000000000000000000000000000000000',
+                    txHash: txHash,
+                    chainId: baseSepolia.id,
+                    status: receipt.status === 'success' ? 'CONFIRMED' : 'FAILED',
+                    fromAddress: senderBasicWallet.agentWalletAddress,
+                    toAddress: receiverAddress,
+                },
+                {
+                    userId: receiver.id,
+                    type: 'PAYMENT_RECEIVED',
+                    amount: amount,
+                    tokenSymbol: token,
+                    tokenAddress: token === 'USDC' ? USDC_ADDRESS : '0x0000000000000000000000000000000000000000',
+                    txHash: txHash,
+                    chainId: baseSepolia.id,
+                    status: receipt.status === 'success' ? 'CONFIRMED' : 'FAILED',
+                    fromAddress: senderBasicWallet.agentWalletAddress,
+                    toAddress: receiverAddress,
+                },
+            ],
+        });
+
+        // 11. Create notifications
         await prisma.notification.createMany({
             data: [
                 {
