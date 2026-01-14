@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
-import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy } from "lucide-react";
 import Link from "next/link";
 import TopUpModal from "@/components/TopUpModal";
 import { toast } from "sonner";
@@ -22,18 +22,36 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [balance, setBalance] = useState<string>("0.00");
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
+  const [username, setUsername] = useState<string | null>(null);
+  const [isLoadingUsername, setIsLoadingUsername] = useState(true);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
 
-  // Fetch notifications
+  // Fetch notifications and username
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const fetchData = async () => {
       if (userWalletAddress) {
+        // Fetch notifications
         const result = await getUserNotifications(userWalletAddress);
         if (result.notifications) {
           setNotifications(result.notifications);
         }
+
+        // Fetch username
+        try {
+          const response = await fetch(`/api/users/profile?address=${userWalletAddress}`);
+          const data = await response.json();
+          if (response.ok && data.user) {
+            setUsername(data.user.username);
+          }
+        } catch (error) {
+          console.error('[HOME] Error fetching username:', error);
+        } finally {
+          setIsLoadingUsername(false);
+        }
       }
     };
-    fetchNotifications();
+    fetchData();
   }, [userWalletAddress]);
 
   // Fetch wallet balance
@@ -68,6 +86,32 @@ export default function DashboardPage() {
     fetchBalance();
   }, [basicWalletAddress]);
 
+  // Fetch on-chain transactions
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (basicWalletAddress) {
+        try {
+          setIsLoadingTransactions(true);
+          console.log('[HOME] Fetching on-chain transactions for:', basicWalletAddress);
+          const response = await fetch(`/api/wallet-activity?address=${basicWalletAddress}`);
+          const data = await response.json();
+
+          if (response.ok && data.transactions) {
+            setTransactions(data.transactions);
+            console.log('[HOME] Transactions fetched:', data.transactions.length);
+          } else {
+            console.error('[HOME] Failed to fetch transactions:', data.error);
+          }
+        } catch (error) {
+          console.error('[HOME] Error fetching transactions:', error);
+        } finally {
+          setIsLoadingTransactions(false);
+        }
+      }
+    };
+    fetchTransactions();
+  }, [basicWalletAddress]);
+
   const handleTopUpSuccess = (amount: string, token: string) => {
     toast.success(`Successfully deposited ${amount} ${token}!`);
     setIsTopUpOpen(false);
@@ -86,6 +130,11 @@ export default function DashboardPage() {
           console.error('[HOME] Error refreshing balance:', error);
         });
     }
+  };
+
+  const handleCopyAddress = (address: string) => {
+    navigator.clipboard.writeText(address);
+    toast.success("Address copied to clipboard!");
   };
 
   // Map notification type to icon
@@ -137,10 +186,14 @@ export default function DashboardPage() {
         <Link href="/profile">
           <div className="flex items-center gap-3 bg-secondary/50 border border-border rounded-full px-3 py-1.5 transition-all hover:bg-secondary cursor-pointer">
             <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary-foreground">
-              {userWalletAddress ? userWalletAddress.slice(2, 4).toUpperCase() : 'SH'}
+              {username ? username.charAt(0).toUpperCase() : (userWalletAddress ? userWalletAddress.slice(2, 4).toUpperCase() : 'U')}
             </div>
             <span className="font-bold text-sm tracking-wide">
-              {userWalletAddress ? `${userWalletAddress.slice(0, 6)}...${userWalletAddress.slice(-4)}` : 'shikhar'}
+              {isLoadingUsername ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                username ? `@${username}` : (userWalletAddress ? `${userWalletAddress.slice(0, 6)}...${userWalletAddress.slice(-4)}` : 'User')
+              )}
             </span>
           </div>
         </Link>
@@ -150,24 +203,6 @@ export default function DashboardPage() {
           <span className="text-sm">Points</span>
         </div>
       </header>
-
-      {/* Wallet Info Banner (if basic wallet exists) */}
-      {basicWalletAddress && (
-        <div className="cupi-card p-4 bg-primary/5 border-primary/20">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-full">
-              <Wallet size={20} className="text-primary" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-medium text-muted-foreground">App Wallet</p>
-              <p className="text-sm font-mono font-bold">
-                {basicWalletAddress.slice(0, 8)}...{basicWalletAddress.slice(-6)}
-              </p>
-            </div>
-            <CheckCircle size={20} className="text-primary" />
-          </div>
-        </div>
-      )}
 
       {/* Balance */}
       <div className="flex flex-col justify-center py-6 text-center">
@@ -179,6 +214,23 @@ export default function DashboardPage() {
             <span className="text-6xl font-black tracking-tighter tabular-nums">${balance}</span>
           )}
         </div>
+
+        {/* App Wallet Address - Below Balance */}
+        {basicWalletAddress && (
+          <div className="mt-4 flex items-center justify-center gap-2 bg-secondary/30 border border-border rounded-full px-4 py-2 max-w-fit mx-auto">
+            <Wallet size={16} className="text-muted-foreground" />
+            <span className="text-xs font-mono font-medium text-muted-foreground">
+              {basicWalletAddress.slice(0, 6)}...{basicWalletAddress.slice(-4)}
+            </span>
+            <button
+              onClick={() => handleCopyAddress(basicWalletAddress)}
+              className="p-1 hover:bg-secondary rounded-full transition-colors"
+              title="Copy wallet address"
+            >
+              <Copy size={14} className="text-muted-foreground" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Add / Withdraw Row */}
@@ -243,32 +295,50 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          {notifications.length === 0 ? (
+          {isLoadingTransactions ? (
+            <div className="cupi-card p-6 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : transactions.length === 0 ? (
             <div className="cupi-card p-6 flex flex-col items-center justify-center text-center gap-2 border-dashed border-2">
               <Sparkles size={24} className="text-muted-foreground" />
               <p className="text-sm font-medium text-muted-foreground">No recent activity</p>
             </div>
           ) : (
-            notifications.map((tx) => (
-              <div key={tx.id} className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 cursor-pointer group border-none bg-secondary/20 hover:shadow-none">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-primary shadow-sm">
-                    {getIconForType(tx.type)}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-sm leading-tight">{tx.title}</span>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
-                      <span>{tx.message}</span>
-                      {tx.status === 'success' || tx.status === 'unread' || tx.status === 'read' ? (
-                        <CheckCircle size={10} className="text-primary fill-primary" />
-                      ) : null}
+            transactions.slice(0, 10).map((tx) => {
+              const amount = (parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || '18'))).toFixed(4);
+              const isSent = tx.type === 'sent';
+
+              return (
+                <div key={tx.hash} className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 cursor-pointer group border-none bg-secondary/20 hover:shadow-none">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-full border border-border flex items-center justify-center shadow-sm ${isSent ? 'bg-red-50' : 'bg-green-50'
+                      }`}>
+                      {isSent ? (
+                        <ArrowUpRight size={20} className="text-red-600" />
+                      ) : (
+                        <ArrowDownLeft size={20} className="text-green-600" />
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-sm leading-tight">
+                        {isSent ? 'Sent' : 'Received'} {tx.tokenSymbol}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
+                        <span>{tx.chainName}</span>
+                        <span>•</span>
+                        <span>{new Date(tx.timeStamp * 1000).toLocaleDateString()}</span>
+                        {!tx.isError && <CheckCircle size={10} className="text-primary fill-primary" />}
+                      </div>
                     </div>
                   </div>
+                  <span className={`font-bold text-lg ${isSent ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                    {isSent ? '-' : '+'}{amount} {tx.tokenSymbol}
+                  </span>
                 </div>
-                {tx.amount && <span className={`font-bold text-lg ${tx.amount.startsWith('+') ? 'text-primary' : ''}`}>{tx.amount}</span>}
-                {!tx.amount && <MoreHorizontal size={20} className="text-muted-foreground" />}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
