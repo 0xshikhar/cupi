@@ -35,10 +35,10 @@ export default function EditProfileModal({
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [usernameError, setUsernameError] = useState<string | null>(null);
 
-    if (!isOpen) return null;
-
     // Check username availability
     useEffect(() => {
+        if (!isOpen) return;
+
         const checkUsername = async () => {
             if (formData.username === currentProfile?.username) {
                 setUsernameAvailable(true);
@@ -133,6 +133,8 @@ export default function EditProfileModal({
             setIsLoading(false);
         }
     };
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
