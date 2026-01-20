@@ -85,10 +85,10 @@ export default function ActivityPage() {
                                         {/* Left: Icon + Details */}
                                         <div className="flex items-start gap-4 flex-1">
                                             <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${item.type === 'NOTIFICATION'
-                                                    ? 'bg-white border-border text-primary'
-                                                    : item.isIncoming
-                                                        ? 'bg-green-50 border-green-200'
-                                                        : 'bg-red-50 border-red-200'
+                                                ? 'bg-white border-border text-primary'
+                                                : item.isIncoming
+                                                    ? 'bg-green-50 border-green-200'
+                                                    : 'bg-red-50 border-red-200'
                                                 }`}>
                                                 {getIcon(item)}
                                             </div>
@@ -109,12 +109,12 @@ export default function ActivityPage() {
 
                                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap mt-0.5">
                                                     <span>{formattedDate} • {formattedTime}</span>
-                                                    {item.source !== 'SYSTEM' && item.chainName && (
+                                                    {/* {item.source !== 'SYSTEM' && item.chainName && (
                                                         <>
                                                             <span>•</span>
                                                             <span>{item.chainName}</span>
                                                         </>
-                                                    )}
+                                                    )} */}
                                                 </div>
 
                                                 {/* View on Explorer (Only for transactions) */}
