@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Wallet, LogOut, Plus, Menu } from "lucide-react";
+import { Wallet, LogOut, Plus, Menu, Settings, User, Bell, HelpCircle } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useUnifiedWallet } from "@/lib/hooks/useUnifiedWallet";
 import Image from "next/image";
@@ -11,6 +11,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     const { userWalletAddress } = useUnifiedWallet();
     // const isMobile = useIsMobile();
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
+    const [showUserMenu, setShowUserMenu] = useState(false);
 
     return (
         <header className="bg-[var(--color-bg-primary)]/95 backdrop-blur-xl border-b border-[var(--color-border)] h-16 px-6 flex items-center justify-between relative z-20">
@@ -26,7 +27,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                 </button>
 
                 {/* Mobile logo - only show on mobile when sidebar is closed */}
-                {/* Mobile logo - only show on mobile when sidebar is closed */}
                 <div className="lg:hidden flex items-center space-x-2">
                     <span className="text-lg font-black font-display tracking-tight">
                         <span className="text-[var(--color-text-primary)] ml-0.5">c</span>
@@ -41,37 +41,64 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             <div className="flex items-center space-x-3">
                 {authenticated && (
                     <>
-                        {/* Top Up Button */}
+                        {/* Quick Actions */}
+                        <div className="hidden sm:flex items-center gap-2">
+                            {/* Add Money Button */}
+                            <button
+                                onClick={() => setIsTopUpModalOpen(true)}
+                                className="btn-primary flex items-center space-x-2 px-4 py-2 text-sm font-semibold uppercase tracking-wider"
+                            >
+                                <Plus size={16} />
+                                <span>Add Money</span>
+                            </button>
+                        </div>
+
+                        {/* Notifications */}
                         <button
-                            onClick={() => setIsTopUpModalOpen(true)}
-                            className="btn-primary flex items-center space-x-2 px-4 py-2 text-sm font-semibold uppercase tracking-wider"
+                            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] p-2 rounded-lg hover:bg-[var(--color-bg-highlight)] transition-colors"
+                            aria-label="Notifications"
                         >
-                            <Plus size={16} />
-                            <span className="hidden sm:inline">Top Up</span>
+                            <Bell size={18} />
                         </button>
 
-                        {/* Wallet Address */}
-                        {userWalletAddress && (
-                            <div className="hidden md:flex items-center bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-sm font-mono">
-                                <Wallet size={16} className="mr-2 text-[var(--color-text-tertiary)]" />
-                                <span className="text-[var(--color-text-secondary)] font-variant-numeric-tabular">
-                                    {`${userWalletAddress.slice(
-                                        0,
-                                        6
-                                    )}...${userWalletAddress.slice(-4)}`}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Settings and Logout */}
-                        <div className="flex items-center space-x-1">
+                        {/* User Menu */}
+                        <div className="relative">
                             <button
-                                onClick={logout}
-                                className="text-[var(--color-text-tertiary)] hover:text-[var(--color-alert-red)] p-2 rounded-lg hover:bg-[var(--color-bg-highlight)] transition-colors"
-                                aria-label="Logout"
+                                onClick={() => setShowUserMenu(!showUserMenu)}
+                                className="flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] p-2 rounded-lg hover:bg-[var(--color-bg-highlight)] transition-colors"
                             >
-                                <LogOut size={18} />
+                                <div className="w-8 h-8 rounded-full bg-[var(--color-bg-highlight)] flex items-center justify-center">
+                                    <User size={16} />
+                                </div>
                             </button>
+
+                            {/* Dropdown Menu */}
+                            {showUserMenu && (
+                                <div className="absolute right-0 mt-2 w-48 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg shadow-xl py-1 z-50">
+                                    <button
+                                        onClick={() => { }}
+                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-highlight)] transition-colors"
+                                    >
+                                        <Settings size={16} />
+                                        Settings
+                                    </button>
+                                    <button
+                                        onClick={() => { }}
+                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-highlight)] transition-colors"
+                                    >
+                                        <HelpCircle size={16} />
+                                        Help
+                                    </button>
+                                    <hr className="my-1 border-[var(--color-border)]" />
+                                    <button
+                                        onClick={logout}
+                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:text-red-400 hover:bg-[var(--color-bg-highlight)] transition-colors"
+                                    >
+                                        <LogOut size={16} />
+                                        Sign Out
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </>
                 )}
@@ -79,9 +106,10 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                 {!authenticated && (
                     <button
                         onClick={login}
-                        className="btn-primary px-6 py-2 text-sm font-semibold uppercase tracking-wider"
+                        className="btn-primary flex items-center space-x-2 px-4 py-2 text-sm font-semibold uppercase tracking-wider"
                     >
-                        Connect Wallet
+                        <User size={16} />
+                        <span>Sign In</span>
                     </button>
                 )}
             </div>
