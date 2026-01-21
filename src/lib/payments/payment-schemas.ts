@@ -1,0 +1,40 @@
+import { z } from "zod";
+
+import { walletAddressSchema } from "@/lib/validation";
+
+export const paymentTokenSchema = z.enum(["ETH", "USDC"]);
+
+export const paymentAmountSchema = z
+  .union([z.string(), z.number()])
+  .transform((value) => (typeof value === "number" ? value.toString() : value))
+  .refine((value) => Number(value) > 0, {
+    message: "Amount must be greater than 0",
+  });
+
+export const paymentSendSchema = z.object({
+  senderWalletAddress: walletAddressSchema,
+  receiverIdentifier: z.string().min(1, "Recipient is required"),
+  amount: paymentAmountSchema,
+  token: paymentTokenSchema,
+  paymentLinkId: z.string().uuid().optional(),
+  paymentLinkSlug: z.string().min(1).optional(),
+});
+
+export const paymentLinkCreateSchema = z.object({
+  creatorWalletAddress: walletAddressSchema,
+  amount: paymentAmountSchema,
+  tokenSymbol: paymentTokenSchema,
+  description: z.string().max(500).optional(),
+  expiresInMinutes: z.number().int().min(5).max(60 * 24 * 30).optional(),
+  maxUses: z.number().int().min(1).max(100).optional(),
+  chainId: z.number().int().optional(),
+});
+
+export const paymentLinkClaimSchema = z.object({
+  senderWalletAddress: walletAddressSchema,
+  slug: z.string().min(1),
+});
+
+export type PaymentSendInput = z.infer<typeof paymentSendSchema>;
+export type PaymentLinkCreateInput = z.infer<typeof paymentLinkCreateSchema>;
+export type PaymentLinkClaimInput = z.infer<typeof paymentLinkClaimSchema>;
