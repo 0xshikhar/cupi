@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const strategyId = searchParams.get('strategyId');
     const userId = searchParams.get('userId');
+    const includeInactive = searchParams.get('includeInactive') === 'true';
     
     if (!userId) {
       return NextResponse.json(
@@ -22,7 +23,10 @@ export async function GET(request: NextRequest) {
     }
 
     const agents = await prisma.agent.findMany({
-      where,
+      where: {
+        ...where,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       include: {
         strategy: true
       }
@@ -42,7 +46,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, strategyId, name, type, config, description } = body;
+    const {
+      userId,
+      strategyId,
+      name,
+      type,
+      config,
+      configuration,
+      runtimeConfig,
+      customInstructions,
+      description,
+    } = body;
     
     if (!userId || !strategyId || !name || !type) {
       return NextResponse.json(
@@ -57,7 +71,12 @@ export async function POST(request: NextRequest) {
         strategyId,
         name,
         type,
-        configuration: config || {},
+        configuration:
+          configuration ||
+          config ||
+          runtimeConfig ||
+          (customInstructions ? { customInstructions } : {}) ||
+          {},
         description,
       }
     });

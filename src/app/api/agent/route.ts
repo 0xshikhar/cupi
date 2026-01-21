@@ -43,7 +43,13 @@ export async function POST(
   
   try {
     // 1️. Extract user message and wallet address from the request body
-    const { userMessage, userWalletAddress } = await req.json();
+    const {
+      userMessage,
+      userWalletAddress,
+      customInstructions,
+      runtimeConfig,
+      agentId,
+    } = await req.json();
     console.log('[AGENT API] User message received:', userMessage);
     console.log('[AGENT API] Request processing time so far:', Date.now() - startTime, 'ms');
     
@@ -70,7 +76,11 @@ export async function POST(
     
     let agent;
     try {
-      agent = await createAgent(userWalletAddress);
+      agent = await createAgent(userWalletAddress, {
+        customInstructions,
+        runtimeConfig,
+        agentId,
+      });
       console.log('[AGENT API] Agent created successfully with user wallet address:', userWalletAddress);
       console.log('[AGENT API] Agent creation completed in:', Date.now() - startTime, 'ms');
     } catch (agentError) {

@@ -7,6 +7,13 @@ export async function GET(request: Request) {
         const query = searchParams.get('q');
         const address = searchParams.get('address');
 
+        type SearchUser = {
+            id: string;
+            username: string | null;
+            fullName: string | null;
+            walletAddress: string;
+        };
+
         if (!query && !address) {
             return NextResponse.json(
                 { error: 'Search query or address is required' },
@@ -16,7 +23,7 @@ export async function GET(request: Request) {
 
         console.log('[USER SEARCH] Searching for:', query || address);
 
-        let users;
+        let users: SearchUser[] = [];
 
         if (address) {
             // Search by wallet address (exact match)
@@ -52,8 +59,6 @@ export async function GET(request: Request) {
                 },
                 take: 10,
             });
-        } else {
-            users = [];
         }
 
         console.log('[USER SEARCH] Found', users.length, 'users');

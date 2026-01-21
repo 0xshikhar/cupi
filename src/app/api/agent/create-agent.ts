@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { getVercelAITools } from "@coinbase/agentkit-vercel-ai-sdk";
 import { prepareAgentkitAndWalletProvider } from "./prepare-agentkit";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Agent Configuration Guide
@@ -27,6 +28,12 @@ type Agent = {
 };
 let agent: Agent;
 
+export interface CreateAgentOptions {
+  customInstructions?: string;
+  runtimeConfig?: Record<string, unknown>;
+  agentId?: string;
+}
+
 /**
  * Initializes and returns an instance of the AI agent.
  * Creates a per-user agent with its own wallet.
@@ -39,7 +46,10 @@ let agent: Agent;
  *
  * @throws {Error} If the agent initialization fails.
  */
-export async function createAgent(userWalletAddress: string): Promise<Agent> {
+export async function createAgent(
+  userWalletAddress: string,
+  options: CreateAgentOptions = {}
+): Promise<Agent> {
   // We're not caching agents anymore since each user needs their own agent with their own wallet
   // This ensures proper isolation between users
   if (!userWalletAddress) {
@@ -52,8 +62,35 @@ export async function createAgent(userWalletAddress: string): Promise<Agent> {
     );
   }
 
-  const { agentkit, walletProvider, smartWalletAddress, signerAddress } =
+    const { agentkit, walletProvider, smartWalletAddress, signerAddress } =
     await prepareAgentkitAndWalletProvider(userWalletAddress);
+
+    let persistedConfig: Record<string, unknown> | null = null;
+    if (options.agentId) {
+      const dbAgent = await prisma.agent.findUnique({
+        where: { id: options.agentId },
+      });
+
+      if (dbAgent?.configuration && typeof dbAgent.configuration === "object") {
+        persistedConfig = dbAgent.configuration as Record<string, unknown>;
+      }
+    }
+
+    const customInstructions =
+      options.customInstructions ||
+      (typeof persistedConfig?.customInstructions === "string"
+        ? (persistedConfig.customInstructions as string)
+        : "") ||
+      (typeof persistedConfig?.systemPrompt === "string"
+        ? (persistedConfig.systemPrompt as string)
+        : "");
+
+    const runtimeConfig =
+      options.runtimeConfig ||
+      ((persistedConfig?.runtimeConfig as Record<string, unknown>) || null) ||
+      (persistedConfig && Object.keys(persistedConfig).length > 0
+        ? persistedConfig
+        : null);
 
   try {
     // Initialize LLM: https://platform.openai.com/docs/models#gpt-4o
@@ -87,6 +124,16 @@ Always use YOUR agent wallet for transactions and when showing wallet details.`;
         ALWAYS include this link when mentioning missing capabilities, which will help them discover available action providers: https://github.com/gangstr
         
         ${walletContext}
+        ${
+          customInstructions
+            ? `\nCUSTOM USER INSTRUCTIONS:\n${customInstructions}\n`
+            : ""
+        }
+        ${
+          runtimeConfig
+            ? `\nRUNTIME CONFIG:\n${JSON.stringify(runtimeConfig, null, 2)}\n`
+            : ""
+        }
         `;
     const tools = getVercelAITools(agentkit);
     try {

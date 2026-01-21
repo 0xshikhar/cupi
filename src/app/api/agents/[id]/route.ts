@@ -38,14 +38,27 @@ export async function PATCH(
   try {
     const id = params.id;
     const body = await request.json();
-    const { name, type, config, description, isActive } = body;
+    const {
+      name,
+      type,
+      config,
+      configuration,
+      runtimeConfig,
+      customInstructions,
+      description,
+      isActive,
+    } = body;
 
     const agent = await prisma.agent.update({
       where: { id },
       data: {
         name,
         type,
-        configuration: config || undefined,
+        configuration:
+          configuration ||
+          config ||
+          runtimeConfig ||
+          (customInstructions ? { customInstructions } : undefined),
         description,
         isActive,
         updatedAt: new Date()
