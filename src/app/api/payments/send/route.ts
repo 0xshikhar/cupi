@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { paymentSendSchema } from "@/lib/payments/payment-schemas";
 import { executePaymentTransfer } from "@/lib/payments/payment-service";
+import { withAuth } from "@/modules/auth/server/with-auth";
 
 function mapPaymentErrorStatus(message: string) {
   const normalized = message.toLowerCase();
@@ -14,7 +15,7 @@ function mapPaymentErrorStatus(message: string) {
   return 500;
 }
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   try {
     const body = await request.json();
     const input = paymentSendSchema.parse(body);
@@ -63,4 +64,4 @@ export async function POST(request: Request) {
       }
     );
   }
-}
+});

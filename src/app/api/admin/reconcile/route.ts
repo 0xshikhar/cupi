@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { expireStalePaymentLinks } from "@/lib/payments/payment-service";
 import { prisma } from "@/lib/prisma";
 
-export async function POST() {
+import { withAuth } from "@/modules/auth/server/with-auth";
+
+export const POST = withAuth(async () => {
   try {
     const expiredLinks = await expireStalePaymentLinks();
 
@@ -31,4 +33,4 @@ export async function POST() {
       { status: 500 }
     );
   }
-}
+});
