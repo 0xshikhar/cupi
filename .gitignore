@@ -75,7 +75,6 @@ out
 .nuxt
 build/Release
 .turbo/
-docs/
 
 # Coverage
 coverage
@@ -137,7 +136,6 @@ api.json
 
 # TS Docs
 **/typescript/docs/
-docs/
 !python/coinbase-agentkit/docs/
 !python/framework-extensions/langchain/docs/
 
