@@ -156,8 +156,9 @@ export class AgentWalletService {
             } catch (txError) {
                 // Handle duplicate races gracefully (idempotent behavior)
                 if (
-                    txError instanceof Prisma.PrismaClientKnownRequestError &&
-                    txError.code === "P2002"
+                    (txError instanceof Prisma.PrismaClientKnownRequestError &&
+                    txError.code === "P2002") ||
+                    (txError as any)?.code === "P2002"
                 ) {
                     console.warn(
                         "[AGENT WALLET] Duplicate creation race detected. Fetching existing mapping/wallet instead."

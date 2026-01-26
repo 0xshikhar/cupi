@@ -20,11 +20,9 @@ import {
 } from "@/lib/crypto/encryption";
 
 import { DEFAULT_CHAIN, getContractAddress } from "@/config/chains";
-import { env } from "@/config/env";
 
-const RPC_URL = env.NEXT_PUBLIC_APP_URL.includes("localhost")
-  ? DEFAULT_CHAIN.rpcUrls.default.http[0] // fallback if needed
-  : DEFAULT_CHAIN.rpcUrls.default.http[0]; // TODO: Use dedicated RPC env if added later
+// Use the default chain's RPC URL
+const RPC_URL = DEFAULT_CHAIN.rpcUrls.default.http[0];
 
 const ERC20_TRANSFER_ABI = [
   {
