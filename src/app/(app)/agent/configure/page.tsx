@@ -19,6 +19,8 @@ function ConfigureAgentForm() {
     type: 'OPTIMIZER',
     description: '',
     strategyId: '',
+    customInstructions: '',
+    runtimeConfigText: '{\n  "riskTolerance": "moderate",\n  "allowExperimentalTools": false\n}',
     parameters: {
       // Default parameters for different agent types
       optimizer: {
@@ -50,6 +52,12 @@ function ConfigureAgentForm() {
           type: agent.type,
           description: agent.description || '',
           strategyId: agent.strategyId || '',
+          customInstructions: agent.parameters?.customInstructions || '',
+          runtimeConfigText:
+            JSON.stringify(agent.parameters?.runtimeConfig || {
+              riskTolerance: 'moderate',
+              allowExperimentalTools: false,
+            }, null, 2),
           parameters: {
             optimizer: agent.parameters?.optimizer || formData.parameters.optimizer,
             yield: agent.parameters?.yield || formData.parameters.yield,
@@ -78,8 +86,16 @@ function ConfigureAgentForm() {
       formData.type === 'OPTIMIZER' ? formData.parameters.optimizer :
       formData.type === 'YIELD' ? formData.parameters.yield :
       formData.parameters.risk;
-    
+
     try {
+      let runtimeConfig: Record<string, unknown> = {};
+      try {
+        runtimeConfig = JSON.parse(formData.runtimeConfigText || '{}');
+      } catch (error) {
+        console.error('Invalid runtime config JSON:', error);
+        return;
+      }
+
       if (agentId) {
         // Find the existing agent to get its createdAt date
         const existingAgent = agents.find(a => a.id === agentId);
@@ -91,7 +107,11 @@ function ConfigureAgentForm() {
           type: formData.type,
           description: formData.description,
           strategyId: formData.strategyId,
-          parameters: specificParams,
+          parameters: {
+            ...specificParams,
+            customInstructions: formData.customInstructions,
+            runtimeConfig,
+          },
           isActive: formData.isActive,
           createdAt: existingAgent?.createdAt || new Date(),
           updatedAt: new Date()
@@ -104,7 +124,11 @@ function ConfigureAgentForm() {
           type: formData.type,
           description: formData.description,
           strategyId: formData.strategyId,
-          parameters: specificParams,
+          parameters: {
+            ...specificParams,
+            customInstructions: formData.customInstructions,
+            runtimeConfig,
+          },
           isActive: formData.isActive,
           createdAt: new Date(), 
           updatedAt: new Date()
@@ -112,7 +136,7 @@ function ConfigureAgentForm() {
       }
       
       // Redirect back to agent dashboard
-      router.push('/dashboard/agent');
+      router.push('/agent');
     } catch (error) {
       console.error('Failed to save agent:', error);
     } finally {
@@ -197,6 +221,28 @@ function ConfigureAgentForm() {
                     onChange={handleInputChange}
                     className="w-full p-2 bg-black/20 border border-white/10 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 h-24"
                     placeholder="Describe what this agent does"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Custom Instructions</label>
+                  <textarea
+                    name="customInstructions"
+                    value={formData.customInstructions}
+                    onChange={handleInputChange}
+                    className="w-full p-2 bg-black/20 border border-white/10 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 h-28"
+                    placeholder="Give the agent free-form instructions that can evolve with the backend"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Runtime Config JSON</label>
+                  <textarea
+                    name="runtimeConfigText"
+                    value={formData.runtimeConfigText}
+                    onChange={handleInputChange}
+                    className="w-full p-2 bg-black/20 border border-white/10 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 h-32 font-mono text-sm"
+                    placeholder='{"allowExperimentalTools": false}'
                   />
                 </div>
                 
@@ -427,7 +473,7 @@ function ConfigureAgentForm() {
         <div className="flex justify-end space-x-3">
           <button
             type="button"
-            onClick={() => router.push('/dashboard/agent')}
+            onClick={() => router.push('/agent')}
             className="px-6 py-2 border border-white/10 rounded hover:bg-white/5"
             disabled={isLoading}
           >

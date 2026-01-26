@@ -19,12 +19,13 @@ import {
   decryptPrivateKey,
 } from "@/lib/crypto/encryption";
 
-const RPC_URL =
-  process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL ||
-  process.env.BASE_SEPOLIA_RPC_URL ||
-  "https://sepolia.base.org";
+import { DEFAULT_CHAIN, getContractAddress } from "@/config/chains";
+import { env } from "@/config/env";
 
-const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as Address;
+const RPC_URL = env.NEXT_PUBLIC_APP_URL.includes("localhost")
+  ? DEFAULT_CHAIN.rpcUrls.default.http[0] // fallback if needed
+  : DEFAULT_CHAIN.rpcUrls.default.http[0]; // TODO: Use dedicated RPC env if added later
+
 const ERC20_TRANSFER_ABI = [
   {
     name: "transfer",
@@ -97,7 +98,7 @@ function normalizeWalletAddress(address: string) {
 
 function getTokenAddress(token: PaymentToken) {
   return token === "USDC"
-    ? USDC_ADDRESS
+    ? getContractAddress(DEFAULT_CHAIN.id, "USDC") as Address
     : ("0x0000000000000000000000000000000000000000" as Address);
 }
 
@@ -195,9 +196,8 @@ async function recordPaymentNotifications(params: {
     {
       userId: senderId,
       title: "Payment Sent",
-      message: `You sent ${params.amount} ${params.token} to @${
-        receiverUsername || "recipient"
-      }`,
+      message: `You sent ${params.amount} ${params.token} to @${receiverUsername || "recipient"
+        }`,
       type: "PAYMENT_SENT",
       amount: `-${params.amount} ${params.token}`,
       status: "unread",
@@ -205,9 +205,8 @@ async function recordPaymentNotifications(params: {
     {
       userId: receiverId,
       title: "Payment Received",
-      message: `You received ${params.amount} ${params.token} from @${
-        senderUsername || "someone"
-      }`,
+      message: `You received ${params.amount} ${params.token} from @${senderUsername || "someone"
+        }`,
       type: "PAYMENT_RECEIVED",
       amount: `+${params.amount} ${params.token}`,
       status: "unread",
@@ -256,7 +255,7 @@ export async function createPaymentLink(
       amount: new Prisma.Decimal(input.amount),
       tokenAddress: getTokenAddress(input.tokenSymbol),
       tokenSymbol: input.tokenSymbol,
-      chainId: input.chainId || baseSepolia.id,
+      chainId: input.chainId || DEFAULT_CHAIN.id,
       description: input.description,
       expiresAt,
       maxUses: input.maxUses || 1,
@@ -371,7 +370,7 @@ export async function executePaymentTransfer(
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
     account,
-    chain: baseSepolia,
+    chain: baseSepolia, // We can keep viem chain object here or derive from DEFAULT_CHAIN
     transport: http(RPC_URL),
   });
 
@@ -388,7 +387,7 @@ export async function executePaymentTransfer(
     });
   } else {
     txHash = await walletClient.writeContract({
-      address: USDC_ADDRESS,
+      address: getContractAddress(DEFAULT_CHAIN.id, "USDC") as Address,
       abi: ERC20_TRANSFER_ABI,
       functionName: "transfer",
       args: [receiverWallet.agentWalletAddress as Address, parseUnits(input.amount, 6)],
@@ -404,7 +403,7 @@ export async function executePaymentTransfer(
       senderId: sender.id,
       receiverId: receiver.id,
       paymentLinkId: input.paymentLinkId || null,
-      chainId: baseSepolia.id,
+      chainId: DEFAULT_CHAIN.id,
       tokenAddress: getTokenAddress(input.token),
       tokenSymbol: input.token,
       amount: new Prisma.Decimal(input.amount),
@@ -422,7 +421,7 @@ export async function executePaymentTransfer(
         tokenSymbol: input.token,
         tokenAddress: getTokenAddress(input.token),
         txHash,
-        chainId: baseSepolia.id,
+        chainId: DEFAULT_CHAIN.id,
         status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
         fromAddress: senderWallet.agentWalletAddress,
         toAddress: receiverWallet.agentWalletAddress,
@@ -434,7 +433,7 @@ export async function executePaymentTransfer(
         tokenSymbol: input.token,
         tokenAddress: getTokenAddress(input.token),
         txHash,
-        chainId: baseSepolia.id,
+        chainId: DEFAULT_CHAIN.id,
         status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
         fromAddress: senderWallet.agentWalletAddress,
         toAddress: receiverWallet.agentWalletAddress,
@@ -502,15 +501,15 @@ export async function claimPaymentLink(input: {
   const shouldConsumeLink = result.payment.status === PaymentStatus.CONFIRMED;
   const updated = shouldConsumeLink
     ? await prisma.paymentLink.update({
-        where: { id: link.id },
-        data: {
-          usedCount: { increment: 1 },
-          status:
-            link.maxUses && link.usedCount + 1 >= link.maxUses
-              ? PaymentLinkStatus.DISABLED
-              : PaymentLinkStatus.ACTIVE,
-        },
-      })
+      where: { id: link.id },
+      data: {
+        usedCount: { increment: 1 },
+        status:
+          link.maxUses && link.usedCount + 1 >= link.maxUses
+            ? PaymentLinkStatus.DISABLED
+            : PaymentLinkStatus.ACTIVE,
+      },
+    })
     : link;
 
   return {

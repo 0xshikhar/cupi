@@ -95,6 +95,8 @@ export function useActivityFeed() {
                         case 'WITHDRAWAL': title = 'Withdrawal'; subtitle = 'Funds withdrawn from App Wallet'; break;
                         case 'PAYMENT_SENT': title = 'Payment Sent'; subtitle = `Sent to ${tx.toAddress.slice(0, 6)}...`; break;
                         case 'PAYMENT_RECEIVED': title = 'Payment Received'; subtitle = `Received from ${tx.fromAddress.slice(0, 6)}...`; break;
+                        case 'PAYMENT_LINK_SENT': title = 'Link Payment Sent'; subtitle = `Paid link from ${tx.toAddress.slice(0, 6)}...`; break;
+                        case 'PAYMENT_LINK_RECEIVED': title = 'Link Payment Received'; subtitle = `Claimed via payment link`; break;
                         default: title = 'Transaction'; subtitle = 'App transaction';
                     }
 

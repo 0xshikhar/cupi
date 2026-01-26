@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send } from "lucide-react";
+import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send, QrCode, Phone, CreditCard } from "lucide-react";
 import Link from "next/link";
 import PayToUsernameModal from "@/components/PayToUsernameModal";
 import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
@@ -27,7 +27,7 @@ export default function SendPage() {
                 >
                     <ArrowLeft size={20} />
                 </button>
-                <h1 className="text-xl font-bold tracking-tight">Send</h1>
+                <h1 className="text-xl font-bold tracking-tight">Send Money</h1>
             </div>
 
             {/* Pay by Username Card */}
@@ -58,10 +58,13 @@ export default function SendPage() {
                 <div>
                     <h2 className="font-bold text-lg">Send via Link</h2>
                     <p className="text-muted-foreground font-medium text-sm mt-1">
-                        Instant transfer via any messaging app.
+                        Create a payment link to share anywhere.
                     </p>
                 </div>
-                <button className="btn-primary w-full flex items-center justify-center gap-2 opacity-90">
+                <button
+                    onClick={() => router.push("/send/link")}
+                    className="btn-primary w-full flex items-center justify-center gap-2 opacity-90"
+                >
                     <LinkIcon size={18} />
                     Create Payment Link
                 </button>
@@ -69,59 +72,75 @@ export default function SendPage() {
 
             <div className="flex items-center gap-4">
                 <div className="h-[1px] bg-border flex-1"></div>
-                <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Or Pay With</span>
+                <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider">More Options</span>
                 <div className="h-[1px] bg-border flex-1"></div>
             </div>
 
             {/* Methods List */}
             <div className="space-y-3">
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40">
+                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400">
                             <User size={20} />
                         </div>
                         <div>
                             <h3 className="font-bold text-sm">Contacts</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Recent interactions</p>
+                            <p className="text-xs text-muted-foreground font-medium">Recent contacts</p>
                         </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
 
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40">
+                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
-                            <Archive size={20} />
+                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400">
+                            <QrCode size={20} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-sm">Bank Transfer</h3>
-                            <p className="text-xs text-muted-foreground font-medium">EUR, USD, local banks</p>
+                            <h3 className="font-bold text-sm">Scan QR Code</h3>
+                            <p className="text-xs text-muted-foreground font-medium">Scan to pay</p>
                         </div>
                     </div>
+                    <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
 
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40">
+                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center text-cyan-600">
+                        <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400">
+                            <Phone size={20} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-sm">Phone Number</h3>
+                            <p className="text-xs text-muted-foreground font-medium">Pay via phone</p>
+                        </div>
+                    </div>
+                    <ChevronRight size={16} className="text-muted-foreground" />
+                </div>
+
+                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/30 rounded-full flex items-center justify-center text-cyan-600 dark:text-cyan-400">
                             <Zap size={20} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-sm">Lightning / Instant</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Instant settlements</p>
+                            <h3 className="font-bold text-sm">Instant Transfer</h3>
+                            <p className="text-xs text-muted-foreground font-medium">Lightning fast</p>
                         </div>
                     </div>
+                    <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
 
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40">
+                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600">
-                            <Wallet size={20} />
+                        <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-400">
+                            <CreditCard size={20} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-sm">Crypto Wallet</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Metamask, Phantom, etc</p>
+                            <h3 className="font-bold text-sm">Bank Transfer</h3>
+                            <p className="text-xs text-muted-foreground font-medium">USD, EUR, local banks</p>
                         </div>
                     </div>
+                    <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
             </div>
 

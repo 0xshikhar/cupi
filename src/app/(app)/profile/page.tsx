@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2 } from "lucide-react";
+import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText } from "lucide-react";
 import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
 import { getUserProfile } from "@/app/actions/user";
 import { toast } from "sonner";
@@ -16,6 +16,8 @@ export default function ProfilePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [showFullName, setShowFullName] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [username, setUsername] = useState<string | null>(null);
 
     useEffect(() => {
         // Load showFullName preference from localStorage
@@ -30,6 +32,7 @@ export default function ProfilePage() {
                     const result = await getUserProfile(userWalletAddress);
                     if (result.user) {
                         setProfile(result.user);
+                        setUsername(result.user.username);
                     }
                 } catch (error) {
                     console.error("Failed to fetch profile:", error);
@@ -58,14 +61,27 @@ export default function ProfilePage() {
     };
 
     const menuItems = [
-        { icon: ShieldCheck, label: "Invite friends", href: "#" },
-        { icon: Award, label: "Your Badges", href: "#" },
-        { icon: Sparkles, label: "Points", href: "#", value: profile?.points || "0" },
+        { icon: Award, label: "Your Badges", href: "#", badge: "New" },
+        { icon: Sparkles, label: "Points & Rewards", href: "#", value: profile?.points || "0" },
     ];
 
     const settingsItems = [
         { icon: User, label: "Personal details", onClick: () => setIsEditModalOpen(true) },
-        { icon: Globe, label: "Regions & Verification", onClick: () => setIsEditModalOpen(true) },
+        { icon: CreditCard, label: "Payment Methods", onClick: () => { } },
+        { icon: Globe, label: "Language & Region", onClick: () => { } },
+        { icon: ShieldCheck, label: "Privacy & Security", onClick: () => { } },
+    ];
+
+    const advancedItems = [
+        { icon: Key, label: "Account Keys", onClick: () => { }, description: "Advanced - For developers" },
+        { icon: Settings, label: "Developer Settings", onClick: () => { }, description: "API keys and integrations" },
+        { icon: Cloud, label: "Admin Dashboard", onClick: () => router.push("/admin"), description: "Operations, links, and reconciliation" },
+    ];
+
+    const supportItems = [
+        { icon: HelpCircle, label: "Help & Support", onClick: () => { } },
+        { icon: FileText, label: "Terms of Service", onClick: () => { } },
+        { icon: ShieldCheck, label: "Privacy Policy", onClick: () => { } },
     ];
 
     if (!userWalletAddress) {
@@ -77,7 +93,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="flex flex-col h-full gap-8 pb-24">
+        <div className="flex flex-col h-full gap-6 pb-24">
             {/* Header */}
             <div className="flex items-center justify-between py-2">
                 <button
@@ -88,7 +104,7 @@ export default function ProfilePage() {
                 </button>
 
                 <button className="p-2 border border-border rounded-lg hover:bg-secondary transition-colors">
-                    <Share size={20} />
+                    <Settings size={20} />
                 </button>
             </div>
 
@@ -96,7 +112,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-4">
                 <div className="w-24 h-24 bg-primary/10 rounded-full border border-primary/20 flex items-center justify-center mb-2">
                     <span className="text-3xl font-bold text-primary">
-                        {userWalletAddress.slice(2, 4).toUpperCase()}
+                        {username ? username.charAt(0).toUpperCase() : (userWalletAddress ? userWalletAddress.slice(2, 4).toUpperCase() : 'U')}
                     </span>
                 </div>
 
@@ -108,7 +124,7 @@ export default function ProfilePage() {
                         <button
                             onClick={() => setIsEditModalOpen(true)}
                             className="p-2 hover:bg-secondary rounded-full transition-colors"
-                            title="Edit username"
+                            title="Edit profile"
                         >
                             <Edit2 size={18} className="text-muted-foreground" />
                         </button>
@@ -121,15 +137,14 @@ export default function ProfilePage() {
                     )}
                 </div>
 
-                <div className="bg-secondary/50 border border-border rounded-full px-6 py-3 flex items-center gap-3 cursor-pointer hover:bg-secondary transition-all">
-                    <span className="font-bold text-sm tracking-wide">
-                        cupi.xyz/{userWalletAddress.slice(0, 6)}
-                    </span>
-                    <Share size={14} className="text-muted-foreground" />
+                {/* User ID - Hidden behind expandable section */}
+                <div className="bg-secondary/30 border border-border rounded-full px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-secondary/50 transition-colors">
+                    <span className="text-xs font-medium text-muted-foreground">User ID: {userWalletAddress.slice(0, 8)}...{userWalletAddress.slice(-4)}</span>
+                    <Copy size={12} className="text-muted-foreground" />
                 </div>
             </div>
 
-            {/* Menu Group 1 */}
+            {/* Main Menu Group */}
             <div className="cupi-card overflow-hidden divide-y divide-border">
                 {menuItems.map((item, index) => (
                     <div key={index} className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group">
@@ -139,14 +154,20 @@ export default function ProfilePage() {
                         </div>
                         <div className="flex items-center gap-2">
                             {item.value && <span className="text-sm font-bold text-muted-foreground">{item.value}</span>}
+                            {item.badge && (
+                                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">{item.badge}</span>
+                            )}
                             <ChevronRight size={18} className="text-muted-foreground" />
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Menu Group 2 */}
+            {/* Settings Group */}
             <div className="cupi-card overflow-hidden divide-y divide-border">
+                <div className="p-4 bg-secondary/30 border-b border-border">
+                    <h2 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Settings</h2>
+                </div>
                 {settingsItems.map((item, index) => (
                     <div
                         key={index}
@@ -176,14 +197,65 @@ export default function ProfilePage() {
                 </div>
             </div>
 
-            {/* Backup */}
-            <div className="cupi-card p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group">
-                <div className="flex items-center gap-4 group-hover:gap-5 transition-all">
-                    <Cloud size={22} className="text-muted-foreground group-hover:text-foreground" />
-                    <span className="font-bold text-sm">Backup</span>
-                </div>
-                <ChevronRight size={18} className="text-muted-foreground" />
+            {/* Advanced Settings - Collapsible */}
+            <div className="cupi-card overflow-hidden divide-y divide-border">
+                <button
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full p-4 bg-secondary/30 border-b border-border flex items-center justify-between hover:bg-secondary/50 transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        <Key size={16} className="text-muted-foreground" />
+                        <h2 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Advanced</h2>
+                    </div>
+                    <ChevronRight size={18} className={`text-muted-foreground transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
+                </button>
+
+                {showAdvanced && (
+                    <div className="divide-y divide-border">
+                        {advancedItems.map((item, index) => (
+                            <div
+                                key={index}
+                                onClick={item.onClick}
+                                className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group"
+                            >
+                                <div className="flex items-center gap-4 group-hover:gap-5 transition-all">
+                                    <item.icon size={22} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-sm">{item.label}</span>
+                                        {item.description && (
+                                            <span className="text-xs text-muted-foreground">{item.description}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <ChevronRight size={18} className="text-muted-foreground" />
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
+
+            {/* Support Group */}
+            <div className="cupi-card overflow-hidden divide-y divide-border">
+                {supportItems.map((item, index) => (
+                    <div
+                        key={index}
+                        onClick={item.onClick}
+                        className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group"
+                    >
+                        <div className="flex items-center gap-4 group-hover:gap-5 transition-all">
+                            <item.icon size={22} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                            <span className="font-bold text-sm">{item.label}</span>
+                        </div>
+                        <ChevronRight size={18} className="text-muted-foreground" />
+                    </div>
+                ))}
+            </div>
+
+            {/* Logout Button */}
+            <button className="cupi-card p-5 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <LogOut size={20} />
+                <span className="font-bold text-sm">Sign Out</span>
+            </button>
 
             <EditProfileModal
                 isOpen={isEditModalOpen}

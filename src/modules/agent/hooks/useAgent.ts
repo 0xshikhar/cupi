@@ -11,12 +11,19 @@ import { AgentRequest, AgentResponse } from "@/lib/types/api";
  *
  * @throws {Error} Logs an error if the request fails.
  */
-async function messageAgent(userMessage: string): Promise<string | null> {
+async function messageAgent(
+  userMessage: string,
+  userWalletAddress?: string
+): Promise<string | null> {
   try {
+    if (!userWalletAddress) {
+      return "Connect a wallet to use the onchain agent.";
+    }
+
     const response = await fetch("/api/agent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userMessage } as AgentRequest),
+      body: JSON.stringify({ userMessage, userWalletAddress } as AgentRequest),
     });
 
     const data = (await response.json()) as AgentResponse;
@@ -46,7 +53,7 @@ async function messageAgent(userMessage: string): Promise<string | null> {
  * - `sendMessage`: A function to send a new message.
  * - `isThinking`: Boolean indicating if the agent is processing a response.
  */
-export function useAgent() {
+export function useAgent(userWalletAddress?: string) {
   const [messages, setMessages] = useState<{ text: string; sender: "user" | "agent" }[]>([]);
   const [isThinking, setIsThinking] = useState(false);
 
@@ -61,7 +68,7 @@ export function useAgent() {
     setMessages(prev => [...prev, { text: input, sender: "user" }]);
     setIsThinking(true);
 
-    const responseMessage = await messageAgent(input);
+    const responseMessage = await messageAgent(input, userWalletAddress);
 
     if (responseMessage) {
       setMessages(prev => [...prev, { text: responseMessage, sender: "agent" }]);
