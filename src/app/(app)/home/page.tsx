@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy, CreditCard, QrCode, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import TopUpModal from "@/components/TopUpModal";
 import { toast } from "sonner";
 
 import { getUserNotifications } from "@/app/actions/user";
-import { useActivityFeed, ActivityItem } from "@/lib/hooks/useActivityFeed";
+import { useActivityFeed, ActivityItem } from "@/modules/activity/hooks/useActivityFeed";
 
 export default function DashboardPage() {
   const {

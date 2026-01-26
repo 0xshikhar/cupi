@@ -6,7 +6,7 @@ import { ArrowLeft, CheckCircle2, Loader2, AlertTriangle, Copy } from "lucide-re
 import Link from "next/link";
 import { toast } from "sonner";
 
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 type PaymentLinkDetail = {
   id: string;

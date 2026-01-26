@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { X, Camera, Image as ImageIcon, Zap, QrCode } from "lucide-react";
 import jsQR from "jsqr";
 import { QRCodeSVG } from "qrcode.react";
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { getUserProfile } from "@/app/actions/user";
 
 export default function ScanPage() {

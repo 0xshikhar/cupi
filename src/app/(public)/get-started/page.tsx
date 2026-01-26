@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
 import { Loader2 } from 'lucide-react';
-import { useAuthWallet } from '@/lib/hooks/useAuthWallet';
+import { useAuthWallet } from '@/modules/wallet/hooks/useAuthWallet';
 
 export default function GetStartedPage() {
     const router = useRouter();

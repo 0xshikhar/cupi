@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send, QrCode, Phone, CreditCard } from "lucide-react";
 import Link from "next/link";
 import PayToUsernameModal from "@/components/PayToUsernameModal";
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 export default function SendPage() {
     const router = useRouter();

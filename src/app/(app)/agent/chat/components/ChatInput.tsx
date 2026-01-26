@@ -3,7 +3,7 @@
 import { useState, type FormEvent, type RefObject } from "react";
 import { Send, Grid3x3 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/modules/core/hooks/use-mobile";
 import { ActionsPopup } from "./ActionsPopup";
 import { useTypingAnimation } from "../hooks/use-typing-animation";
 import type { ChatMode } from "../types/chat";

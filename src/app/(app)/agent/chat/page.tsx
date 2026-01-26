@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, type FormEvent } from "react";
-import { usePrivyWallet } from "@/lib/hooks/usePrivyWallet";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { usePrivyWallet } from "@/modules/wallet/hooks/usePrivyWallet";
+import { useIsMobile } from "@/modules/core/hooks/use-mobile";
 import { useChatMessages } from "./hooks/use-chat-messages";
 import { useChatScroll } from "./hooks/use-chat-scroll";
 import { useActionsPopup } from "./hooks/use-actions-popup";

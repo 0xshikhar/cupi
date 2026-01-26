@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useSendTransaction, useWallets } from "@privy-io/react-auth";
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { encodeFunctionData, parseUnits } from "viem";
 import { CHAIN_TOKENS, SUPPORTED_CHAINS, ERC20_ABI } from "@/lib/data";
 import { toast } from "sonner";

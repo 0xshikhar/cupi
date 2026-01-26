@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText } from "lucide-react";
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { getUserProfile } from "@/app/actions/user";
 import { toast } from "sonner";
 

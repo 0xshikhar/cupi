@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAgent } from "@/hooks/useAgent";
+import { useAgent } from "@/modules/agent/hooks/useAgent";
 import ReactMarkdown from "react-markdown";
 import Image from "next/image";
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 /**
  * Home page for the AgentKit Quickstart

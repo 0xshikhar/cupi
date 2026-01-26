@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Orbitron, Share_Tech_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
-import ClientLayout from "./client-layout";
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -44,7 +43,7 @@ export default function RootLayout({
     <html lang="en" className={`${orbitron.variable} ${shareTechMono.variable}`}>
       <body className="bg-background text-foreground min-h-screen">
         <Providers>
-          <ClientLayout>{children}</ClientLayout>
+          {children}
         </Providers>
       </body>
     </html>

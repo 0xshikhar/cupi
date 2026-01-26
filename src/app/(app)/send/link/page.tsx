@@ -7,7 +7,7 @@ import { Copy, Loader2, Link as LinkIcon, QrCode, ArrowLeft } from "lucide-react
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 type CreatedLink = {
   id: string;

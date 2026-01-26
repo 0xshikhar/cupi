@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePrivyWallet } from "@/lib/hooks/usePrivyWallet";
+import { usePrivyWallet } from "@/modules/wallet/hooks/usePrivyWallet";
 
 type WalletStatus = {
   userWalletAddress: string | null;

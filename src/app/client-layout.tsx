@@ -1,33 +1,31 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { BottomNav } from "@/components/BottomNav";
 import SetupUsernameModal from "@/components/SetupUsernameModal";
-import { useAuthWallet } from "@/lib/hooks/useAuthWallet";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 export default function ClientLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const pathname = usePathname();
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
   const { userWalletAddress } = useAuthWallet();
-  const isLandingPage = pathname === "/" || pathname === "/get-started";
 
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
   const [hasCheckedUsername, setHasCheckedUsername] = useState(false);
 
-  // Redirect unauthenticated users to landing page (except for get-started)
+  // Redirect unauthenticated users to landing page
   useEffect(() => {
-    if (ready && !authenticated && !isLandingPage) {
+    if (ready && !authenticated) {
       console.log('[CLIENT LAYOUT] Redirecting unauthenticated user to landing page');
       router.push("/");
     }
-  }, [ready, authenticated, isLandingPage, router]);
+  }, [ready, authenticated, router]);
 
   // Check if user needs to set up username
   useEffect(() => {
@@ -53,11 +51,6 @@ export default function ClientLayout({
 
     checkUsername();
   }, [ready, authenticated, userWalletAddress, hasCheckedUsername]);
-
-  // Landing page and get-started have their own layout (no BottomNav)
-  if (isLandingPage) {
-    return <>{children}</>;
-  }
 
   // Show loading state while checking authentication
   if (!ready) {

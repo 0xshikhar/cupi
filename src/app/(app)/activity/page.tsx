@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, ArrowDownLeft, CheckCircle, ExternalLink, Zap, Shield, Sparkles } from "lucide-react";
-import { useActivityFeed, ActivityItem } from "@/lib/hooks/useActivityFeed";
+import { useActivityFeed, ActivityItem } from "@/modules/activity/hooks/useActivityFeed";
 
 export default function ActivityPage() {
     const router = useRouter();

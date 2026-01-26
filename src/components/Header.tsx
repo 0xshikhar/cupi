@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Wallet, LogOut, Plus, Menu, Settings, User, Bell, HelpCircle } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useUnifiedWallet } from "@/lib/hooks/useUnifiedWallet";
+import { useUnifiedWallet } from "@/modules/wallet/hooks/useUnifiedWallet";
 import Image from "next/image";
 import TopUpModal from "./TopUpModal";
 import { HeaderProps } from "@/lib/types";
