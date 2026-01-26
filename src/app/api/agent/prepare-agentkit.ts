@@ -16,6 +16,7 @@ import {
 } from "@coinbase/agentkit";
 
 import { AgentWalletService } from "@/lib/services/agent-wallet-service";
+import { getServerEnv } from "@/config/env.server";
 // Detailed error logging for wallet provider initialization
 const DEBUG = process.env.NODE_ENV !== "production";
 // Import the necessary types
@@ -51,10 +52,14 @@ export async function prepareAgentkitAndWalletProvider(
   const startTime = Date.now();
 
   // 1. Verify required environment variables
-  if (!process.env.CDP_API_KEY_ID || !process.env.CDP_API_KEY_SECRET) {
+  const env = getServerEnv();
+  const apiKeyId = env.CDP_API_KEY_NAME || process.env.CDP_API_KEY_ID;
+  const apiKeySecret = env.CDP_API_KEY_PRIVATE_KEY || process.env.CDP_API_KEY_SECRET;
+
+  if (!apiKeyId || !apiKeySecret) {
     console.error("[AGENT ERROR] Missing CDP API credentials");
     throw new Error(
-      "CDP_API_KEY_ID and CDP_API_KEY_SECRET must be set in your environment variables."
+      "CDP API credentials (CDP_API_KEY_NAME/CDP_API_KEY_ID and CDP_API_KEY_PRIVATE_KEY/CDP_API_KEY_SECRET) must be set in your environment variables."
     );
   }
   try {
@@ -108,7 +113,7 @@ export async function prepareAgentkitAndWalletProvider(
       const signerAddress = signer.address;
 
       // 4. Configure and initialize the SmartWalletProvider
-      const networkId = process.env.NETWORK_ID || "base-sepolia";
+      const networkId = env.NETWORK_ID || process.env.NETWORK_ID || "base-sepolia";
       console.log(`[AGENT NETWORK] Using network: ${networkId}`);
 
       try {
@@ -273,8 +278,8 @@ export async function prepareAgentkitAndWalletProvider(
               enhancedBalanceProvider(),
               comprehensiveBalanceProvider(),
               cdpApiActionProvider({
-                apiKeyId: process.env.CDP_API_KEY_ID,
-                apiKeySecret: process.env.CDP_API_KEY_SECRET,
+                apiKeyId,
+                apiKeySecret,
               }),
               morphoActionProvider(),
               compoundActionProvider(),

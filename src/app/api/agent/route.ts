@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createAgent } from "./create-agent";
 import { Message, generateId, generateText } from "ai";
 import { formatResponseWithMarkdown } from "@/lib/utils/format";
+import { withAuth } from "@/modules/auth/server";
 
 // Transaction tracking for detecting successful backend operations despite UI errors
 interface TransactionStatus {

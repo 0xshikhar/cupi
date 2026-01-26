@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withAuth } from "@/modules/auth/server";
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request, { auth }) => {
     try {
         const body = await request.json();
         const {
@@ -104,4 +105,4 @@ export async function POST(request: Request) {
             { status: 500 }
         );
     }
-}
+});

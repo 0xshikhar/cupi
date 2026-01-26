@@ -4,6 +4,7 @@ import { prepareAgentkitAndWalletProvider } from "../agent/prepare-agentkit";
 import { decrypt } from "@/lib/crypto-utils";
 import { rateLimit } from "@/lib/rate-limiter";
 import { ApiError, ErrorCode, withErrorHandling } from "@/lib/error-handler";
+import { withAuth } from "@/modules/auth/server";
 
 /**
  * Handles chat interaction with an agent
@@ -13,7 +14,7 @@ import { ApiError, ErrorCode, withErrorHandling } from "@/lib/error-handler";
  * - Agent must exist for the specified agent_id
  * - Retrieves agent wallet from database and uses CDP/AgentKit for interactions
  */
-export const POST = withErrorHandling(async (request: NextRequest) => {
+export const POST = withAuth(withErrorHandling(async (request: NextRequest) => {
   // Apply rate limiting
   const rateLimitResponse = rateLimit(request);
   if (rateLimitResponse) return rateLimitResponse;
@@ -251,7 +252,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     walletAction: result.walletAction,
     agent_scratchpad: result.agent_scratchpad,
   });
-});
+}));
 
 /**
  * Hybrid agent interaction that handles both risk assessment and general agent commands

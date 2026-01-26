@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withAuth } from "@/modules/auth/server";
 
 // GET /api/agents - Get all agents or filter by strategy
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { auth }) => {
   try {
     const { searchParams } = new URL(request.url);
     const strategyId = searchParams.get('strategyId');
@@ -40,10 +41,10 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/agents - Create a new agent
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { auth }) => {
   try {
     const body = await request.json();
     const {
@@ -89,4 +90,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withAuth } from "@/modules/auth/server";
 
 // GET /api/agents/[id] - Get a specific agent by ID
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export const GET = withAuth(async (request, { params, auth }: any) => {
   try {
-    const id = params.id;
+    const id = params?.id;
 
     const agent = await prisma.agent.findUnique({
       where: { id },
@@ -28,15 +26,12 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/agents/[id] - Update an agent
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export const PATCH = withAuth(async (request, { params, auth }: any) => {
   try {
-    const id = params.id;
+    const id = params?.id;
     const body = await request.json();
     const {
       name,
@@ -73,15 +68,12 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});
 
 // DELETE /api/agents/[id] - Delete an agent
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export const DELETE = withAuth(async (request, { params, auth }: any) => {
   try {
-    const id = params.id;
+    const id = params?.id;
 
     await prisma.agent.delete({
       where: { id }
@@ -95,4 +87,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

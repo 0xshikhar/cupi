@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limiter";
 import { ApiError, ErrorCode, withErrorHandling } from "@/lib/error-handler";
+import { withAuth } from "@/modules/auth/server";
 
 // Risk questionnaire questions (from risk-profiling-agent.js)
 const RISK_QUESTIONNAIRE = {
@@ -251,7 +252,7 @@ async function processDefiAllocation(
 /**
  * Route handler for initial risk assessment
  */
-export const POST = withErrorHandling(async (request: NextRequest) => {
+export const POST = withAuth(withErrorHandling(async (request: NextRequest) => {
   // Apply rate limiting
   const rateLimitResponse = rateLimit(request);
   if (rateLimitResponse) return rateLimitResponse;
@@ -324,4 +325,4 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
       { status: 500 }
     );
   }
-});
+}));

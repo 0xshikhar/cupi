@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/modules/auth/server";
 
-export async function GET() {
+export const GET = withAuth(async (_req, { auth }) => {
   try {
     const [
       userCount,
@@ -58,4 +59,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAddress } from 'viem';
+import { withAuth } from "@/modules/auth/server";
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { auth }) => {
   try {
     const { searchParams } = new URL(request.url);
     const walletAddress = searchParams.get('walletAddress');
@@ -52,9 +53,9 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuth(async (request, { auth }) => {
   try {
     const body = await request.json();
     const { walletAddress, basicWalletAddress, proWalletAddress, riskProfile, otherUserInfo, preferences } = body;
@@ -135,9 +136,9 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { auth }) => {
   try {
     const body = await request.json();
     const { walletAddress, riskProfile = '', otherUserInfo = '', preferences } = body;
@@ -205,4 +206,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

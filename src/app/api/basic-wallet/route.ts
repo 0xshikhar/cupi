@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BasicAgentWalletService } from '@/lib/services/BasicAgentWalletService';
 import { prisma } from '@/lib/prisma';
 import { isAddress } from 'viem';
+import { withAuth } from "@/modules/auth/server";
 
 /**
  * Check database connection
@@ -22,7 +23,7 @@ async function checkDatabaseConnection(): Promise<boolean> {
  * @param request - The HTTP request containing the user wallet address
  * @returns Status of the basic agent wallet
  */
-export async function GET(req: NextRequest) {
+export const GET = withAuth(async (req, { auth }) => {
   try {
     // Validate database connection first
     const isConnected = await checkDatabaseConnection();
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST endpoint to create a new basic agent wallet for a user
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
  * @param request - The HTTP request containing the user wallet address
  * @returns The new basic agent wallet address
  */
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req, { auth }) => {
   console.log("[BASIC WALLET API] POST request received");
   try {
     // Validate database connection first
@@ -157,4 +158,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -4,10 +4,12 @@ import { ZodError } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
+import { verifyAuth } from "@/modules/auth/server";
+
 type Session = {
     user: {
         id: string;
-        email: string;
+        email?: string;
     };
 };
 
@@ -24,14 +26,27 @@ type Session = {
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-    // TODO: Add Privy auth verification here
-    // Mock session for development/pivot
-    const session: Session = {
-        user: {
-            id: "user_mock_id",
-            email: "mock@cupi.fun"
+    let session: Session | null = null;
+    const authHeader = opts.headers.get("authorization");
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.split(" ")[1];
+        if (token) {
+            try {
+                const claims = await verifyAuth(token);
+                if (claims?.userId) {
+                    session = {
+                        user: {
+                            id: claims.userId,
+                            email: (claims as any).email || "",
+                        }
+                    };
+                }
+            } catch (err) {
+                // Invalid or expired token - session remains null
+            }
         }
-    };
+    }
 
     return {
         db: prisma,
@@ -90,18 +105,9 @@ export const createTRPCRouter = t.router;
  */
 const timingMiddleware = t.middleware(async ({ next, path }) => {
     const start = Date.now();
-
-    if (process.env.NODE_ENV === "development") {
-        // artificial delay in dev
-        const waitMs = Math.floor(Math.random() * 400) + 100;
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-    }
-
     const result = await next();
-
     const end = Date.now();
     console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
-
     return result;
 });
 

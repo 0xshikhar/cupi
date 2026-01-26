@@ -4,8 +4,9 @@ export const dynamic = 'force-dynamic';
 
 import { basicAgentWalletService } from '@/lib/services/BasicAgentWalletService';
 import { isAddress, formatEther } from 'viem';
+import { withAuth } from '@/modules/auth/server';
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { auth }) => {
   try {
     const { searchParams } = new URL(request.url);
     const userWalletAddress = searchParams.get('userWalletAddress');
@@ -50,4 +51,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

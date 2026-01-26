@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createPublicClient, http, formatUnits, Address } from 'viem';
 import { sepolia, baseSepolia } from 'viem/chains';
+import { withAuth } from "@/modules/auth/server";
 
 // ERC20 ABI for balanceOf
 const ERC20_ABI = [
@@ -25,7 +26,7 @@ const PRICES = {
     USDC: 1,   // $1 per USDC
 };
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request, { auth }) => {
     try {
         const { searchParams } = new URL(request.url);
         const address = searchParams.get('address');
@@ -122,4 +123,4 @@ export async function GET(request: Request) {
             { status: 500 }
         );
     }
-}
+});

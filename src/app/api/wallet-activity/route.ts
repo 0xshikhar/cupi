@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withAuth } from "@/modules/auth/server";
 
 // Blockscout V2 Endpoints
 const SEPOLIA_API = 'https://eth-sepolia.blockscout.com/api/v2';
@@ -115,7 +116,7 @@ async function fetchBlockscoutTransactions(baseUrl: string, address: string, cha
     }
 }
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request, { auth }) => {
     try {
         const { searchParams } = new URL(request.url);
         const address = searchParams.get('address');
@@ -164,4 +165,4 @@ export async function GET(request: Request) {
         console.error('[WALLET ACTIVITY] Error:', error);
         return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 });
     }
-}
+});

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AgentWalletService } from "@/lib/services/agent-wallet-service";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/modules/auth/server";
 
 // Use the existing Prisma client from lib/prisma
 
@@ -26,7 +27,7 @@ async function checkDatabaseConnection(): Promise<boolean> {
  * @param request - The HTTP request containing the user wallet address
  * @returns Status of the agent wallet
  */
-export async function GET(req: NextRequest) {
+export const GET = withAuth(async (req, { auth }) => {
     try {
         // Validate database connection first
         const isConnected = await checkDatabaseConnection();
@@ -112,7 +113,7 @@ export async function GET(req: NextRequest) {
             { status: 500 }
         );
     }
-}
+});
 
 /**
  * POST endpoint to create a new agent wallet for a user wallet
@@ -120,7 +121,7 @@ export async function GET(req: NextRequest) {
  * @param request - The HTTP request containing the user wallet address
  * @returns The new agent wallet address
  */
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req, { auth }) => {
     console.log("[AGENT WALLET API] POST request received");
     try {
         // Validate database connection first
@@ -179,13 +180,13 @@ export async function POST(req: NextRequest) {
             { status: 500 }
         );
     }
-}
+});
 
 /**
  * DELETE endpoint to delete all agent wallets (for testing purposes only)
  * This should only be used in development environment
  */
-export async function DELETE(req: NextRequest) {
+export const DELETE = withAuth(async (req, { auth }) => {
     console.log("[AGENT WALLET API] DELETE request received");
     try {
         // Only delete in development or test environments
@@ -254,4 +255,4 @@ export async function DELETE(req: NextRequest) {
         // await prisma.$disconnect(); // Best practice in Next.js is usually to keep it open, but we can if requested.
         // For now, removing explicit disconnect to avoid connection pool exhaustion if Next creates many instances.
     }
-}
+});

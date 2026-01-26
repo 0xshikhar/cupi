@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PaymentStatus } from '@prisma/client';
+import { withAuth } from "@/modules/auth/server";
 
 // GET /api/transactions - Get transactions (Payments) with filtering options
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { auth }) => {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
@@ -58,10 +59,10 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/transactions - Record a new transaction (Payment)
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { auth }) => {
   try {
     const body = await request.json();
     const {
@@ -113,4 +114,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -8,6 +8,7 @@ import {
   paymentLinkCreateSchema,
 } from "@/lib/payments/payment-schemas";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/modules/auth/server";
 
 function mapLinkErrorStatus(message: string) {
   const normalized = message.toLowerCase();
@@ -16,7 +17,7 @@ function mapLinkErrorStatus(message: string) {
   return 500;
 }
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request, { auth }) => {
   try {
     const { searchParams } = new URL(request.url);
     const creatorWalletAddress = searchParams.get("creatorWalletAddress");
@@ -59,9 +60,9 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request, { auth }) => {
   try {
     const body = await request.json();
     const input = paymentLinkCreateSchema.parse(body);
@@ -97,4 +98,4 @@ export async function POST(request: Request) {
       }
     );
   }
-}
+});

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Coinbase, Wallet } from '@coinbase/coinbase-sdk';
+import { withAuth } from "@/modules/auth/server";
 
 /**
  * POST endpoint to create a Coinbase wallet for a user
@@ -8,7 +9,7 @@ import { Coinbase, Wallet } from '@coinbase/coinbase-sdk';
  * @param request - The HTTP request containing the user wallet address
  * @returns The new Coinbase wallet address
  */
-export async function POST(request: Request) {
+export const POST = withAuth(async (request, { auth }) => {
     try {
         const { userWalletAddress } = await request.json();
 
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
             { status: 500 }
         );
     }
-}
+});
 
 /**
  * GET endpoint to check if a user has a Coinbase wallet
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
  * @param request - The HTTP request containing the user wallet address
  * @returns Wallet status
  */
-export async function GET(request: Request) {
+export const GET = withAuth(async (request, { auth }) => {
     try {
         const { searchParams } = new URL(request.url);
         const userWalletAddress = searchParams.get('userWalletAddress');
@@ -152,4 +153,4 @@ export async function GET(request: Request) {
             { status: 500 }
         );
     }
-}
+});
