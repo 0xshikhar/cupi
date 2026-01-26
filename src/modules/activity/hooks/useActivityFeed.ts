@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuthWallet } from '@/lib/hooks/useAuthWallet';
+import { useAuthWallet } from '@/modules/wallet/hooks/useAuthWallet';
 import { getUserNotifications } from '@/app/actions/user';
 
 export interface ActivityItem {

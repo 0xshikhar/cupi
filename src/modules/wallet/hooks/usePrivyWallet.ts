@@ -1,6 +1,6 @@
 import { usePrivy } from '@privy-io/react-auth';
 import { useCallback, useEffect, useState } from 'react';
-import { isValidEthereumAddress } from '../utils/format';
+import { isValidEthereumAddress } from '@/lib/utils/format';
 
 /**
  * Hook to access the user's connected wallet address from Privy
