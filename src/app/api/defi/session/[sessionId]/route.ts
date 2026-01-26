@@ -2,20 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limiter";
 import { ApiError, ErrorCode, withErrorHandling } from "@/lib/error-handler";
+import { withAuth } from "@/modules/auth/server";
 
 /**
  * Route handler for getting session status
  */
-export const GET = withErrorHandling(
-  async (
-    request: NextRequest,
-    { params }: { params: { sessionId: string } }
-  ) => {
+export const GET = withAuth(
+  withErrorHandling(
+    async (
+      request: NextRequest,
+      { params }: { params?: { sessionId: string }; auth?: any }
+    ) => {
     // Apply rate limiting
     const rateLimitResponse = rateLimit(request);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const { sessionId } = params;
+    const sessionId = params?.sessionId;
 
     if (!sessionId) {
       throw new ApiError(
@@ -62,4 +64,4 @@ export const GET = withErrorHandling(
       );
     }
   }
-);
+));
