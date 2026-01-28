@@ -27,7 +27,7 @@ type PaymentLinkDetail = {
 
 export default function ClaimPaymentLinkPage() {
   const params = useParams<{ slug: string }>();
-  const { userWalletAddress, basicWalletAddress, isLoading } = useAuthWallet();
+  const { userWalletAddress, sendToken, isLoading } = useAuthWallet();
   const [link, setLink] = useState<PaymentLinkDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -58,8 +58,8 @@ export default function ClaimPaymentLinkPage() {
   }, [params.slug]);
 
   const handleClaim = async () => {
-    if (!userWalletAddress || !basicWalletAddress) {
-      toast.error("Your wallet is still preparing.");
+    if (!userWalletAddress) {
+      toast.error("Please connect your wallet first.");
       return;
     }
 
@@ -67,11 +67,19 @@ export default function ClaimPaymentLinkPage() {
 
     setClaiming(true);
     try {
+      toast.info("Submitting transaction via your wallet...");
+      const executedTxHash = await sendToken({
+        to: link.creator.walletAddress,
+        amount: link.amount,
+        token: link.tokenSymbol,
+      });
+
       const response = await fetch(`/api/payment-links/${link.slug}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senderWalletAddress: userWalletAddress,
+          txHash: executedTxHash,
         }),
       });
 
@@ -81,7 +89,7 @@ export default function ClaimPaymentLinkPage() {
         throw new Error(data.error || "Failed to claim payment link");
       }
 
-      setTxHash(data.txHash);
+      setTxHash(executedTxHash);
       setLink((current) =>
         current
           ? {
@@ -91,7 +99,7 @@ export default function ClaimPaymentLinkPage() {
             }
           : current
       );
-      toast.success("Payment completed");
+      toast.success("Payment completed successfully!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to claim link");
     } finally {

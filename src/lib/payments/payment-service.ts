@@ -4,38 +4,16 @@ import { Prisma, PaymentLinkStatus, PaymentStatus } from "@prisma/client";
 import {
   Address,
   createPublicClient,
-  createWalletClient,
   http,
   isAddress,
-  parseEther,
-  parseUnits,
 } from "viem";
 import { baseSepolia } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
 
 import { prisma } from "@/lib/prisma";
-import {
-  createMasterPassword,
-  decryptPrivateKey,
-} from "@/lib/crypto/encryption";
-
 import { DEFAULT_CHAIN, getContractAddress } from "@/config/chains";
 
 // Use the default chain's RPC URL
 const RPC_URL = DEFAULT_CHAIN.rpcUrls.default.http[0];
-
-const ERC20_TRANSFER_ABI = [
-  {
-    name: "transfer",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-  },
-] as const;
 
 export type PaymentToken = "ETH" | "USDC";
 
@@ -61,6 +39,7 @@ export interface PaymentTransferInput {
   paymentLinkId?: string | null;
   paymentLinkSlug?: string | null;
   description?: string | null;
+  txHash?: string;
 }
 
 export interface PaymentTransferResult {
@@ -104,34 +83,6 @@ function generateSlug() {
   return crypto.randomBytes(5).toString("hex");
 }
 
-async function getWalletPrivateKey(walletAddress: string) {
-  const wallet = await prisma.basicAgentWallet.findFirst({
-    where: {
-      userWalletAddress: {
-        equals: walletAddress,
-        mode: "insensitive",
-      },
-    },
-  });
-
-  if (!wallet) {
-    throw new Error("Wallet not found");
-  }
-
-  const masterPassword = createMasterPassword(walletAddress);
-  const decryptedPrivateKey = decryptPrivateKey(
-    wallet.encryptedPrivateKey,
-    masterPassword,
-    wallet.encryptionSalt
-  );
-  const privateKey = `0x${decryptedPrivateKey}` as `0x${string}`;
-
-  return {
-    wallet,
-    privateKey,
-  };
-}
-
 async function findUserByIdentifier(identifier: string) {
   const trimmed = identifier.trim();
   const isWalletAddress = isAddress(trimmed);
@@ -155,27 +106,6 @@ async function findUserByIdentifier(identifier: string) {
       },
     },
   });
-}
-
-async function getRecipientWallet(userId: string, walletAddress: string) {
-  const basicWallet = await prisma.basicAgentWallet.findFirst({
-    where: {
-      userWalletAddress: {
-        equals: walletAddress,
-        mode: "insensitive",
-      },
-    },
-  });
-
-  if (!basicWallet) {
-    throw new Error("Recipient wallet not found");
-  }
-
-  return {
-    userId,
-    walletAddress,
-    agentWalletAddress: basicWallet.agentWalletAddress,
-  };
 }
 
 async function recordPaymentNotifications(params: {
@@ -350,47 +280,24 @@ export async function executePaymentTransfer(
     throw new Error("Sender not found");
   }
 
-  const { wallet: senderWallet, privateKey } = await getWalletPrivateKey(
-    input.senderWalletAddress
-  );
-
   const receiver = await findUserByIdentifier(input.receiverIdentifier);
 
   if (!receiver) {
     throw new Error("Recipient not found");
   }
 
-  const receiverWallet = await getRecipientWallet(
-    receiver.id,
-    receiver.walletAddress
-  );
+  if (!input.txHash) {
+    throw new Error(
+      "Direct server-side signing is disabled for security. Payments must be signed client-side via useSmartAccount and submitted with a txHash."
+    );
+  }
 
-  const account = privateKeyToAccount(privateKey);
-  const walletClient = createWalletClient({
-    account,
-    chain: baseSepolia, // We can keep viem chain object here or derive from DEFAULT_CHAIN
-    transport: http(RPC_URL),
-  });
+  const txHash = input.txHash as `0x${string}`;
 
   const publicClient = createPublicClient({
     chain: baseSepolia,
     transport: http(RPC_URL),
   });
-
-  let txHash: `0x${string}`;
-  if (input.token === "ETH") {
-    txHash = await walletClient.sendTransaction({
-      to: receiverWallet.agentWalletAddress as Address,
-      value: parseEther(input.amount),
-    });
-  } else {
-    txHash = await walletClient.writeContract({
-      address: getContractAddress(DEFAULT_CHAIN.id, "USDC") as Address,
-      abi: ERC20_TRANSFER_ABI,
-      functionName: "transfer",
-      args: [receiverWallet.agentWalletAddress as Address, parseUnits(input.amount, 6)],
-    });
-  }
 
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: txHash,
@@ -421,8 +328,8 @@ export async function executePaymentTransfer(
         txHash,
         chainId: DEFAULT_CHAIN.id,
         status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
-        fromAddress: senderWallet.agentWalletAddress,
-        toAddress: receiverWallet.agentWalletAddress,
+        fromAddress: sender.walletAddress,
+        toAddress: receiver.walletAddress,
       },
       {
         userId: receiver.id,
@@ -433,8 +340,8 @@ export async function executePaymentTransfer(
         txHash,
         chainId: DEFAULT_CHAIN.id,
         status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
-        fromAddress: senderWallet.agentWalletAddress,
-        toAddress: receiverWallet.agentWalletAddress,
+        fromAddress: sender.walletAddress,
+        toAddress: receiver.walletAddress,
       },
     ],
   });
@@ -475,6 +382,7 @@ export async function executePaymentTransfer(
 export async function claimPaymentLink(input: {
   slug: string;
   senderWalletAddress: string;
+  txHash?: string;
 }) {
   const link = await getPaymentLinkBySlug(input.slug);
 
@@ -494,6 +402,7 @@ export async function claimPaymentLink(input: {
     paymentLinkId: link.id,
     paymentLinkSlug: link.slug,
     description: link.description || undefined,
+    txHash: input.txHash,
   });
 
   const shouldConsumeLink = result.payment.status === PaymentStatus.CONFIRMED;

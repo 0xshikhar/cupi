@@ -18,6 +18,7 @@ export const paymentSendSchema = z.object({
   token: paymentTokenSchema,
   paymentLinkId: z.string().uuid().optional(),
   paymentLinkSlug: z.string().min(1).optional(),
+  txHash: z.string().optional(),
 });
 
 export const paymentLinkCreateSchema = z.object({
@@ -33,6 +34,7 @@ export const paymentLinkCreateSchema = z.object({
 export const paymentLinkClaimSchema = z.object({
   senderWalletAddress: walletAddressSchema,
   slug: z.string().min(1),
+  txHash: z.string().optional(),
 });
 
 export type PaymentSendInput = z.infer<typeof paymentSendSchema>;

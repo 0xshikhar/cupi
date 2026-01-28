@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { X, Search, Loader2, ArrowRight, Check, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useSmartAccount } from "@/modules/wallet/hooks/useSmartAccount";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface User {
     id: string;
@@ -33,6 +35,9 @@ export default function PayToUsernameModal({
     const [isSearching, setIsSearching] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
+
+    const { sendToken } = useSmartAccount();
+    const { getAccessToken } = usePrivy();
 
     // Search users as user types
     useEffect(() => {
@@ -96,36 +101,49 @@ export default function PayToUsernameModal({
         setStep("processing");
 
         try {
-            const response = await fetch("/api/payments/send", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    receiverIdentifier: selectedUser.username || selectedUser.walletAddress,
-                    amount: amount,
-                    token: token,
-                    senderWalletAddress: senderWalletAddress,
-                }),
+            // 1. Client-side signing via Privy non-custodial wallet
+            const hash = await sendToken({
+                to: selectedUser.walletAddress,
+                amount: amount,
+                token: token,
             });
 
-            const data = await response.json();
+            setTxHash(hash);
 
-            if (response.ok) {
-                setTxHash(data.txHash);
-                setStep("success");
-                toast.success(`Payment sent to ${selectedUser.username ? '@' + selectedUser.username : selectedUser.walletAddress.slice(0, 10) + '...'}!`);
+            // 2. Record transaction on backend and generate notifications
+            const tokenJwt = await getAccessToken();
+            await fetch("/api/transactions/record", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(tokenJwt ? { "Authorization": `Bearer ${tokenJwt}` } : {}),
+                },
+                body: JSON.stringify({
+                    userWalletAddress: senderWalletAddress,
+                    fromAddress: senderWalletAddress,
+                    toAddress: selectedUser.walletAddress,
+                    amount: amount,
+                    tokenSymbol: token,
+                    txHash: hash,
+                    type: "PAYMENT_SENT",
+                }),
+            }).catch((err) => {
+                console.warn("[PAYMENT] Non-critical record warning:", err);
+            });
 
-                // Call success callback after a delay
-                setTimeout(() => {
-                    onPaymentSuccess?.();
-                    handleClose();
-                }, 3000);
-            } else {
-                toast.error(data.error || "Payment failed");
-                setStep("confirm");
-            }
+            setStep("success");
+            toast.success(
+                `Payment sent to ${selectedUser.username ? '@' + selectedUser.username : selectedUser.walletAddress.slice(0, 10) + '...'}!`
+            );
+
+            // Call success callback after a delay
+            setTimeout(() => {
+                onPaymentSuccess?.();
+                handleClose();
+            }, 3000);
         } catch (error) {
             console.error("Payment error:", error);
-            toast.error("Payment failed. Please try again.");
+            toast.error(error instanceof Error ? error.message : "Payment failed. Please try again.");
             setStep("confirm");
         } finally {
             setIsProcessing(false);

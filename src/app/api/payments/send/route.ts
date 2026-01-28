@@ -27,6 +27,7 @@ export const POST = withAuth(async (request: Request) => {
       token: input.token,
       paymentLinkId: input.paymentLinkId,
       paymentLinkSlug: input.paymentLinkSlug,
+      txHash: input.txHash,
     });
 
     return NextResponse.json({
