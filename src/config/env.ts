@@ -14,7 +14,7 @@ export const env = new Proxy({} as any, {
     // On server, dynamically load getServerEnv
     if (!_serverEnv) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const { getServerEnv } = require('./env.server');
         _serverEnv = getServerEnv();
       } catch {
