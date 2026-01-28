@@ -3,9 +3,39 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import {
+    encryptPrivateKey,
+    decryptPrivateKey,
+    generateSalt,
+    createMasterPassword,
+} from "@/lib/crypto/encryption";
 
 // Debug mode for detailed logging
 const DEBUG = process.env.NODE_ENV !== "production";
+
+function getEncryptionSecret(): string {
+    return process.env.ENCRYPTION_SECRET || process.env.NEXTAUTH_SECRET || "cupi-agent-secret-salt";
+}
+
+function encryptStoredKey(key: string, userAddress: string): string {
+    const salt = generateSalt();
+    const password = createMasterPassword(userAddress, getEncryptionSecret());
+    const cipher = encryptPrivateKey(key, password, salt);
+    return `enc:${salt}:${cipher}`;
+}
+
+function decryptStoredKey(stored: string, userAddress: string): Hex {
+    if (stored.startsWith("enc:")) {
+        const parts = stored.split(":");
+        const salt = parts[1];
+        const cipher = parts[2];
+        const password = createMasterPassword(userAddress, getEncryptionSecret());
+        const raw = decryptPrivateKey(cipher, password, salt);
+        return `0x${raw}` as Hex;
+    }
+    // Legacy plaintext key
+    return (stored.startsWith("0x") ? stored : `0x${stored}`) as Hex;
+}
 
 /**
  * Agent Wallet Service
@@ -63,17 +93,19 @@ export class AgentWalletService {
                         `[AGENT WALLET] Found existing agent wallet for user wallet: ${userWalletAddress}`
                     );
 
-                    // Validate the private key format before returning
+                    // Validate and resolve the private key format before returning
                     try {
-                        const testAccount = privateKeyToAccount(
-                            agentWallet.walletPrivateKey as Hex
+                        const resolvedPrivateKey = decryptStoredKey(
+                            agentWallet.walletPrivateKey,
+                            userWalletAddress
                         );
+                        const testAccount = privateKeyToAccount(resolvedPrivateKey);
                         console.log(
                             `[AGENT WALLET] Private key validation successful: ${testAccount.address}`
                         );
 
                         return {
-                            privateKey: agentWallet.walletPrivateKey as Hex,
+                            privateKey: resolvedPrivateKey,
                             agentId: agentWallet.agent_id,
                             agentWalletAddress: agentWallet.walletPublicKey as Address,
                         };
@@ -89,12 +121,13 @@ export class AgentWalletService {
                         // Generate a new private key
                         const newPrivateKey = generatePrivateKey();
                         const newAccount = privateKeyToAccount(newPrivateKey);
+                        const encryptedKey = encryptStoredKey(newPrivateKey, userWalletAddress);
 
-                        // Update the agent wallet with the new private key and public address
+                        // Update the agent wallet with the encrypted private key and public address
                         await prisma.agentWallet.update({
                             where: { agent_id: agentWallet.agent_id },
                             data: {
-                                walletPrivateKey: newPrivateKey,
+                                walletPrivateKey: encryptedKey,
                                 walletPublicKey: newAccount.address,
                             },
                         });
@@ -123,6 +156,7 @@ export class AgentWalletService {
             const newAgentId = crypto.randomUUID();
             const newPrivateKey = generatePrivateKey();
             const account = privateKeyToAccount(newPrivateKey);
+            const encryptedKey = encryptStoredKey(newPrivateKey, userWalletAddress);
 
             if (DEBUG)
                 console.log(
@@ -132,11 +166,11 @@ export class AgentWalletService {
             try {
                 // Use a transaction to ensure both records are created or neither is created
                 await prisma.$transaction([
-                    // 4. Store the new agent wallet
+                    // 4. Store the new agent wallet with encrypted private key
                     prisma.agentWallet.create({
                         data: {
                             agent_id: newAgentId,
-                            walletPrivateKey: newPrivateKey,
+                            walletPrivateKey: encryptedKey,
                             walletPublicKey: account.address,
                         },
                     }),
@@ -171,8 +205,12 @@ export class AgentWalletService {
                             where: { agent_id: mapping.agent_id },
                         });
                         if (existingWallet) {
+                            const resolvedKey = decryptStoredKey(
+                                existingWallet.walletPrivateKey,
+                                userWalletAddress
+                            );
                             return {
-                                privateKey: existingWallet.walletPrivateKey as Hex,
+                                privateKey: resolvedKey,
                                 agentId: existingWallet.agent_id,
                                 agentWalletAddress: existingWallet.walletPublicKey as Address,
                             };

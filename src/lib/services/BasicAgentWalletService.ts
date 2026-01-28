@@ -1,14 +1,7 @@
 import { prisma } from '@/lib/prisma';
-import { privateKeyToAccount, generatePrivateKey as viemGeneratePrivateKey } from 'viem/accounts';
-import { createWalletClient, http, type PrivateKeyAccount } from 'viem';
+import { type PrivateKeyAccount } from 'viem';
+import { createPublicClient, http, type Address } from 'viem';
 import { mainnet, base, arbitrum, polygon, baseSepolia } from 'viem/chains';
-import {
-    encryptPrivateKey,
-    decryptPrivateKey,
-    generateSalt,
-    createMasterPassword,
-    isValidPrivateKey
-} from '../crypto/encryption';
 
 // Supported chains for basic wallets
 const SUPPORTED_CHAINS = {
@@ -68,32 +61,19 @@ export class BasicAgentWalletService {
                 throw new Error('Basic wallet already exists for this user');
             }
 
-            // Generate new private key
-            const privateKey = viemGeneratePrivateKey();
-            const account = privateKeyToAccount(privateKey);
-            const agentWalletAddress = account.address;
+            // Canonical non-custodial: register user's own address without generating or storing private keys
+            const agentWalletAddress = userWalletAddress;
 
-            console.log(`[BASIC WALLET SERVICE] Generated new wallet: ${agentWalletAddress}`);
+            console.log(`[BASIC WALLET SERVICE] Registering non-custodial wallet: ${agentWalletAddress}`);
 
-            // Generate encryption salt and master password
-            const salt = generateSalt();
-            const masterPassword = createMasterPassword(userWalletAddress);
-
-            // Encrypt the private key
-            const encryptedPrivateKey = encryptPrivateKey(
-                privateKey.slice(2), // Remove 0x prefix
-                masterPassword,
-                salt
-            );
-
-            // Store in database
+            // Store in database with empty encrypted private key
             const basicWallet = await prisma.basicAgentWallet.create({
                 data: {
                     userWalletAddress,
                     agentWalletAddress,
-                    encryptedPrivateKey,
-                    encryptionSalt: salt,
-                    walletType: 'basic',
+                    encryptedPrivateKey: '',
+                    encryptionSalt: '',
+                    walletType: 'canonical',
                     status: 'active'
                 }
             });
@@ -183,69 +163,12 @@ export class BasicAgentWalletService {
     }
 
     /**
-     * Get wallet with decrypted account for transactions
+     * @deprecated Server-side custodial wallet signing is disabled. Transactions must be signed client-side via useSmartAccount.
      */
-    async getWalletWithAccount(userWalletAddress: string, chainId: number = 8453): Promise<BasicWalletWithAccount> {
-        try {
-            const basicWallet = await prisma.basicAgentWallet.findUnique({
-                where: { userWalletAddress }
-            });
-
-            if (!basicWallet) {
-                throw new Error('Basic wallet not found');
-            }
-
-            if (basicWallet.status !== 'active') {
-                throw new Error('Wallet is not active');
-            }
-
-            // Decrypt private key
-            const masterPassword = createMasterPassword(userWalletAddress);
-            const decryptedPrivateKey = decryptPrivateKey(
-                basicWallet.encryptedPrivateKey,
-                masterPassword,
-                basicWallet.encryptionSalt
-            );
-
-            // Create account from private key
-            const privateKeyWithPrefix = `0x${decryptedPrivateKey}` as `0x${string}`;
-            const account = privateKeyToAccount(privateKeyWithPrefix);
-
-            // Get chain configuration
-            const chain = this.getChainById(chainId);
-            if (!chain) {
-                throw new Error(`Unsupported chain ID: ${chainId}`);
-            }
-
-            // Create wallet client
-            const walletClient = createWalletClient({
-                account,
-                chain,
-                transport: http()
-            });
-
-            // Update last used timestamp
-            await prisma.basicAgentWallet.update({
-                where: { id: basicWallet.id },
-                data: { lastUsedAt: new Date() }
-            });
-
-            return {
-                walletInfo: {
-                    id: basicWallet.id,
-                    userWalletAddress: basicWallet.userWalletAddress,
-                    agentWalletAddress: basicWallet.agentWalletAddress,
-                    walletType: basicWallet.walletType,
-                    status: basicWallet.status,
-                    createdAt: basicWallet.createdAt,
-                    lastUsedAt: basicWallet.lastUsedAt
-                },
-                account,
-                walletClient
-            };
-        } catch (error) {
-            throw new Error(`Failed to get wallet with account: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+    async getWalletWithAccount(): Promise<BasicWalletWithAccount> {
+        throw new Error(
+            'Server-side custodial wallet signing is deprecated and disabled. All transactions must be signed client-side via useSmartAccount.'
+        );
     }
 
     /**
@@ -283,13 +206,17 @@ export class BasicAgentWalletService {
     }
 
     /**
-     * Get wallet balance for a specific chain
+     * Get wallet balance for a specific chain non-custodially
      */
     async getWalletBalance(userWalletAddress: string, chainId: number = 8453): Promise<bigint> {
         try {
-            const { walletClient } = await this.getWalletWithAccount(userWalletAddress, chainId);
-            const balance = await walletClient.getBalance({
-                address: walletClient.account.address
+            const chain = this.getChainById(chainId) || SUPPORTED_CHAINS.baseSepolia;
+            const publicClient = createPublicClient({
+                chain,
+                transport: http()
+            });
+            const balance = await publicClient.getBalance({
+                address: userWalletAddress as Address
             });
             return balance;
         } catch (error) {
