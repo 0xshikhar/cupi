@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      NODE_ENV: test
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_PRIVY_APP_ID: ci_dummy_privy_app_id
+      PRIVY_APP_SECRET: ci_dummy_privy_secret
+      CDP_API_KEY_NAME: ci_dummy_cdp_key_name
+      CDP_API_KEY_PRIVATE_KEY: ci_dummy_cdp_private_key
+      OPENAI_API_KEY: ci_dummy_openai_key
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cupi_ci
+      XDG_CACHE_HOME: .cache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prisma validate
+        run: bun prisma validate
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Unit tests
+        run: bun run test --runInBand
+
+      - name: Build
+        run: bun run build
