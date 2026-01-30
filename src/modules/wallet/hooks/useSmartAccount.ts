@@ -14,6 +14,7 @@ import {
 } from "viem";
 import { baseSepolia } from "viem/chains";
 import { DEFAULT_CHAIN, getContractAddress } from "@/config/chains";
+import { clientEnv } from "@/config/env.client";
 
 const ERC20_ABI = [
   {
@@ -44,6 +45,7 @@ export interface SendTokenParams {
   to: string;
   amount: string;
   token: "ETH" | "USDC";
+  executionPreference?: "direct" | "gasless-preferred";
 }
 
 export interface SmartAccountState {
@@ -57,9 +59,37 @@ export interface SmartAccountState {
   logout: () => void;
   sendToken: (_params: SendTokenParams) => Promise<`0x${string}`>;
   refreshBalances: () => Promise<void>;
+  gaslessFeatureEnabled: boolean;
+}
+
+function mapTransferErrorMessage(error: unknown, token: "ETH" | "USDC") {
+  const raw = error instanceof Error ? error.message : String(error);
+  const normalized = raw.toLowerCase();
+
+  if (
+    normalized.includes("insufficient funds") ||
+    normalized.includes("gas") ||
+    normalized.includes("intrinsic")
+  ) {
+    if (token === "USDC") {
+      return "Transaction failed: not enough native ETH for gas. Gas sponsorship is not active for this flow yet.";
+    }
+
+    return "Transaction failed: not enough native ETH for amount + gas.";
+  }
+
+  return raw;
 }
 
 const RPC_URL = DEFAULT_CHAIN.rpcUrls.default.http[0];
+
+function isGaslessFeatureEnabledClient() {
+  const flag =
+    clientEnv.NEXT_PUBLIC_ENABLE_USEROP_GASLESS_TRANSFERS?.trim().toLowerCase() ||
+    "false";
+
+  return ["1", "true", "yes", "on", "enabled"].includes(flag);
+}
 
 export function useSmartAccount(): SmartAccountState {
   const { user, ready, authenticated, login, logout } = usePrivy();
@@ -67,6 +97,8 @@ export function useSmartAccount(): SmartAccountState {
 
   // Canonical address is the user's primary Privy wallet address
   const address = user?.wallet?.address || (wallets[0]?.address ?? null);
+
+  const gaslessFeatureEnabled = isGaslessFeatureEnabledClient();
 
   const [balances, setBalances] = useState<TokenBalances>({
     eth: "0.00",
@@ -133,7 +165,7 @@ export function useSmartAccount(): SmartAccountState {
 
   // Client-side non-custodial token transfer
   const sendToken = useCallback(
-    async ({ to, amount, token }: SendTokenParams): Promise<`0x${string}`> => {
+    async ({ to, amount, token, executionPreference }: SendTokenParams): Promise<`0x${string}`> => {
       if (!address) throw new Error("Wallet not connected");
 
       const activeWallet =
@@ -151,26 +183,35 @@ export function useSmartAccount(): SmartAccountState {
         transport: custom(ethereumProvider),
       });
 
-      if (token === "ETH") {
-        const hash = await walletClient.sendTransaction({
-          to: to as Address,
-          value: parseEther(amount),
-        });
-        refreshBalances();
-        return hash;
-      } else {
-        const usdcAddress = getContractAddress(DEFAULT_CHAIN.id, "USDC") as Address;
-        const hash = await walletClient.writeContract({
-          address: usdcAddress,
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [to as Address, parseUnits(amount, 6)],
-        });
-        refreshBalances();
-        return hash;
+      try {
+        if (executionPreference === "gasless-preferred" && !gaslessFeatureEnabled) {
+          console.info(
+            "[AA GASLESS] User requested gasless-preferred transfer, but user-op gasless flag is disabled. Falling back to direct wallet transaction."
+          );
+        }
+        if (token === "ETH") {
+          const hash = await walletClient.sendTransaction({
+            to: to as Address,
+            value: parseEther(amount),
+          });
+          refreshBalances();
+          return hash;
+        } else {
+          const usdcAddress = getContractAddress(DEFAULT_CHAIN.id, "USDC") as Address;
+          const hash = await walletClient.writeContract({
+            address: usdcAddress,
+            abi: ERC20_ABI,
+            functionName: "transfer",
+            args: [to as Address, parseUnits(amount, 6)],
+          });
+          refreshBalances();
+          return hash;
+        }
+      } catch (error) {
+        throw new Error(mapTransferErrorMessage(error, token));
       }
     },
-    [address, wallets, refreshBalances]
+    [address, wallets, refreshBalances, gaslessFeatureEnabled]
   );
 
   return {
@@ -184,5 +225,6 @@ export function useSmartAccount(): SmartAccountState {
     logout,
     sendToken,
     refreshBalances,
+    gaslessFeatureEnabled,
   };
 }

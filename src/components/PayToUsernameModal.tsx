@@ -106,6 +106,7 @@ export default function PayToUsernameModal({
                 to: selectedUser.walletAddress,
                 amount: amount,
                 token: token,
+                executionPreference: "gasless-preferred",
             });
 
             setTxHash(hash);

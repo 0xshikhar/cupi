@@ -32,6 +32,7 @@ export interface AuthWalletState {
   refreshBalances: () => Promise<void>;
   createWallet?: () => Promise<void>;
   refreshWallet?: () => Promise<void>;
+  gaslessFeatureEnabled?: boolean;
 }
 
 /**
@@ -67,5 +68,6 @@ export function useAuthWallet(): AuthWalletState {
     refreshBalances: account.refreshBalances,
     createWallet,
     refreshWallet,
+    gaslessFeatureEnabled: account.gaslessFeatureEnabled,
   };
 }

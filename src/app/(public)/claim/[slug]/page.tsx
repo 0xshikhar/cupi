@@ -72,6 +72,7 @@ export default function ClaimPaymentLinkPage() {
         to: link.creator.walletAddress,
         amount: link.amount,
         token: link.tokenSymbol,
+        executionPreference: "gasless-preferred",
       });
 
       const response = await fetch(`/api/payment-links/${link.slug}/claim`, {
