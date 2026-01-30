@@ -35,6 +35,14 @@ const serverEnvSchema = z.object({
   ENCRYPTION_SECRET: z.string().optional(),
   ENCRYPTION_KEY: z.string().optional(),
 
+  // ERC-4337 Paymaster (Optional)
+  PAYMASTER_URL: z.string().optional(),
+  PAYMASTER_URL_BASE_SEPOLIA: z.string().optional(),
+  PAYMASTER_URL_BASE_MAINNET: z.string().optional(),
+  PAYMASTER_URL_ARBITRUM_ONE: z.string().optional(),
+  ENABLE_PAYMASTER_SPONSORSHIP: z.string().optional(),
+  ENABLE_USEROP_GASLESS_TRANSFERS: z.string().optional(),
+
   // Redis (Rate Limiting/Cache) - Optional
   KV_URL: z.string().optional(),
   KV_REST_API_URL: z.string().optional(),
@@ -72,6 +80,12 @@ export function getServerEnv(): ServerEnv {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ENCRYPTION_SECRET: process.env.ENCRYPTION_SECRET,
     ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+    PAYMASTER_URL: process.env.PAYMASTER_URL,
+    PAYMASTER_URL_BASE_SEPOLIA: process.env.PAYMASTER_URL_BASE_SEPOLIA,
+    PAYMASTER_URL_BASE_MAINNET: process.env.PAYMASTER_URL_BASE_MAINNET,
+    PAYMASTER_URL_ARBITRUM_ONE: process.env.PAYMASTER_URL_ARBITRUM_ONE,
+    ENABLE_PAYMASTER_SPONSORSHIP: process.env.ENABLE_PAYMASTER_SPONSORSHIP,
+    ENABLE_USEROP_GASLESS_TRANSFERS: process.env.ENABLE_USEROP_GASLESS_TRANSFERS,
     KV_URL: process.env.KV_URL,
     KV_REST_API_URL: process.env.KV_REST_API_URL,
     KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN,

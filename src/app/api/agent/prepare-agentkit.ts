@@ -28,6 +28,7 @@ import { comprehensiveBalanceProvider } from "@/lib/customActions/comprehensiveB
 import { customWETHProvider } from "@/lib/customActions/wethProvider";
 import { uniswapActionProvider } from "@/lib/customActions/uniswap";
 import { privateKeyToAccount } from "viem/accounts";
+import { getPaymasterConfig } from "@/lib/aa/paymaster";
 
 /**
  * Prepares the AgentKit and WalletProvider for a serverless environment.
@@ -130,12 +131,23 @@ export async function prepareAgentkitAndWalletProvider(
           }`
         );
 
+        const paymaster = getPaymasterConfig(networkId);
+        if (paymaster.enabled) {
+          console.log(
+            `[AA PAYMASTER] Sponsorship enabled (${paymaster.source}) for ${networkId}`
+          );
+        } else {
+          console.log(
+            `[AA PAYMASTER] Sponsorship disabled or not configured for ${networkId}; falling back to normal gas path.`
+          );
+        }
+
         // Configure SmartWalletProvider with our signer and existing smart wallet address (if any)
         const walletProviderConfig = {
           networkId,
           signer, // Our dedicated signer for the smart wallet
           smartWalletAddress: smartWalletAddress || undefined, // Use existing smart wallet if available
-          paymasterUrl: undefined,
+          paymasterUrl: paymaster.enabled ? paymaster.url : undefined,
         };
 
         if (DEBUG)
@@ -222,7 +234,7 @@ export async function prepareAgentkitAndWalletProvider(
                 networkId,
                 signer,
                 smartWalletAddress: smartWalletAddress || undefined, // Use stored address if available
-                paymasterUrl: undefined,
+                paymasterUrl: paymaster.enabled ? paymaster.url : undefined,
               });
 
               finalSmartWalletAddress = walletProvider.getAddress() as Address;
