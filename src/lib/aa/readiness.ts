@@ -54,7 +54,7 @@ export function getAARolloutReadiness(networkId: string): AARolloutReadiness {
   return {
     networkId,
     paymasterConfigured: Boolean(paymaster.url),
-    paymasterSource: paymaster.source,
+    paymasterSource: paymaster.url ? "network-specific" : "disabled",
     paymasterHost: safeHost(paymaster.url),
     sponsorshipEnabled: paymaster.enabled,
     userGaslessFlagEnabled,

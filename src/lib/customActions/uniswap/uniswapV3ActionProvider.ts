@@ -236,7 +236,19 @@ export class UniswapV3ActionProvider extends ActionProvider<EvmWalletProvider> {
         return "Error: No available Uniswap V3 pool found for the provided token pair on this network. Verify token addresses and try 500/3000/10000 fee tiers.";
       }
 
-      const slippageBps = Math.floor(args.slippageTolerance * 100);
+      // Autonomous Guardrail: Clamp slippage tolerance to maximum 0.5% to protect user funds
+      const MAX_SLIPPAGE_TOLERANCE = 0.5;
+      const effectiveSlippage = args.slippageTolerance > MAX_SLIPPAGE_TOLERANCE
+        ? MAX_SLIPPAGE_TOLERANCE
+        : args.slippageTolerance;
+
+      if (args.slippageTolerance > MAX_SLIPPAGE_TOLERANCE) {
+        console.warn(
+          `[GUARDRAIL] Slippage tolerance ${args.slippageTolerance}% exceeds maximum limit (0.5%). Clamping to ${MAX_SLIPPAGE_TOLERANCE}%.`
+        );
+      }
+
+      const slippageBps = Math.floor(effectiveSlippage * 100);
       const minOut = (quotedOut * BigInt(10000 - slippageBps)) / BigInt(10000);
 
       const txHash = await wallet.sendTransaction({
@@ -264,7 +276,7 @@ export class UniswapV3ActionProvider extends ActionProvider<EvmWalletProvider> {
       const outFmt = formatUnits(quotedOut, tokenOutDecimals as number);
       const minFmt = formatUnits(minOut, tokenOutDecimals as number);
       return `Successfully swapped ${args.amount} ${tokenInSymbol} for ~${outFmt} ${tokenOutSymbol}\n` +
-        `Minimum received: ${minFmt} ${tokenOutSymbol} (${args.slippageTolerance}% slippage)\n` +
+        `Minimum received: ${minFmt} ${tokenOutSymbol} (${effectiveSlippage}% slippage)\n` +
         `Transaction hash: ${txHash}`;
     } catch (err) {
       return `Error executing swap: ${err}`;
