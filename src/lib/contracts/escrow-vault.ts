@@ -71,6 +71,30 @@ export function encodeEscrowClaimCalldata(params: {
   });
 }
 
+export const encodeDepositCalldata = (params: {
+  claimKeyHash: `0x${string}`;
+  token: Address;
+  amount: bigint;
+  expiryTimestamp: bigint;
+}) =>
+  encodeEscrowDepositCalldata({
+    claimKeyHash: params.claimKeyHash,
+    tokenAddress: params.token,
+    amount: params.amount,
+    validForSeconds: params.expiryTimestamp,
+  });
+
+export const encodeClaimCalldata = (params: {
+  claimKeyHash: `0x${string}`;
+  recipient: Address;
+  signature: `0x${string}`;
+}) =>
+  encodeEscrowClaimCalldata({
+    claimKeyHash: params.claimKeyHash,
+    recipientAddress: params.recipient,
+    signature: params.signature,
+  });
+
 /**
  * Encodes calldata for refunding expired deposit from CupiEscrowVault.
  */
@@ -83,3 +107,7 @@ export function encodeEscrowRefundCalldata(params: {
     args: [params.claimKeyHash],
   });
 }
+
+export const encodeRefundCalldata = encodeEscrowRefundCalldata;
+
+
