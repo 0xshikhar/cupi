@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send, QrCode, Phone, CreditCard } from "lucide-react";
 import Link from "next/link";
 import PayToUsernameModal from "@/components/PayToUsernameModal";
+import SolanaPayModal from "@/components/SolanaPayModal";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 export default function SendPage() {
     const router = useRouter();
     const { userWalletAddress } = useAuthWallet();
     const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+    const [isSolanaModalOpen, setIsSolanaModalOpen] = useState(false);
 
     const handlePaymentSuccess = () => {
         // Refresh or update UI after successful payment
@@ -91,7 +93,10 @@ export default function SendPage() {
                     <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
 
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
+                <div
+                    onClick={() => router.push("/scan")}
+                    className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
+                >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400">
                             <QrCode size={20} />
@@ -104,27 +109,38 @@ export default function SendPage() {
                     <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
 
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
+                <div
+                    onClick={() => setIsPayModalOpen(true)}
+                    className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
+                >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400">
                             <Phone size={20} />
                         </div>
                         <div>
                             <h3 className="font-bold text-sm">Phone Number</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Pay via phone</p>
+                            <p className="text-xs text-muted-foreground font-medium">Pay via phone or @handle</p>
                         </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
 
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
+                <div
+                    onClick={() => setIsSolanaModalOpen(true)}
+                    className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
+                >
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/30 rounded-full flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400">
                             <Zap size={20} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-sm">Instant Transfer</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Lightning fast</p>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-sm">Solana Pay (USDC)</h3>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                                    SPL
+                                </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground font-medium">Sub-cent transfers & QR</p>
                         </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground" />
@@ -150,6 +166,12 @@ export default function SendPage() {
                 onClose={() => setIsPayModalOpen(false)}
                 senderWalletAddress={userWalletAddress}
                 onPaymentSuccess={handlePaymentSuccess}
+            />
+
+            {/* Solana Pay Modal */}
+            <SolanaPayModal
+                isOpen={isSolanaModalOpen}
+                onClose={() => setIsSolanaModalOpen(false)}
             />
         </div>
     );
