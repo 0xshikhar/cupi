@@ -43,13 +43,30 @@ export async function GET(request: Request) {
                 take: 1,
             });
         } else if (query) {
-            // Search by username (partial match)
+            const cleanQuery = query.startsWith("@") ? query.slice(1).trim() : query.trim();
+            // Search by username, full name, or phone number
             users = await prisma.user.findMany({
                 where: {
-                    username: {
-                        contains: query,
-                        mode: 'insensitive',
-                    },
+                    OR: [
+                        {
+                            username: {
+                                contains: cleanQuery,
+                                mode: 'insensitive',
+                            },
+                        },
+                        {
+                            fullName: {
+                                contains: cleanQuery,
+                                mode: 'insensitive',
+                            },
+                        },
+                        {
+                            phone: {
+                                contains: cleanQuery.replace(/[^\d+]/g, ""),
+                                mode: 'insensitive',
+                            },
+                        },
+                    ],
                 },
                 select: {
                     id: true,
