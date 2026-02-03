@@ -26,14 +26,18 @@ export const paymentLinkCreateSchema = z.object({
   amount: paymentAmountSchema,
   tokenSymbol: paymentTokenSchema,
   description: z.string().max(500).optional(),
+  claimKeyHash: z.string().optional(),
   expiresInMinutes: z.number().int().min(5).max(60 * 24 * 30).optional(),
   maxUses: z.number().int().min(1).max(100).optional(),
   chainId: z.number().int().optional(),
 });
 
 export const paymentLinkClaimSchema = z.object({
-  senderWalletAddress: walletAddressSchema,
   slug: z.string().min(1),
+  senderWalletAddress: walletAddressSchema.optional(),
+  recipientAddress: walletAddressSchema.optional(),
+  claimKeyHash: z.string().optional(),
+  signature: z.string().optional(),
   txHash: z.string().optional(),
 });
 

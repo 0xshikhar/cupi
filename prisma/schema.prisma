@@ -106,6 +106,7 @@ model PaymentLink {
   tokenSymbol  String
   chainId      Int
   description  String?
+  claimKeyHash String?
   expiresAt    DateTime?
   maxUses      Int?
   usedCount    Int               @default(0)

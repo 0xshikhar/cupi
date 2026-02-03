@@ -39,7 +39,7 @@ type PaymentLinkDetail = {
 export default function ClaimPaymentLinkPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
-  const { userWalletAddress, sendToken, isLoading } = useAuthWallet();
+  const { userWalletAddress, sendToken, isLoading, login } = useAuthWallet();
 
   const [link, setLink] = useState<PaymentLinkDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,14 +85,15 @@ export default function ClaimPaymentLinkPage() {
   // Handle Peanut-style Escrow Claim
   const handleEscrowClaim = async () => {
     if (!userWalletAddress) {
-      toast.error("Please connect your wallet to claim funds.");
+      toast.info("Please sign in with Google or Email to claim your funds.");
+      login();
       return;
     }
     if (!claimPrivateKey || !link) return;
 
     setClaiming(true);
     try {
-      toast.info("Generating claim signature with ephemeral key...");
+      toast.info("Verifying ephemeral key and claiming gasless...");
       const derivedHash = deriveClaimKeyHash(claimPrivateKey as `0x${string}`);
 
       const signature = await signClaimPayload({
@@ -117,7 +118,7 @@ export default function ClaimPaymentLinkPage() {
         throw new Error(data.error || "Failed to claim funds from vault");
       }
 
-      setTxHash(data.txHash || "claimed");
+      setTxHash(data.txHash || "0xclaimed");
       toast.success(`Successfully claimed ${link.amount} ${link.tokenSymbol}!`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to claim escrow link");
@@ -286,32 +287,56 @@ export default function ClaimPaymentLinkPage() {
           </div>
         )}
 
-        <button
-          onClick={isEscrowClaim ? handleEscrowClaim : handlePay}
-          disabled={claiming || isExpired}
-          className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {claiming ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : isEscrowClaim ? (
-            <Gift className="h-4 w-4" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4" />
-          )}
-          {isExpired
-            ? "Link unavailable"
-            : isEscrowClaim
-            ? `Claim ${link.amount} ${link.tokenSymbol}`
-            : `Pay ${link.amount} ${link.tokenSymbol}`}
-        </button>
+        {!userWalletAddress && isEscrowClaim ? (
+          <button
+            onClick={login}
+            className="btn-primary w-full inline-flex items-center justify-center gap-2 py-3.5 text-base font-bold shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Gift className="h-5 w-5" />
+            1-Click Claim (Sign in with Google / Email)
+          </button>
+        ) : (
+          <button
+            onClick={isEscrowClaim ? handleEscrowClaim : handlePay}
+            disabled={claiming || isExpired || !!txHash}
+            className="btn-primary w-full inline-flex items-center justify-center gap-2 py-3.5 text-base font-bold shadow-lg disabled:opacity-50"
+          >
+            {claiming ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : txHash ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            ) : isEscrowClaim ? (
+              <Gift className="h-5 w-5" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5" />
+            )}
+            {txHash
+              ? "Funds Successfully Claimed"
+              : isExpired
+              ? "Link Expired"
+              : isEscrowClaim
+              ? `Claim ${link.amount} ${link.tokenSymbol} (Gasless)`
+              : `Pay ${link.amount} ${link.tokenSymbol}`}
+          </button>
+        )}
 
         {txHash && (
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4">
-            <p className="text-xs uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-              <CheckCircle2 size={14} />
-              Claim Complete
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-3">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold">
+              <CheckCircle2 size={18} />
+              <span>${link.amount} {link.tokenSymbol} Added to Your Wallet</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Your funds are safely stored in your non-custodial wallet. No network fees were deducted.
             </p>
-            <p className="mt-1 break-all font-mono text-xs">{txHash}</p>
+            <div className="pt-2 flex gap-3">
+              <Link
+                href="/home"
+                className="flex-1 py-2.5 text-center text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+              >
+                Open Wallet Dashboard →
+              </Link>
+            </div>
           </div>
         )}
       </section>

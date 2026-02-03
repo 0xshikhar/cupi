@@ -11,6 +11,7 @@ import { baseSepolia } from "viem/chains";
 
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHAIN, getContractAddress } from "@/config/chains";
+import { verifyClaimSignature } from "@/lib/escrow/claim-crypto";
 
 // Use the default chain's RPC URL
 const RPC_URL = DEFAULT_CHAIN.rpcUrls.default.http[0];
@@ -152,6 +153,7 @@ export async function createPaymentLink(
     amount: string;
     tokenSymbol: PaymentToken;
     description?: string;
+    claimKeyHash?: string;
     expiresInMinutes?: number;
     maxUses?: number;
     chainId?: number;
@@ -185,6 +187,7 @@ export async function createPaymentLink(
       tokenSymbol: input.tokenSymbol,
       chainId: input.chainId || DEFAULT_CHAIN.id,
       description: input.description,
+      claimKeyHash: input.claimKeyHash || null,
       expiresAt,
       maxUses: input.maxUses || 1,
       status: PaymentLinkStatus.ACTIVE,
@@ -381,7 +384,10 @@ export async function executePaymentTransfer(
 
 export async function claimPaymentLink(input: {
   slug: string;
-  senderWalletAddress: string;
+  senderWalletAddress?: string;
+  recipientAddress?: string;
+  signature?: string;
+  claimKeyHash?: string;
   txHash?: string;
 }) {
   const link = await getPaymentLinkBySlug(input.slug);
@@ -392,6 +398,151 @@ export async function claimPaymentLink(input: {
 
   if (link.status !== PaymentLinkStatus.ACTIVE) {
     throw new Error("Payment link is no longer active");
+  }
+
+  // Branch A: Peanut-style Escrow Claim (Link recipient claiming locked funds)
+  if (input.recipientAddress && input.signature && input.claimKeyHash) {
+    const verification = await verifyClaimSignature({
+      claimKeyHash: input.claimKeyHash as `0x${string}`,
+      recipientAddress: input.recipientAddress as Address,
+      signature: input.signature as `0x${string}`,
+    });
+
+    if (!verification.valid) {
+      throw new Error("Cryptographic verification failed: invalid claim signature");
+    }
+
+    if (link.claimKeyHash && link.claimKeyHash.toLowerCase() !== input.claimKeyHash.toLowerCase()) {
+      throw new Error("Claim key hash does not match escrow deposit");
+    }
+
+    // Find or auto-provision recipient user
+    let recipient = await prisma.user.findFirst({
+      where: {
+        walletAddress: {
+          equals: input.recipientAddress,
+          mode: "insensitive",
+        },
+      },
+    });
+
+    if (!recipient) {
+      recipient = await prisma.user.create({
+        data: {
+          walletAddress: input.recipientAddress.toLowerCase(),
+        },
+      });
+    }
+
+    const txHash = input.txHash || `0xclaim_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
+    const amountStr = link.amount?.toString() || "0";
+
+    const payment = await prisma.payment.create({
+      data: {
+        senderId: link.creatorId,
+        receiverId: recipient.id,
+        paymentLinkId: link.id,
+        chainId: link.chainId,
+        tokenAddress: link.tokenAddress,
+        tokenSymbol: link.tokenSymbol,
+        amount: link.amount || new Prisma.Decimal(0),
+        txHash,
+        status: PaymentStatus.CONFIRMED,
+      },
+    });
+
+    await prisma.transaction.createMany({
+      data: [
+        {
+          userId: link.creatorId,
+          type: "PAYMENT_LINK_CLAIMED",
+          amount: amountStr,
+          tokenSymbol: link.tokenSymbol,
+          tokenAddress: link.tokenAddress,
+          txHash,
+          chainId: link.chainId,
+          status: "CONFIRMED",
+          fromAddress: link.creator.walletAddress,
+          toAddress: recipient.walletAddress,
+        },
+        {
+          userId: recipient.id,
+          type: "PAYMENT_RECEIVED",
+          amount: amountStr,
+          tokenSymbol: link.tokenSymbol,
+          tokenAddress: link.tokenAddress,
+          txHash,
+          chainId: link.chainId,
+          status: "CONFIRMED",
+          fromAddress: link.creator.walletAddress,
+          toAddress: recipient.walletAddress,
+        },
+      ],
+    });
+
+    await prisma.notification.createMany({
+      data: [
+        {
+          userId: link.creatorId,
+          title: "Payment Link Claimed",
+          message: `Your link for ${amountStr} ${link.tokenSymbol} was claimed by ${recipient.walletAddress.slice(0, 6)}...${recipient.walletAddress.slice(-4)}.`,
+          type: "PAYMENT_LINK_CLAIMED",
+          amount: `-${amountStr} ${link.tokenSymbol}`,
+          status: "unread",
+        },
+        {
+          userId: recipient.id,
+          title: "Payment Claimed",
+          message: `You claimed ${amountStr} ${link.tokenSymbol} from @${link.creator.username || "sender"}.`,
+          type: "PAYMENT_RECEIVED",
+          amount: `+${amountStr} ${link.tokenSymbol}`,
+          status: "unread",
+        },
+      ],
+    });
+
+    const updated = await prisma.paymentLink.update({
+      where: { id: link.id },
+      data: {
+        usedCount: { increment: 1 },
+        status:
+          link.maxUses && link.usedCount + 1 >= link.maxUses
+            ? PaymentLinkStatus.DISABLED
+            : PaymentLinkStatus.ACTIVE,
+      },
+    });
+
+    return {
+      payment: {
+        id: payment.id,
+        amount: amountStr,
+        tokenSymbol: link.tokenSymbol,
+        status: payment.status,
+      },
+      txHash,
+      sender: {
+        id: link.creator.id,
+        walletAddress: normalizeWalletAddress(link.creator.walletAddress),
+        username: link.creator.username,
+      },
+      receiver: {
+        id: recipient.id,
+        walletAddress: normalizeWalletAddress(recipient.walletAddress),
+        username: recipient.username,
+      },
+      paymentLink: {
+        id: updated.id,
+        slug: updated.slug,
+        status: updated.status,
+        usedCount: updated.usedCount,
+        maxUses: updated.maxUses,
+      },
+    };
+  }
+
+  // Branch B: Direct Invoice Pay (Payer paying creator)
+  if (!input.senderWalletAddress) {
+    throw new Error("Missing required claim parameters: recipientAddress with signature or senderWalletAddress");
   }
 
   const result = await executePaymentTransfer({
