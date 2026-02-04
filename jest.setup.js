@@ -4,6 +4,15 @@
 // Used for __tests__/testing-library.js
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
+import { TextEncoder, TextDecoder } from 'util';
+
+// Polyfills required by viem and related crypto libs in Jest/jsdom
+if (!global.TextEncoder) {
+  global.TextEncoder = TextEncoder;
+}
+if (!global.TextDecoder) {
+  global.TextDecoder = TextDecoder;
+}
 
 // Mock fetch globally
 global.fetch = jest.fn();

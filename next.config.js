@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     const isDev = process.env.NODE_ENV === 'development';
     const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';

@@ -1,4 +1,4 @@
-const nextJest = require('next/jest');
+   const nextJest = require('next/jest');
 
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files
@@ -9,19 +9,27 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
-  moduleNameMapping: {
-    // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
-    '^@/(.*)$': '<rootDir>/$1',
+  moduleNameMapper: {
+    // Handle module aliases based on tsconfig paths
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^jose/(.*)$': '<rootDir>/node_modules/jose/dist/node/cjs/$1',
+    '^jose$': '<rootDir>/node_modules/jose/dist/node/cjs/index.js',
+    '^uncrypto$': '<rootDir>/node_modules/uncrypto/dist/crypto.node.cjs',
+    '^node-fetch-native$': '<rootDir>/node_modules/node-fetch-native/dist/index.cjs',
+    '^node-fetch-native/(.*)$': '<rootDir>/node_modules/node-fetch-native/dist/index.cjs',
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(@coinbase|jose|uncrypto|node-fetch-native)/)',
+  ],
   testMatch: [
     '**/__tests__/**/*.(ts|tsx|js)',
     '**/*.(test|spec).(ts|tsx|js)',
   ],
   collectCoverageFrom: [
-    'lib/**/*.{ts,tsx}',
-    'app/**/*.{ts,tsx}',
+    'src/**/*.{ts,tsx}',
     '!**/*.d.ts',
     '!**/node_modules/**',
+    '!**/.next/**',
   ],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {

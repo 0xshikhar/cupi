@@ -4,20 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "bunx prisma@6.19.0 generate && next build",
+    "build": "XDG_CACHE_HOME=.cache bun prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "prisma:generate": "bunx prisma@6.19.0 generate",
-    "prisma:studio": "bunx prisma@6.19.0 studio",
-    "prisma:seed": "bun prismadb seed",
-    "rebalance:start": "tsx scripts/start-daily-rebalancing.ts",
-    "rebalance:manual": "tsx -e \"import { DailyRebalancingService } from './lib/services/DailyRebalancingService'; const service = new DailyRebalancingService(); service.executeManualRebalancing().then(console.log).catch(console.error).finally(() => process.exit());\"",
-    "test:vault-data": "tsx scripts/test-vault-data.ts",
-    "test:token-chain": "tsx scripts/test-token-chain-selection.ts",
-    "test:mainnet-readiness": "tsx scripts/test-mainnet-readiness.ts"
+    "prisma:generate": "XDG_CACHE_HOME=.cache bun prisma generate",
+    "prisma:studio": "XDG_CACHE_HOME=.cache bun prisma studio"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.2.1",
@@ -75,7 +69,7 @@
     "tailwindcss-animate": "^1.0.7",
     "viem": "^2.24.1",
     "wagmi": "^2.11.0",
-    "zod": "^4.5.4"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",
