@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText } from "lucide-react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
+import { usePrivy } from "@privy-io/react-auth";
 import { getUserProfile } from "@/app/actions/user";
 import { toast } from "sonner";
 
@@ -12,6 +13,7 @@ import EditProfileModal from "@/components/EditProfileModal";
 export default function ProfilePage() {
     const router = useRouter();
     const { userWalletAddress } = useAuthWallet();
+    const { exportWallet } = usePrivy();
     const [profile, setProfile] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -73,7 +75,18 @@ export default function ProfilePage() {
     ];
 
     const advancedItems = [
-        { icon: Key, label: "Account Keys", onClick: () => { }, description: "Advanced - For developers" },
+        {
+            icon: Key,
+            label: "Export Self-Custody Keys",
+            onClick: () => {
+                if (typeof exportWallet === "function") {
+                    exportWallet();
+                } else {
+                    toast.info("Secure export is available when authenticated via embedded Privy wallet.");
+                }
+            },
+            description: "Self-custody private key and recovery backup",
+        },
         { icon: Settings, label: "Developer Settings", onClick: () => { }, description: "API keys and integrations" },
         { icon: Cloud, label: "Admin Dashboard", onClick: () => router.push("/admin"), description: "Operations, links, and reconciliation" },
     ];
