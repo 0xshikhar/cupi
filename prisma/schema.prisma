@@ -329,3 +329,18 @@ model Transaction {
   @@index([type])
   @@index([createdAt])
 }
+
+model IdempotencyRecord {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  status      String    // "PENDING" | "COMPLETED"
+  statusCode  Int?
+  response    Json?
+  lockedAt    DateTime  @default(now())
+  completedAt DateTime?
+  expiresAt   DateTime
+
+  @@index([key])
+  @@index([expiresAt])
+}
+
