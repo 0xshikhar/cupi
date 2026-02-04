@@ -3,11 +3,13 @@ import {
   PublicKey,
   Transaction,
   Keypair,
+  ComputeBudgetProgram,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountIdempotentInstruction,
-  createTransferInstruction,
+  createTransferCheckedInstruction,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -20,6 +22,19 @@ export const SOLANA_USDC_DEVNET = new PublicKey(
   "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
 );
 export const SOLANA_USDC_DECIMALS = 6;
+export const SOLANA_MEMO_PROGRAM_ID = new PublicKey(
+  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+);
+
+export const ACTIONS_CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, Content-Encoding, Accept-Encoding, X-Accept-Action-Version, X-Accept-Blockchain-Ids",
+  "Access-Control-Expose-Headers": "X-Action-Version, X-Blockchain-Ids",
+  "X-Action-Version": "2.1.3",
+  "X-Blockchain-Ids": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+};
 
 export interface SolanaPayUrlParams {
   recipient: string; // Base58 address
@@ -62,6 +77,20 @@ export function createSolanaPayUrl(params: SolanaPayUrlParams): string {
 }
 
 /**
+ * Creates Phantom & Solflare Mobile Deep Links for 1-tap checkout inside Telegram & WhatsApp.
+ */
+export function createMobileWalletDeepLink(
+  solanaPayUrl: string,
+  wallet: "phantom" | "solflare" = "phantom"
+): string {
+  const encoded = encodeURIComponent(solanaPayUrl);
+  if (wallet === "phantom") {
+    return `https://phantom.app/ul/browse/${encoded}?ref=${encodeURIComponent("https://cupi.xyz")}`;
+  }
+  return `https://solflare.com/ul/v1/browse/${encoded}`;
+}
+
+/**
  * Parses and validates a Solana Pay URL.
  */
 export function parseSolanaPayUrl(rawUrl: string): SolanaPayUrlParams {
@@ -94,7 +123,13 @@ export function parseSolanaPayUrl(rawUrl: string): SolanaPayUrlParams {
 
 /**
  * Builds an atomic SPL Token (USDC) transfer transaction on Solana.
- * Automatically creates Associated Token Account (ATA) if recipient doesn't have one.
+ * Features:
+ * 1. Priority Fees & Compute Budget (resilient under 10k-user mainnet congestion)
+ * 2. Idempotent Associated Token Account (ATA) creation
+ * 3. TransferChecked instruction for strict mint & decimal safety
+ * 4. Ephemeral reference key for sub-second confirmation
+ * 5. SPL Memo v2 for transparent on-chain audit trail
+ * 6. Gasless relayer support (if Ihsan/Cupi sponsor key is available)
  */
 export async function buildSolanaUsdcTransferTransaction(params: {
   connection: Connection;
@@ -103,8 +138,21 @@ export async function buildSolanaUsdcTransferTransaction(params: {
   amountUsdc: number;
   isDevnet?: boolean;
   reference?: PublicKey;
+  memo?: string;
+  sponsorKeypair?: Keypair;
+  priorityFeeMicroLamports?: number;
 }): Promise<Transaction> {
-  const { connection, payer, recipient, amountUsdc, isDevnet, reference } = params;
+  const {
+    connection,
+    payer,
+    recipient,
+    amountUsdc,
+    isDevnet,
+    reference,
+    memo,
+    sponsorKeypair,
+    priorityFeeMicroLamports = 50_000,
+  } = params;
 
   const usdcMint = isDevnet ? SOLANA_USDC_DEVNET : SOLANA_USDC_MAINNET;
   const rawAmount = BigInt(Math.round(amountUsdc * Math.pow(10, SOLANA_USDC_DECIMALS)));
@@ -129,10 +177,21 @@ export async function buildSolanaUsdcTransferTransaction(params: {
 
   const tx = new Transaction();
 
-  // 1. Ensure recipient ATA exists (idempotent creation)
+  // 1. Mainnet Congestion Protection: Compute Budget & Priority Fee
+  tx.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 200_000,
+    }),
+    ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: priorityFeeMicroLamports,
+    })
+  );
+
+  // 2. Ensure recipient ATA exists (idempotent creation prevents new user onboarding failures)
+  const feePayerPubkey = sponsorKeypair ? sponsorKeypair.publicKey : payer;
   tx.add(
     createAssociatedTokenAccountIdempotentInstruction(
-      payer, // payer for rent exemption
+      feePayerPubkey, // payer for rent exemption
       recipientAta,
       recipient, // owner of ATA
       usdcMint,
@@ -141,17 +200,19 @@ export async function buildSolanaUsdcTransferTransaction(params: {
     )
   );
 
-  // 2. Transfer SPL USDC tokens
-  const transferInstruction = createTransferInstruction(
+  // 3. Transfer SPL USDC tokens using TransferChecked (ensures exact mint + decimals)
+  const transferInstruction = createTransferCheckedInstruction(
     senderAta,
+    usdcMint,
     recipientAta,
     payer,
     rawAmount,
+    SOLANA_USDC_DECIMALS,
     [],
     TOKEN_PROGRAM_ID
   );
 
-  // 3. Attach reference key if provided (for Solana Pay tracking)
+  // 4. Attach ephemeral reference key for instant transaction discovery
   if (reference) {
     transferInstruction.keys.push({
       pubkey: reference,
@@ -162,10 +223,26 @@ export async function buildSolanaUsdcTransferTransaction(params: {
 
   tx.add(transferInstruction);
 
-  // 4. Fetch recent blockhash
+  // 5. Add SPL Memo v2 if provided
+  if (memo) {
+    tx.add(
+      new TransactionInstruction({
+        keys: [{ pubkey: payer, isSigner: true, isWritable: true }],
+        programId: SOLANA_MEMO_PROGRAM_ID,
+        data: Buffer.from(memo, "utf-8"),
+      })
+    );
+  }
+
+  // 6. Fetch recent blockhash
   const { blockhash } = await connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
-  tx.feePayer = payer;
+  tx.feePayer = feePayerPubkey;
+
+  // 7. If gasless sponsor keypair is present, partially sign as fee payer
+  if (sponsorKeypair) {
+    tx.partialSign(sponsorKeypair);
+  }
 
   return tx;
 }
@@ -183,3 +260,4 @@ export function generateSolanaPayReference(): {
     referenceKeypair: kp,
   };
 }
+
