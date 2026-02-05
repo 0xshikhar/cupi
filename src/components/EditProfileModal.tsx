@@ -98,37 +98,18 @@ export default function EditProfileModal({
         setIsLoading(true);
 
         try {
-            // Update username if changed
-            if (formData.username !== currentProfile?.username) {
-                const usernameResponse = await fetch("/api/users/update-username", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        walletAddress: userWalletAddress,
-                        username: formData.username,
-                    }),
-                });
-
-                if (!usernameResponse.ok) {
-                    const usernameData = await usernameResponse.json();
-                    toast.error(usernameData.error || "Failed to update username");
-                    setIsLoading(false);
-                    return;
-                }
-            }
-
-            // Update other profile fields
+            // Update username and all profile fields in one atomic server action
             const result = await updateUserProfile(userWalletAddress, formData);
             if (result.success) {
                 toast.success("Profile updated successfully!");
                 onProfileUpdate(result.user);
                 onClose();
             } else {
-                toast.error("Failed to update profile");
+                toast.error(result.error || "Failed to update profile");
             }
-        } catch (error) {
-            console.error(error);
-            toast.error("An error occurred");
+        } catch (error: any) {
+            console.error("Submit error:", error);
+            toast.error(error?.message || "An error occurred");
         } finally {
             setIsLoading(false);
         }

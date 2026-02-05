@@ -1,7 +1,7 @@
 "use client";
 
 import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Address,
   createPublicClient,
@@ -106,9 +106,12 @@ export function useSmartAccount(): SmartAccountState {
   });
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
 
-  // Sync user record to DB upon authentication
+  const syncedAddressRef = useRef<string | null>(null);
+
+  // Sync user record to DB upon authentication (once per address)
   useEffect(() => {
-    if (!ready || !authenticated || !address) return;
+    if (!ready || !authenticated || !address || syncedAddressRef.current === address) return;
+    syncedAddressRef.current = address;
 
     fetch("/api/auth/user", {
       method: "POST",
