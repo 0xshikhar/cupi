@@ -7,6 +7,7 @@ import jsQR from "jsqr";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { getUserProfile } from "@/app/actions/user";
+import { toast } from "sonner";
 
 export default function ScanPage() {
     const router = useRouter();
@@ -104,9 +105,52 @@ export default function ScanPage() {
         if (!data) return;
         setScannedResult(data);
         setIsScanning(false);
-        // Here you would navigate or process the data
-        // For now, we just verify it works
-        alert(`Scanned: ${data}`);
+        toast.success("QR Code recognized!");
+
+        // 1. Direct Cupi Claim link
+        if (data.includes("/claim/")) {
+            try {
+                const url = new URL(data);
+                router.push(url.pathname + url.hash);
+                return;
+            } catch {
+                if (data.startsWith("/claim/")) {
+                    router.push(data);
+                    return;
+                }
+            }
+        }
+
+        // 2. Solana Pay URL (solana:<recipient>?amount=...)
+        if (data.startsWith("solana:")) {
+            const cleanSolana = data.replace("solana:", "");
+            const [recipient, query] = cleanSolana.split("?");
+            router.push(`/send?recipient=${encodeURIComponent(recipient)}${query ? `&${query}` : ""}&rail=solana`);
+            return;
+        }
+
+        // 3. UPI QR Code (upi://pay?pa=...)
+        if (data.startsWith("upi://pay")) {
+            try {
+                const url = new URL(data);
+                const pa = url.searchParams.get("pa");
+                const am = url.searchParams.get("am");
+                router.push(`/send?recipient=${encodeURIComponent(pa || data)}${am ? `&amount=${am}` : ""}&rail=upi`);
+                return;
+            } catch {
+                router.push(`/send?recipient=${encodeURIComponent(data)}`);
+                return;
+            }
+        }
+
+        // 4. EVM URI (ethereum:0x...)
+        if (data.startsWith("ethereum:")) {
+            const cleanEth = data.replace("ethereum:", "").split("?")[0];
+            router.push(`/send?recipient=${encodeURIComponent(cleanEth)}&rail=evm`);
+            return;
+        }
+
+        // 5. Default address or username
         router.push(`/send?recipient=${encodeURIComponent(data)}`);
     };
 

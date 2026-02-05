@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { withAuth } from "@/modules/auth/server";
 
-export const GET = withAuth(async (request, { auth }) => {
+export const GET = async (request: Request) => {
     try {
         const { searchParams } = new URL(request.url);
         const address = searchParams.get('address');
@@ -64,4 +63,4 @@ export const GET = withAuth(async (request, { auth }) => {
             { status: 500 }
         );
     }
-});
+};

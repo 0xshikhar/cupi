@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send, QrCode, Phone, CreditCard } from "lucide-react";
+import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send, QrCode, Phone, CreditCard, Building2 } from "lucide-react";
 import Link from "next/link";
 import PayToUsernameModal from "@/components/PayToUsernameModal";
 import SolanaPayModal from "@/components/SolanaPayModal";
+import BankTransferModal from "@/components/BankTransferModal";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 export default function SendPage() {
@@ -13,6 +14,7 @@ export default function SendPage() {
     const { userWalletAddress } = useAuthWallet();
     const [isPayModalOpen, setIsPayModalOpen] = useState(false);
     const [isSolanaModalOpen, setIsSolanaModalOpen] = useState(false);
+    const [isBankModalOpen, setIsBankModalOpen] = useState(false);
 
     const handlePaymentSuccess = () => {
         // Refresh or update UI after successful payment
@@ -80,14 +82,17 @@ export default function SendPage() {
 
             {/* Methods List */}
             <div className="space-y-3">
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
+                <div 
+                    onClick={() => setIsPayModalOpen(true)}
+                    className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
+                >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400">
                             <User size={20} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-sm">Contacts</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Recent contacts</p>
+                            <h3 className="font-bold text-sm">Contacts & Directory</h3>
+                            <p className="text-xs text-muted-foreground font-medium">Search handles, phone, or address</p>
                         </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground" />
@@ -103,7 +108,7 @@ export default function SendPage() {
                         </div>
                         <div>
                             <h3 className="font-bold text-sm">Scan QR Code</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Scan to pay</p>
+                            <p className="text-xs text-muted-foreground font-medium">Scan Solana Pay or Cupi QR</p>
                         </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground" />
@@ -130,7 +135,7 @@ export default function SendPage() {
                     className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
                 >
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400">
+                        <div className="w-10 h-10 bg-teal-500/10 rounded-full flex items-center justify-center text-teal-400">
                             <Zap size={20} />
                         </div>
                         <div>
@@ -146,14 +151,17 @@ export default function SendPage() {
                     <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
 
-                <div className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors">
+                <div 
+                    onClick={() => setIsBankModalOpen(true)}
+                    className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
+                >
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-400">
-                            <CreditCard size={20} />
+                            <Building2 size={20} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-sm">Bank Transfer</h3>
-                            <p className="text-xs text-muted-foreground font-medium">USD, EUR, local banks</p>
+                            <h3 className="font-bold text-sm">Bank Transfer (Off-Ramp)</h3>
+                            <p className="text-xs text-muted-foreground font-medium">USD ACH, EUR SEPA via Bridge.xyz</p>
                         </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground" />
@@ -172,6 +180,13 @@ export default function SendPage() {
             <SolanaPayModal
                 isOpen={isSolanaModalOpen}
                 onClose={() => setIsSolanaModalOpen(false)}
+            />
+
+            {/* Bank Transfer Modal */}
+            <BankTransferModal
+                isOpen={isBankModalOpen}
+                onClose={() => setIsBankModalOpen(false)}
+                walletAddress={userWalletAddress}
             />
         </div>
     );

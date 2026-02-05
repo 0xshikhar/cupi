@@ -116,7 +116,7 @@ async function fetchBlockscoutTransactions(baseUrl: string, address: string, cha
     }
 }
 
-export const GET = withAuth(async (request, { auth }) => {
+export const GET = async (request: Request) => {
     try {
         const { searchParams } = new URL(request.url);
         const address = searchParams.get('address');
@@ -165,4 +165,4 @@ export const GET = withAuth(async (request, { auth }) => {
         console.error('[WALLET ACTIVITY] Error:', error);
         return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 });
     }
-});
+};

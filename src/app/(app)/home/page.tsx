@@ -9,6 +9,8 @@ import { toast } from "sonner";
 
 import { getUserNotifications } from "@/app/actions/user";
 import { useActivityFeed, ActivityItem } from "@/modules/activity/hooks/useActivityFeed";
+import { RewardsModal } from "@/components/profile/ProfileModals";
+import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 
 export default function DashboardPage() {
   const {
@@ -20,6 +22,8 @@ export default function DashboardPage() {
   } = useAuthWallet();
 
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [isRewardsOpen, setIsRewardsOpen] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [balance, setBalance] = useState<string>("0.00");
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
@@ -177,7 +181,10 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        <div className="flex items-center gap-1.5 font-bold cursor-pointer hover:opacity-70 bg-secondary/30 px-3 py-1.5 rounded-full border border-border">
+        <div 
+          onClick={() => setIsRewardsOpen(true)}
+          className="flex items-center gap-1.5 font-bold cursor-pointer hover:opacity-70 bg-secondary/30 px-3 py-1.5 rounded-full border border-border transition-all"
+        >
           <Sparkles size={14} className="text-primary fill-primary" />
           <span className="text-sm">Points</span>
         </div>
@@ -243,7 +250,8 @@ export default function DashboardPage() {
             {recentActivity.map((item) => (
               <div
                 key={item.id}
-                className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors cursor-pointer"
+                onClick={() => setSelectedActivity(item)}
+                className="cupi-card p-4 flex items-center justify-between hover:bg-secondary/40 active:scale-[0.99] transition-all cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.type === 'NOTIFICATION'
@@ -284,11 +292,25 @@ export default function DashboardPage() {
         {/* Wallet address is now hidden by default - accessible only in settings if needed */}
       </div>
 
+      {/* Transaction Detail Modal */}
+      <TransactionDetailModal
+        item={selectedActivity}
+        onClose={() => setSelectedActivity(null)}
+      />
+
       {/* Top Up Modal */}
       <TopUpModal
         isOpen={isTopUpOpen}
         onClose={() => setIsTopUpOpen(false)}
         onSuccess={handleTopUpSuccess}
+      />
+
+      {/* Rewards Modal */}
+      <RewardsModal
+        isOpen={isRewardsOpen}
+        onClose={() => setIsRewardsOpen(false)}
+        points={250}
+        username={username}
       />
     </div>
   );
