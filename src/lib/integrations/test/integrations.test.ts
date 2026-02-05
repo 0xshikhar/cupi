@@ -74,6 +74,38 @@ describe("Fintech Infrastructure Services (Ihsan Pay Stack)", () => {
       const decision3 = RainCardsService.evaluateAuthorization(auth, 1000, 900, 1000);
       expect(decision3.approved).toBe(false);
       expect(decision3.reason).toBe("MONTHLY_SPEND_LIMIT_EXCEEDED");
+
+      // Frozen card rejection
+      const decision4 = RainCardsService.evaluateAuthorization(auth, 1000, 100, 1000, "frozen");
+      expect(decision4.approved).toBe(false);
+      expect(decision4.reason).toBe("CARD_FROZEN");
+    });
+
+    it("should toggle freeze state and update spend limits dynamically", async () => {
+      const wallet = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
+      const card = await RainCardsService.issueVirtualCard({
+        userId: "usr_789",
+        userWalletAddress: wallet,
+        cardholderName: "Bob Jones",
+        spendingLimitMonthlyUsd: 1000,
+      });
+
+      expect(card.status).toBe("active");
+
+      // Freeze card
+      RainCardsService.setCardFreezeState(wallet, true);
+      let updated = await RainCardsService.getCard(wallet);
+      expect(updated?.status).toBe("frozen");
+
+      // Unfreeze card
+      RainCardsService.setCardFreezeState(wallet, false);
+      updated = await RainCardsService.getCard(wallet);
+      expect(updated?.status).toBe("active");
+
+      // Update spend limit
+      RainCardsService.updateMonthlyLimit(wallet, 4500);
+      updated = await RainCardsService.getCard(wallet);
+      expect(updated?.spendingLimitMonthlyUsd).toBe(4500);
     });
   });
 
