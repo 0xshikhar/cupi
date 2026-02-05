@@ -8,22 +8,46 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const query = searchParams.get('q');
         const address = searchParams.get('address');
+        const suggested = searchParams.get('suggested');
+        const excludeAddress = searchParams.get('exclude');
 
         type SearchUser = {
             id: string;
             username: string | null;
             fullName: string | null;
             walletAddress: string;
+            agentWalletAddress?: string | null;
         };
 
-        if (!query && !address) {
-            return NextResponse.json(
-                { error: 'Search query or address is required' },
-                { status: 400 }
-            );
-        }
+        // If asking for suggested contacts or empty query
+        if (suggested === 'true' || (!query && !address)) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(excludeAddress ? {
+                        walletAddress: {
+                            not: excludeAddress,
+                            mode: 'insensitive'
+                        }
+                    } : {}),
+                    username: {
+                        not: null
+                    }
+                },
+                select: {
+                    id: true,
+                    username: true,
+                    fullName: true,
+                    walletAddress: true,
+                    agentWalletAddress: true,
+                },
+                orderBy: {
+                    updatedAt: 'desc'
+                },
+                take: 6,
+            });
 
-        console.log('[USER SEARCH] Searching for:', query || address);
+            return NextResponse.json({ users });
+        }
 
         let users: SearchUser[] = [];
 
@@ -41,6 +65,7 @@ export async function GET(request: Request) {
                     username: true,
                     fullName: true,
                     walletAddress: true,
+                    agentWalletAddress: true,
                 },
                 take: 1,
             });
@@ -75,12 +100,11 @@ export async function GET(request: Request) {
                     username: true,
                     fullName: true,
                     walletAddress: true,
+                    agentWalletAddress: true,
                 },
                 take: 10,
             });
         }
-
-        console.log('[USER SEARCH] Found', users.length, 'users');
 
         return NextResponse.json({ users });
     } catch (error) {

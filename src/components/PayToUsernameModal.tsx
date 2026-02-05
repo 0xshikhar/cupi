@@ -29,6 +29,8 @@ export default function PayToUsernameModal({
     const [step, setStep] = useState<"search" | "amount" | "confirm" | "processing" | "success">("search");
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<User[]>([]);
+    const [suggestedUsers, setSuggestedUsers] = useState<User[]>([]);
+    const [isLoadingSuggested, setIsLoadingSuggested] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [amount, setAmount] = useState("");
     const [token, setToken] = useState<"ETH" | "USDC">("ETH");
@@ -38,6 +40,29 @@ export default function PayToUsernameModal({
 
     const { sendToken } = useSmartAccount();
     const { getAccessToken } = usePrivy();
+
+    // Fetch suggested contacts on open
+    useEffect(() => {
+        if (!isOpen) return;
+        const fetchSuggested = async () => {
+            setIsLoadingSuggested(true);
+            try {
+                const url = senderWalletAddress
+                    ? `/api/users/search?suggested=true&exclude=${encodeURIComponent(senderWalletAddress)}`
+                    : `/api/users/search?suggested=true`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (res.ok && data.users) {
+                    setSuggestedUsers(data.users);
+                }
+            } catch (err) {
+                console.warn("[PAYMENT MODAL] Failed to fetch suggested users:", err);
+            } finally {
+                setIsLoadingSuggested(false);
+            }
+        };
+        fetchSuggested();
+    }, [isOpen, senderWalletAddress]);
 
     // Search users as user types
     useEffect(() => {
@@ -208,8 +233,10 @@ export default function PayToUsernameModal({
                                 </div>
                             )}
 
+                            {/* Search Results */}
                             {!isSearching && searchResults.length > 0 && (
                                 <div className="space-y-2">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Search Results</p>
                                     {searchResults.map((user) => (
                                         <button
                                             key={user.id}
@@ -219,7 +246,7 @@ export default function PayToUsernameModal({
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
                                                     <span className="font-bold text-primary">
-                                                        {user.username?.charAt(0).toUpperCase()}
+                                                        {user.username ? user.username.charAt(0).toUpperCase() : "U"}
                                                     </span>
                                                 </div>
                                                 <div className="text-left">
@@ -232,6 +259,44 @@ export default function PayToUsernameModal({
                                             <ArrowRight size={20} className="text-muted-foreground" />
                                         </button>
                                     ))}
+                                </div>
+                            )}
+
+                            {/* Suggested / Recent Contacts when empty query */}
+                            {!isSearching && searchQuery.trim().length < 2 && (
+                                <div className="space-y-2 pt-1">
+                                    <div className="flex items-center justify-between px-1">
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Suggested Contacts</p>
+                                        {isLoadingSuggested && <Loader2 className="animate-spin text-muted-foreground" size={14} />}
+                                    </div>
+                                    {suggestedUsers.length > 0 ? (
+                                        suggestedUsers.map((user) => (
+                                            <button
+                                                key={user.id}
+                                                onClick={() => handleSelectUser(user)}
+                                                className="w-full p-3.5 bg-secondary/60 hover:bg-secondary rounded-xl flex items-center justify-between transition-colors border border-border/40"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-primary/15 rounded-full flex items-center justify-center border border-primary/20">
+                                                        <span className="font-bold text-sm text-primary">
+                                                            {user.username ? user.username.charAt(0).toUpperCase() : "U"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="font-bold text-sm">{user.username ? `@${user.username}` : `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}`}</p>
+                                                        {user.fullName && (
+                                                            <p className="text-xs text-muted-foreground">{user.fullName}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <ArrowRight size={18} className="text-muted-foreground" />
+                                            </button>
+                                        ))
+                                    ) : !isLoadingSuggested && (
+                                        <div className="text-center py-6 text-muted-foreground text-sm">
+                                            <p>Type a username, phone number, or 0x address above</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

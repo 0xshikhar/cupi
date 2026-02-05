@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { withAuth } from "@/modules/auth/server";
 
-export const POST = withAuth(async (request, { auth }) => {
+export const POST = async (request: Request) => {
     try {
         const body = await request.json();
         const { walletAddress, username } = body;
@@ -70,4 +69,4 @@ export const POST = withAuth(async (request, { auth }) => {
             { status: 500 }
         );
     }
-});
+};

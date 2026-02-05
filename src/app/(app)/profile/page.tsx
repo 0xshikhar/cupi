@@ -9,17 +9,38 @@ import { getUserProfile } from "@/app/actions/user";
 import { toast } from "sonner";
 
 import EditProfileModal from "@/components/EditProfileModal";
+import {
+    PaymentMethodsModal,
+    LanguageRegionModal,
+    PrivacySecurityModal,
+    DeveloperSettingsModal,
+    HelpSupportModal,
+    LegalModal,
+    RewardsModal
+} from "@/components/profile/ProfileModals";
 
 export default function ProfilePage() {
     const router = useRouter();
     const { userWalletAddress } = useAuthWallet();
-    const { exportWallet } = usePrivy();
+    const { exportWallet, logout } = usePrivy();
     const [profile, setProfile] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [showFullName, setShowFullName] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [username, setUsername] = useState<string | null>(null);
+
+    // Modal state controllers
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+    const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+    const [isDevModalOpen, setIsDevModalOpen] = useState(false);
+    const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+    const [legalModalConfig, setLegalModalConfig] = useState<{ isOpen: boolean; tab: "terms" | "privacy" }>({
+        isOpen: false,
+        tab: "terms"
+    });
+    const [isRewardsModalOpen, setIsRewardsModalOpen] = useState(false);
 
     useEffect(() => {
         // Load showFullName preference from localStorage
@@ -62,16 +83,29 @@ export default function ProfilePage() {
         localStorage.setItem("showFullName", JSON.stringify(newValue));
     };
 
+    const handleSignOut = async () => {
+        try {
+            if (typeof logout === "function") {
+                await logout();
+            }
+            toast.success("Signed out successfully");
+            router.push("/get-started");
+        } catch (error) {
+            console.error("Logout error:", error);
+            router.push("/get-started");
+        }
+    };
+
     const menuItems = [
-        { icon: Award, label: "Your Badges", href: "#", badge: "New" },
-        { icon: Sparkles, label: "Points & Rewards", href: "#", value: profile?.points || "0" },
+        { icon: Award, label: "Your Badges", onClick: () => setIsRewardsModalOpen(true), badge: "Active" },
+        { icon: Sparkles, label: "Points & Rewards", onClick: () => setIsRewardsModalOpen(true), value: profile?.points || "250" },
     ];
 
     const settingsItems = [
         { icon: User, label: "Personal details", onClick: () => setIsEditModalOpen(true) },
-        { icon: CreditCard, label: "Payment Methods", onClick: () => { } },
-        { icon: Globe, label: "Language & Region", onClick: () => { } },
-        { icon: ShieldCheck, label: "Privacy & Security", onClick: () => { } },
+        { icon: CreditCard, label: "Payment Methods", onClick: () => setIsPaymentModalOpen(true) },
+        { icon: Globe, label: "Language & Region", onClick: () => setIsLanguageModalOpen(true) },
+        { icon: ShieldCheck, label: "Privacy & Security", onClick: () => setIsPrivacyModalOpen(true) },
     ];
 
     const advancedItems = [
@@ -87,14 +121,36 @@ export default function ProfilePage() {
             },
             description: "Self-custody private key and recovery backup",
         },
-        { icon: Settings, label: "Developer Settings", onClick: () => { }, description: "API keys and integrations" },
-        { icon: Cloud, label: "Admin Dashboard", onClick: () => router.push("/admin"), description: "Operations, links, and reconciliation" },
+        { 
+            icon: Settings, 
+            label: "Developer Settings", 
+            onClick: () => setIsDevModalOpen(true), 
+            description: "API endpoints, health ping, and Solana Actions" 
+        },
+        { 
+            icon: Cloud, 
+            label: "Admin Dashboard", 
+            onClick: () => router.push("/admin"), 
+            description: "Operations, links, and reconciliation" 
+        },
     ];
 
     const supportItems = [
-        { icon: HelpCircle, label: "Help & Support", onClick: () => { } },
-        { icon: FileText, label: "Terms of Service", onClick: () => { } },
-        { icon: ShieldCheck, label: "Privacy Policy", onClick: () => { } },
+        { 
+            icon: HelpCircle, 
+            label: "Help & Support", 
+            onClick: () => setIsSupportModalOpen(true) 
+        },
+        { 
+            icon: FileText, 
+            label: "Terms of Service", 
+            onClick: () => setLegalModalConfig({ isOpen: true, tab: "terms" }) 
+        },
+        { 
+            icon: ShieldCheck, 
+            label: "Privacy Policy", 
+            onClick: () => setLegalModalConfig({ isOpen: true, tab: "privacy" }) 
+        },
     ];
 
     if (!userWalletAddress) {
@@ -116,7 +172,10 @@ export default function ProfilePage() {
                     <ArrowLeft size={20} />
                 </button>
 
-                <button className="p-2 border border-border rounded-lg hover:bg-secondary transition-colors">
+                <button 
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="p-2 border border-border rounded-lg hover:bg-secondary transition-colors"
+                >
                     <Settings size={20} />
                 </button>
             </div>
@@ -151,7 +210,10 @@ export default function ProfilePage() {
                 </div>
 
                 {/* User ID - Hidden behind expandable section */}
-                <div className="bg-secondary/30 border border-border rounded-full px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-secondary/50 transition-colors">
+                <div 
+                    onClick={() => handleCopy(userWalletAddress)}
+                    className="bg-secondary/30 border border-border rounded-full px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-secondary/50 transition-colors"
+                >
                     <span className="text-xs font-medium text-muted-foreground">User ID: {userWalletAddress.slice(0, 8)}...{userWalletAddress.slice(-4)}</span>
                     <Copy size={12} className="text-muted-foreground" />
                 </div>
@@ -160,7 +222,11 @@ export default function ProfilePage() {
             {/* Main Menu Group */}
             <div className="cupi-card overflow-hidden divide-y divide-border">
                 {menuItems.map((item, index) => (
-                    <div key={index} className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group">
+                    <div 
+                        key={index} 
+                        onClick={item.onClick}
+                        className="p-5 flex items-center justify-between hover:bg-secondary/50 cursor-pointer transition-colors group"
+                    >
                         <div className="flex items-center gap-4 group-hover:gap-5 transition-all">
                             <item.icon size={22} className="text-primary" />
                             <span className="font-bold text-sm">{item.label}</span>
@@ -236,7 +302,7 @@ export default function ProfilePage() {
                                     <div className="flex flex-col">
                                         <span className="font-bold text-sm">{item.label}</span>
                                         {item.description && (
-                                            <span className="text-xs text-muted-foreground">{item.description}</span>
+                                             <span className="text-xs text-muted-foreground">{item.description}</span>
                                         )}
                                     </div>
                                 </div>
@@ -265,11 +331,15 @@ export default function ProfilePage() {
             </div>
 
             {/* Logout Button */}
-            <button className="cupi-card p-5 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            <button 
+                onClick={handleSignOut}
+                className="cupi-card p-5 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+            >
                 <LogOut size={20} />
                 <span className="font-bold text-sm">Sign Out</span>
             </button>
 
+            {/* Modals */}
             <EditProfileModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
@@ -277,6 +347,52 @@ export default function ProfilePage() {
                 currentProfile={profile}
                 onProfileUpdate={handleProfileUpdate}
             />
+
+            <PaymentMethodsModal
+                isOpen={isPaymentModalOpen}
+                onClose={() => setIsPaymentModalOpen(false)}
+                walletAddress={userWalletAddress}
+                username={username}
+            />
+
+            <LanguageRegionModal
+                isOpen={isLanguageModalOpen}
+                onClose={() => setIsLanguageModalOpen(false)}
+            />
+
+            <PrivacySecurityModal
+                isOpen={isPrivacyModalOpen}
+                onClose={() => setIsPrivacyModalOpen(false)}
+                walletAddress={userWalletAddress}
+                onExportKeys={() => {
+                    if (typeof exportWallet === "function") exportWallet();
+                }}
+            />
+
+            <DeveloperSettingsModal
+                isOpen={isDevModalOpen}
+                onClose={() => setIsDevModalOpen(false)}
+            />
+
+            <HelpSupportModal
+                isOpen={isSupportModalOpen}
+                onClose={() => setIsSupportModalOpen(false)}
+                walletAddress={userWalletAddress}
+            />
+
+            <LegalModal
+                isOpen={legalModalConfig.isOpen}
+                onClose={() => setLegalModalConfig(prev => ({ ...prev, isOpen: false }))}
+                initialTab={legalModalConfig.tab}
+            />
+
+            <RewardsModal
+                isOpen={isRewardsModalOpen}
+                onClose={() => setIsRewardsModalOpen(false)}
+                points={profile?.points || 250}
+                username={username}
+            />
         </div>
     );
 }
+
