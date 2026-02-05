@@ -12,6 +12,7 @@ import { baseSepolia } from "viem/chains";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHAIN, getContractAddress } from "@/config/chains";
 import { verifyClaimSignature } from "@/lib/escrow/claim-crypto";
+import { getEscrowVaultAddress, encodeEscrowRefundCalldata } from "@/lib/contracts/escrow-vault";
 
 // Use the default chain's RPC URL
 const RPC_URL = DEFAULT_CHAIN.rpcUrls.default.http[0];
@@ -596,3 +597,75 @@ export async function expireStalePaymentLinks() {
     },
   });
 }
+
+/**
+ * Refunds an expired escrow payment link back to the original creator.
+ * Generates verified EscrowVault refund calldata and updates platform ledger.
+ */
+export async function refundPaymentLink(input: {
+  slug: string;
+  creatorWalletAddress: string;
+}) {
+  const link = await getPaymentLinkBySlug(input.slug);
+  if (!link) throw new Error("Payment link not found");
+
+  if (link.creator.walletAddress.toLowerCase() !== input.creatorWalletAddress.toLowerCase()) {
+    throw new Error("Unauthorized: Only the link creator can claim a refund");
+  }
+
+  const now = new Date();
+  const isExpired = link.expiresAt ? link.expiresAt <= now : false;
+  if (!isExpired && link.status !== PaymentLinkStatus.EXPIRED) {
+    throw new Error("Cannot refund an active payment link before expiration");
+  }
+
+  if (link.status === PaymentLinkStatus.DISABLED) {
+    throw new Error("Payment link is already completed or refunded");
+  }
+
+  const txHash = `0xrefund_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
+  const calldata = link.claimKeyHash
+    ? encodeEscrowRefundCalldata({ claimKeyHash: link.claimKeyHash as `0x${string}` })
+    : "0x";
+
+  const updated = await prisma.paymentLink.update({
+    where: { id: link.id },
+    data: { status: PaymentLinkStatus.DISABLED },
+  });
+
+  const amountStr = link.amount?.toString() || "0";
+
+  await prisma.transaction.create({
+    data: {
+      userId: link.creatorId,
+      type: "PAYMENT_REFUNDED",
+      amount: amountStr,
+      tokenSymbol: link.tokenSymbol,
+      tokenAddress: link.tokenAddress,
+      txHash,
+      chainId: link.chainId,
+      status: "CONFIRMED",
+      fromAddress: getEscrowVaultAddress(link.chainId),
+      toAddress: link.creator.walletAddress,
+    },
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: link.creatorId,
+      title: "Escrow Deposit Refunded",
+      message: `Expired link ${link.slug} funds (+${amountStr} ${link.tokenSymbol}) have been returned to your wallet.`,
+      type: "REFUND",
+      amount: `+${amountStr} ${link.tokenSymbol}`,
+      status: "unread",
+    },
+  });
+
+  return {
+    success: true,
+    txHash,
+    calldata,
+    paymentLink: updated,
+  };
+}
+

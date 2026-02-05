@@ -178,3 +178,30 @@ export function getIdempotencyKey(request: Request): string | null {
 export function _clearIdempotencyStore() {
   memoryStore.clear();
 }
+
+/**
+ * Maintenance Worker: Purges expired idempotency records past TTL.
+ */
+export async function cleanupExpiredIdempotencyRecords(): Promise<{ deletedCount: number }> {
+  try {
+    const res = await prisma.idempotencyRecord.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+    return { deletedCount: res.count };
+  } catch (err) {
+    let count = 0;
+    const now = Date.now();
+    for (const [key, value] of memoryStore.entries()) {
+      if (now - value.createdAt > TTL_MS) {
+        memoryStore.delete(key);
+        count++;
+      }
+    }
+    return { deletedCount: count };
+  }
+}
+

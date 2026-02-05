@@ -122,14 +122,44 @@ export function parseSolanaPayUrl(rawUrl: string): SolanaPayUrlParams {
 }
 
 /**
+ * Estimates dynamic priority fees based on recent cluster congestion.
+ * Uses 75th percentile of recent transactions to guarantee inclusion in congested blocks.
+ */
+export async function estimateDynamicPriorityFee(
+  connection: Connection,
+  defaultMicroLamports: number = 50_000
+): Promise<number> {
+  try {
+    const recentFees = await connection.getRecentPrioritizationFees();
+    if (!recentFees || recentFees.length === 0) return defaultMicroLamports;
+
+    const positiveFees = recentFees
+      .map((f) => f.prioritizationFee)
+      .filter((fee) => fee > 0)
+      .sort((a, b) => a - b);
+
+    if (positiveFees.length === 0) return defaultMicroLamports;
+
+    const p75Index = Math.floor(positiveFees.length * 0.75);
+    const estimated = positiveFees[p75Index];
+
+    // Cap between default floor and reasonable max (e.g. 500,000 microLamports = ~0.0001 SOL)
+    return Math.min(Math.max(estimated, defaultMicroLamports), 500_000);
+  } catch {
+    return defaultMicroLamports;
+  }
+}
+
+/**
  * Builds an atomic SPL Token (USDC) transfer transaction on Solana.
  * Features:
  * 1. Priority Fees & Compute Budget (resilient under 10k-user mainnet congestion)
- * 2. Idempotent Associated Token Account (ATA) creation
- * 3. TransferChecked instruction for strict mint & decimal safety
- * 4. Ephemeral reference key for sub-second confirmation
- * 5. SPL Memo v2 for transparent on-chain audit trail
- * 6. Gasless relayer support (if Ihsan/Cupi sponsor key is available)
+ * 2. Dynamic fee estimation via getRecentPrioritizationFees
+ * 3. Idempotent Associated Token Account (ATA) creation
+ * 4. TransferChecked instruction for strict mint & decimal safety
+ * 5. Ephemeral reference key for sub-second confirmation
+ * 6. SPL Memo v2 for transparent on-chain audit trail
+ * 7. Gasless relayer support (if Ihsan/Cupi sponsor key is available)
  */
 export async function buildSolanaUsdcTransferTransaction(params: {
   connection: Connection;
@@ -151,8 +181,13 @@ export async function buildSolanaUsdcTransferTransaction(params: {
     reference,
     memo,
     sponsorKeypair,
-    priorityFeeMicroLamports = 50_000,
+    priorityFeeMicroLamports,
   } = params;
+
+  // Resolve dynamic priority fee if not specified
+  const effectivePriorityFee = priorityFeeMicroLamports !== undefined
+    ? priorityFeeMicroLamports
+    : await estimateDynamicPriorityFee(connection);
 
   const usdcMint = isDevnet ? SOLANA_USDC_DEVNET : SOLANA_USDC_MAINNET;
   const rawAmount = BigInt(Math.round(amountUsdc * Math.pow(10, SOLANA_USDC_DECIMALS)));
@@ -183,7 +218,7 @@ export async function buildSolanaUsdcTransferTransaction(params: {
       units: 200_000,
     }),
     ComputeBudgetProgram.setComputeUnitPrice({
-      microLamports: priorityFeeMicroLamports,
+      microLamports: effectivePriorityFee,
     })
   );
 

@@ -28,6 +28,9 @@ export interface RainAuthRequest {
   merchantMcc: string;
 }
 
+// In-memory registry for cards during execution
+const cardStore = new Map<string, RainVirtualCard>();
+
 /**
  * Rain Cards Integration Service
  * Powers virtual cards backed by self-custodial stablecoin balances.
@@ -45,7 +48,7 @@ export class RainCardsService {
     const expYear = String(now.getFullYear() + 3);
     const expMonth = String(now.getMonth() + 1).padStart(2, "0");
 
-    return {
+    const card: RainVirtualCard = {
       id: cardId,
       cardholderName: params.cardholderName,
       lastFour: `${Math.floor(1000 + Math.random() * 9000)}`,
@@ -54,21 +57,65 @@ export class RainCardsService {
       status: "active",
       spendingLimitMonthlyUsd: params.spendingLimitMonthlyUsd,
       currentSpendUsd: 0,
-      walletAddress: params.userWalletAddress,
+      walletAddress: params.userWalletAddress.toLowerCase(),
       createdAt: now.toISOString(),
     };
+
+    cardStore.set(card.id, card);
+    cardStore.set(card.walletAddress, card);
+    return card;
+  }
+
+  /**
+   * Retrieves active card for a given wallet address or card ID.
+   */
+  static async getCard(identifier: string): Promise<RainVirtualCard | null> {
+    return cardStore.get(identifier.toLowerCase()) || null;
+  }
+
+  /**
+   * Freezes a card to reject point-of-sale authorizations immediately.
+   */
+  static setCardFreezeState(identifier: string, freeze: boolean): boolean {
+    const card = cardStore.get(identifier.toLowerCase());
+    if (!card) return false;
+    card.status = freeze ? "frozen" : "active";
+    cardStore.set(card.id, card);
+    cardStore.set(card.walletAddress, card);
+    return true;
+  }
+
+  /**
+   * Updates monthly spend limit for a card.
+   */
+  static updateMonthlyLimit(identifier: string, limitUsd: number): boolean {
+    const card = cardStore.get(identifier.toLowerCase());
+    if (!card || limitUsd <= 0) return false;
+    card.spendingLimitMonthlyUsd = limitUsd;
+    cardStore.set(card.id, card);
+    cardStore.set(card.walletAddress, card);
+    return true;
   }
 
   /**
    * Real-time authorization decision engine for incoming card swipes.
-   * Evaluates user balance and guardrails before approving charge.
+   * Evaluates user balance, card freeze state, and guardrails before approving charge.
    */
   static evaluateAuthorization(
     auth: RainAuthRequest,
     userUsdcBalance: number,
     currentMonthlySpend: number,
-    monthlyLimit: number
+    monthlyLimit: number,
+    cardStatus: "active" | "frozen" | "closed" = "active"
   ): { approved: boolean; reason?: string } {
+    if (cardStatus === "frozen") {
+      return { approved: false, reason: "CARD_FROZEN" };
+    }
+
+    if (cardStatus === "closed") {
+      return { approved: false, reason: "CARD_CLOSED" };
+    }
+
     if (auth.amountUsd > userUsdcBalance) {
       return { approved: false, reason: "INSUFFICIENT_FUNDS" };
     }
