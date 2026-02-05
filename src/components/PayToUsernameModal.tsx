@@ -17,6 +17,8 @@ interface PayToUsernameModalProps {
     isOpen: boolean;
     onClose: () => void;
     senderWalletAddress: string | null;
+    initialRecipient?: string | null;
+    initialAmount?: string | null;
     onPaymentSuccess?: () => void;
 }
 
@@ -24,6 +26,8 @@ export default function PayToUsernameModal({
     isOpen,
     onClose,
     senderWalletAddress,
+    initialRecipient,
+    initialAmount,
     onPaymentSuccess,
 }: PayToUsernameModalProps) {
     const [step, setStep] = useState<"search" | "amount" | "confirm" | "processing" | "success">("search");
@@ -40,6 +44,41 @@ export default function PayToUsernameModal({
 
     const { sendToken } = useSmartAccount();
     const { getAccessToken } = usePrivy();
+
+    // Auto-advance if initial recipient is passed (e.g. from QR scan or Deep link)
+    useEffect(() => {
+        if (!isOpen) return;
+        if (initialRecipient) {
+            const is0x = initialRecipient.startsWith("0x") && initialRecipient.length === 42;
+            const cleanUser = initialRecipient.startsWith("@") ? initialRecipient.slice(1) : initialRecipient;
+            setSelectedUser({
+                id: initialRecipient,
+                username: is0x ? "" : cleanUser,
+                fullName: null,
+                walletAddress: is0x ? initialRecipient : "",
+            });
+            if (initialAmount) {
+                setAmount(initialAmount);
+                setStep("confirm");
+            } else {
+                setStep("amount");
+            }
+
+            fetch(`/api/resolve?identifier=${encodeURIComponent(initialRecipient)}`)
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.resolved && data.walletAddress) {
+                        setSelectedUser({
+                            id: data.user?.id || data.walletAddress,
+                            username: data.user?.username || cleanUser,
+                            fullName: data.user?.fullName || null,
+                            walletAddress: data.walletAddress,
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [isOpen, initialRecipient, initialAmount]);
 
     // Fetch suggested contacts on open
     useEffect(() => {

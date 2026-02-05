@@ -1,23 +1,44 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Archive, Zap, Wallet, Send, QrCode, Phone, CreditCard, Building2 } from "lucide-react";
-import Link from "next/link";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Zap, Send, QrCode, Phone, Building2, Loader2 } from "lucide-react";
 import PayToUsernameModal from "@/components/PayToUsernameModal";
 import SolanaPayModal from "@/components/SolanaPayModal";
 import BankTransferModal from "@/components/BankTransferModal";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
-export default function SendPage() {
+function SendContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { userWalletAddress } = useAuthWallet();
+
     const [isPayModalOpen, setIsPayModalOpen] = useState(false);
     const [isSolanaModalOpen, setIsSolanaModalOpen] = useState(false);
     const [isBankModalOpen, setIsBankModalOpen] = useState(false);
 
+    const [targetRecipient, setTargetRecipient] = useState<string | null>(null);
+    const [targetAmount, setTargetAmount] = useState<string | null>(null);
+
+    // Auto-open modal if URL parameters exist (e.g. from QR scan)
+    useEffect(() => {
+        const recipientParam = searchParams.get("recipient");
+        const amountParam = searchParams.get("amount");
+        const railParam = searchParams.get("rail");
+
+        if (recipientParam) {
+            setTargetRecipient(recipientParam);
+            if (amountParam) setTargetAmount(amountParam);
+
+            if (railParam === "solana") {
+                setIsSolanaModalOpen(true);
+            } else {
+                setIsPayModalOpen(true);
+            }
+        }
+    }, [searchParams]);
+
     const handlePaymentSuccess = () => {
-        // Refresh or update UI after successful payment
         console.log("Payment successful!");
     };
 
@@ -42,11 +63,15 @@ export default function SendPage() {
                 <div>
                     <h2 className="font-bold text-lg">Pay by Username</h2>
                     <p className="text-muted-foreground font-medium text-sm mt-1">
-                        Send money to friends instantly using their username.
+                        Send money to friends instantly using their username or 0x address.
                     </p>
                 </div>
                 <button
-                    onClick={() => setIsPayModalOpen(true)}
+                    onClick={() => {
+                        setTargetRecipient(null);
+                        setTargetAmount(null);
+                        setIsPayModalOpen(true);
+                    }}
                     className="btn-primary w-full flex items-center justify-center gap-2"
                 >
                     <Send size={18} />
@@ -62,7 +87,7 @@ export default function SendPage() {
                 <div>
                     <h2 className="font-bold text-lg">Send via Link</h2>
                     <p className="text-muted-foreground font-medium text-sm mt-1">
-                        Create a payment link to share anywhere.
+                        Create an encrypted payment link to share on WhatsApp or Telegram.
                     </p>
                 </div>
                 <button
@@ -83,7 +108,11 @@ export default function SendPage() {
             {/* Methods List */}
             <div className="space-y-3">
                 <div 
-                    onClick={() => setIsPayModalOpen(true)}
+                    onClick={() => {
+                        setTargetRecipient(null);
+                        setTargetAmount(null);
+                        setIsPayModalOpen(true);
+                    }}
                     className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
                 >
                     <div className="flex items-center gap-4">
@@ -115,7 +144,11 @@ export default function SendPage() {
                 </div>
 
                 <div
-                    onClick={() => setIsPayModalOpen(true)}
+                    onClick={() => {
+                        setTargetRecipient(null);
+                        setTargetAmount(null);
+                        setIsPayModalOpen(true);
+                    }}
                     className="cupi-card p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/40 transition-colors"
                 >
                     <div className="flex items-center gap-4">
@@ -171,15 +204,27 @@ export default function SendPage() {
             {/* Payment Modal */}
             <PayToUsernameModal
                 isOpen={isPayModalOpen}
-                onClose={() => setIsPayModalOpen(false)}
+                onClose={() => {
+                    setIsPayModalOpen(false);
+                    setTargetRecipient(null);
+                    setTargetAmount(null);
+                }}
                 senderWalletAddress={userWalletAddress}
+                initialRecipient={targetRecipient}
+                initialAmount={targetAmount}
                 onPaymentSuccess={handlePaymentSuccess}
             />
 
             {/* Solana Pay Modal */}
             <SolanaPayModal
                 isOpen={isSolanaModalOpen}
-                onClose={() => setIsSolanaModalOpen(false)}
+                onClose={() => {
+                    setIsSolanaModalOpen(false);
+                    setTargetRecipient(null);
+                    setTargetAmount(null);
+                }}
+                initialRecipient={targetRecipient}
+                initialAmount={targetAmount}
             />
 
             {/* Bank Transfer Modal */}
@@ -189,5 +234,17 @@ export default function SendPage() {
                 walletAddress={userWalletAddress}
             />
         </div>
+    );
+}
+
+export default function SendPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center items-center py-20">
+                <Loader2 className="animate-spin text-primary" size={32} />
+            </div>
+        }>
+            <SendContent />
+        </Suspense>
     );
 }

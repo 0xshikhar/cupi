@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ExternalLink,
   ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -177,6 +178,31 @@ export default function ClaimPaymentLinkPage() {
     }
   };
 
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [refundTx, setRefundTx] = useState<string | null>(null);
+
+  const handleRefund = async () => {
+    if (!userWalletAddress || !link) return;
+    setIsRefunding(true);
+    try {
+      const res = await fetch(`/api/payment-links/${link.slug}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorWalletAddress: userWalletAddress }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Refund failed");
+
+      setRefundTx(data.txHash);
+      toast.success("Expired deposit refunded to your wallet! 🎉");
+      setLink((prev) => (prev ? { ...prev, status: "DISABLED" } : null));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Refund failed");
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
   if (loading || isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -318,6 +344,39 @@ export default function ClaimPaymentLinkPage() {
               ? `Claim ${link.amount} ${link.tokenSymbol} (Gasless)`
               : `Pay ${link.amount} ${link.tokenSymbol}`}
           </button>
+        )}
+
+        {/* Refund CTA for Creator if Expired */}
+        {isExpired && !refundTx && userWalletAddress && userWalletAddress.toLowerCase() === link.creator.walletAddress.toLowerCase() && (
+          <button
+            onClick={handleRefund}
+            disabled={isRefunding}
+            className="btn-primary w-full inline-flex items-center justify-center gap-2 py-3.5 text-base font-bold shadow-lg bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            {isRefunding ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+            Claim Refund for Expired Deposit
+          </button>
+        )}
+
+        {/* Refund Success Card */}
+        {refundTx && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-5 space-y-3">
+            <div className="flex items-center gap-2 text-amber-400 font-bold">
+              <CheckCircle2 size={18} />
+              <span>${link.amount} {link.tokenSymbol} Returned to Your Wallet</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Escrow deposit was unlocked and returned to creator wallet. Transaction ID: {refundTx.slice(0, 18)}...
+            </p>
+            <div className="pt-2 flex gap-3">
+              <Link
+                href="/home"
+                className="flex-1 py-2.5 text-center text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+              >
+                Return to Dashboard →
+              </Link>
+            </div>
+          </div>
         )}
 
         {txHash && (

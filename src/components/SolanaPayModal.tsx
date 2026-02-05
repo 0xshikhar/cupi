@@ -13,11 +13,18 @@ import {
 interface SolanaPayModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialRecipient?: string | null;
+  initialAmount?: string | null;
 }
 
-export default function SolanaPayModal({ isOpen, onClose }: SolanaPayModalProps) {
-  const [recipient, setRecipient] = useState("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU");
-  const [amount, setAmount] = useState("10");
+export default function SolanaPayModal({ 
+  isOpen, 
+  onClose,
+  initialRecipient,
+  initialAmount
+}: SolanaPayModalProps) {
+  const [recipient, setRecipient] = useState(initialRecipient || "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU");
+  const [amount, setAmount] = useState(initialAmount || "10");
   const [memo, setMemo] = useState("Cupi P2P Payment");
   const [copied, setCopied] = useState(false);
   const [referenceKey, setReferenceKey] = useState<string>("");
@@ -27,17 +34,20 @@ export default function SolanaPayModal({ isOpen, onClose }: SolanaPayModalProps)
   // Initialize fresh reference key upon open
   useEffect(() => {
     if (isOpen) {
+      if (initialRecipient) setRecipient(initialRecipient);
+      if (initialAmount) setAmount(initialAmount);
       const { referencePublicKey } = generateSolanaPayReference();
       setReferenceKey(referencePublicKey);
       setIsConfirmed(false);
       setConfirmedTxSignature(null);
     }
-  }, [isOpen]);
+  }, [isOpen, initialRecipient, initialAmount]);
 
-  // Real-time verification listener for Solana Pay transaction finality
+  // Real-time verification listener for Solana Pay transaction finality (WebSockets + Polling)
   useEffect(() => {
     if (!isOpen || !referenceKey || isConfirmed) return;
 
+    // 1. HTTP Verification Polling (every 1000ms)
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/solana/verify?reference=${encodeURIComponent(referenceKey)}`);
@@ -50,9 +60,44 @@ export default function SolanaPayModal({ isOpen, onClose }: SolanaPayModalProps)
       } catch (_err) {
         // Polling retry
       }
-    }, 2000);
+    }, 1000);
 
-    return () => clearInterval(interval);
+    // 2. Real-time WebSocket connection to Solana cluster for sub-second confirmation
+    let subId: number | null = null;
+    let wsConnection: any = null;
+
+    try {
+      import("@solana/web3.js").then(({ Connection, PublicKey }) => {
+        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+        wsConnection = new Connection(rpcUrl, "confirmed");
+        const refPubkey = new PublicKey(referenceKey);
+
+        subId = wsConnection.onLogs(
+          refPubkey,
+          (logs: any) => {
+            if (logs.err === null && logs.signature) {
+              setIsConfirmed(true);
+              setConfirmedTxSignature(logs.signature);
+              toast.success("Solana payment confirmed via WebSocket! 🎉");
+            }
+          },
+          "confirmed"
+        );
+      }).catch((err) => {
+        console.warn("[SOLANA PAY] WebSocket listener setup error:", err);
+      });
+    } catch (wsErr) {
+      console.warn("[SOLANA PAY] WebSocket listener fallback to HTTP:", wsErr);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (subId !== null && wsConnection) {
+        try {
+          wsConnection.removeOnLogsListener(subId);
+        } catch {}
+      }
+    };
   }, [isOpen, referenceKey, isConfirmed]);
 
   if (!isOpen) return null;

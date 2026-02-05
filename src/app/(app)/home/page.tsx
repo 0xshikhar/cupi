@@ -12,6 +12,14 @@ import { useActivityFeed, ActivityItem } from "@/modules/activity/hooks/useActiv
 import { RewardsModal } from "@/components/profile/ProfileModals";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 
+const CURRENCY_CONFIG: Record<string, { symbol: string; rate: number }> = {
+  USD: { symbol: "$", rate: 1.0 },
+  EUR: { symbol: "€", rate: 0.92 },
+  INR: { symbol: "₹", rate: 83.5 },
+  GBP: { symbol: "£", rate: 0.79 },
+  SOL: { symbol: "◎", rate: 0.007 },
+};
+
 export default function DashboardPage() {
   const {
     userWalletAddress,
@@ -29,6 +37,20 @@ export default function DashboardPage() {
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [username, setUsername] = useState<string | null>(null);
   const [isLoadingUsername, setIsLoadingUsername] = useState(true);
+  const [currencyCode, setCurrencyCode] = useState<string>("USD");
+
+  // Multi-currency sync
+  useEffect(() => {
+    const updateCurrency = () => {
+      const saved = localStorage.getItem("cupi_currency");
+      if (saved && CURRENCY_CONFIG[saved]) {
+        setCurrencyCode(saved);
+      }
+    };
+    updateCurrency();
+    window.addEventListener("currency_changed", updateCurrency);
+    return () => window.removeEventListener("currency_changed", updateCurrency);
+  }, []);
 
   // Use shared activity feed hook
   const { activities, isLoading: isLoadingFeed } = useActivityFeed();
@@ -192,12 +214,20 @@ export default function DashboardPage() {
 
       {/* Balance */}
       <div className="flex flex-col justify-center py-6 text-center">
-        <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest mb-2">Total Balance</span>
+        <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5">
+          Total Balance
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-secondary text-primary border border-border">
+            {currencyCode}
+          </span>
+        </span>
         <div className="flex items-center justify-center gap-2">
           {isLoadingBalance ? (
             <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
           ) : (
-            <span className="text-6xl font-black tracking-tighter tabular-nums">${balance}</span>
+            <span className="text-6xl font-black tracking-tighter tabular-nums">
+              {CURRENCY_CONFIG[currencyCode]?.symbol || "$"}
+              {((parseFloat(balance) || 0) * (CURRENCY_CONFIG[currencyCode]?.rate || 1.0)).toFixed(2)}
+            </span>
           )}
         </div>
       </div>
