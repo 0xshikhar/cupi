@@ -24,20 +24,20 @@ export function Navbar() {
             <span className="font-black text-black text-lg italic">C</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tighter text-foreground leading-none">CoinUPI</span>
-            <span className="text-[10px] font-black text-brand-green uppercase tracking-widest">India Beta</span>
+            <span className="text-xl font-black tracking-tighter text-foreground leading-none">Cupi</span>
+            <span className="text-[10px] font-black text-brand-green uppercase tracking-widest">EVM • Solana</span>
           </div>
         </Link>
         <div className="hidden md:flex items-center gap-10 text-sm font-black uppercase tracking-widest">
-          <a href="#features" className="hover:text-brand-green transition-colors">Safety</a>
-          <a href="#how-it-works" className="hover:text-brand-green transition-colors">Fees</a>
-          <a href="#faq" className="hover:text-brand-green transition-colors">Help</a>
+          <a href="#features" className="hover:text-brand-green transition-colors">Features</a>
+          <a href="#how-it-works" className="hover:text-brand-green transition-colors">How It Works</a>
+          <a href="#faq" className="hover:text-brand-green transition-colors">FAQ</a>
         </div>
         <Button
           onClick={handleAppAccess}
           className="bg-brand-green text-black hover:bg-brand-green-dark border-2 border-black rounded-full font-black px-8 h-12 shadow-sticker-hover active:translate-y-1 transition-all"
         >
-          {authenticated ? "OPEN APP" : "GET THE APP"}
+          {authenticated ? "OPEN DASHBOARD" : "LAUNCH APP"}
         </Button>
       </div>
     </nav>

@@ -2,9 +2,11 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Twitter, Instagram, Github, ArrowUpRight } from 'lucide-react';
+import Link from 'next/link';
+
 export function Footer() {
   return (
-    <footer className="bg-brand-dark text-white pt-20 pb-10">
+    <footer className="bg-brand-dark text-white pt-20 pb-10 border-t-4 border-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           <div className="space-y-6">
@@ -12,57 +14,52 @@ export function Footer() {
               <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
                 <span className="font-black text-black text-xs">C</span>
               </div>
-              <span className="text-2xl font-bold">CoinUPI</span>
+              <span className="text-2xl font-black">Cupi</span>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
-              Bridging the gap between your crypto assets and the Indian economy. Fast, secure, and seamless UPI payments powered by your crypto wallet.
+            <p className="text-gray-400 text-sm leading-relaxed max-w-xs font-medium">
+              Multi-chain self-custodial payment protocol. High-speed Solana Pay, zero-knowledge link escrow, EVM smart accounts, and virtual spend cards with upcoming India UPI settlement.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="p-2 bg-white/5 rounded-full hover:bg-brand-green hover:text-black transition-all">
+              <a href="https://x.com" target="_blank" rel="noreferrer" className="p-2 bg-white/5 rounded-full hover:bg-brand-green hover:text-black transition-all">
                 <Twitter size={18} />
               </a>
-              <a href="#" className="p-2 bg-white/5 rounded-full hover:bg-brand-green hover:text-black transition-all">
-                <Instagram size={18} />
-              </a>
-              <a href="#" className="p-2 bg-white/5 rounded-full hover:bg-brand-green hover:text-black transition-all">
+              <a href="https://github.com" target="_blank" rel="noreferrer" className="p-2 bg-white/5 rounded-full hover:bg-brand-green hover:text-black transition-all">
                 <Github size={18} />
               </a>
             </div>
           </div>
           <div>
-            <h4 className="font-bold mb-6">Product</h4>
-            <ul className="space-y-4 text-gray-400 text-sm">
-              <li><a href="#" className="hover:text-brand-green">Direct UPI Pay</a></li>
-              <li><a href="#" className="hover:text-brand-green">Wallet Connect</a></li>
-              <li><a href="#" className="hover:text-brand-green">Transaction History</a></li>
-              <li><a href="#" className="hover:text-brand-green flex items-center gap-1">iOS App <ArrowUpRight size={14} /></a></li>
+            <h4 className="font-bold mb-6 text-sm uppercase tracking-wider text-brand-green">Protocol &amp; Rails</h4>
+            <ul className="space-y-3 text-gray-400 text-sm font-medium">
+              <li><Link href="/home" className="hover:text-brand-green transition-colors">Solana Pay Engine</Link></li>
+              <li><Link href="/send/link" className="hover:text-brand-green transition-colors">Zero-Knowledge Escrow (#key=)</Link></li>
+              <li><Link href="/agent" className="hover:text-brand-green transition-colors">Autonomous AI Agent</Link></li>
+              <li><Link href="/cards" className="hover:text-brand-green transition-colors">Rain Virtual Visa Cards</Link></li>
+              <li><Link href="/send" className="hover:text-brand-green transition-colors">Upcoming India UPI Rails</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-bold mb-6">Resources</h4>
-            <ul className="space-y-4 text-gray-400 text-sm">
-              <li><a href="#" className="hover:text-brand-green">Security Audit</a></li>
-              <li><a href="#" className="hover:text-brand-green">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-brand-green">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-brand-green">Support Center</a></li>
+            <h4 className="font-bold mb-6 text-sm uppercase tracking-wider text-brand-green">Resources</h4>
+            <ul className="space-y-3 text-gray-400 text-sm font-medium">
+              <li><a href="#how-it-works" className="hover:text-brand-green transition-colors">How It Works</a></li>
+              <li><a href="#features" className="hover:text-brand-green transition-colors">Architecture &amp; Security</a></li>
+              <li><a href="#faq" className="hover:text-brand-green transition-colors">FAQ</a></li>
+              <li><Link href="/profile" className="hover:text-brand-green transition-colors">Privacy &amp; Self-Custody</Link></li>
             </ul>
           </div>
           <div className="space-y-6">
-            <h4 className="font-bold">Join the waitlist</h4>
-            <div className="flex flex-col gap-3">
-              <Input 
-                placeholder="email@example.com" 
-                className="bg-white/5 border-white/10 focus:border-brand-green text-white"
-              />
-              <Button className="bg-brand-green text-black hover:bg-brand-green/90 w-full font-bold">
-                Subscribe
-              </Button>
-            </div>
-            <p className="text-2xs text-gray-500 uppercase tracking-widest">NO SPAM. JUST PRODUCT UPDATES.</p>
+            <h4 className="font-bold text-sm uppercase tracking-wider text-brand-green">Launch App</h4>
+            <p className="text-xs text-gray-400">Experience instant self-custodial payments on Base, Solana, and Arbitrum.</p>
+            <Link
+              href="/get-started"
+              className="inline-flex items-center justify-center bg-brand-green text-black hover:bg-brand-green-dark w-full py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all"
+            >
+              Get Started Now
+            </Link>
           </div>
         </div>
         <div className="pt-8 border-t border-white/5 text-center text-gray-500 text-xs">
-          © {new Date().getFullYear()} CoinUPI. All rights reserved.
+          © {new Date().getFullYear()} Cupi Protocol. Self-Custodial Multi-Chain Infrastructure. All rights reserved.
         </div>
       </div>
     </footer>

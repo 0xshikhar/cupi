@@ -44,8 +44,8 @@ export function CTASection() {
             <Button onClick={() => router.push('/get-started')} size="lg" className="h-20 px-12 rounded-xl bg-black text-white hover:bg-zinc-800 font-black text-2xl border-4 border-black sticker-effect">
               GET STARTED
             </Button>
-            <Button onClick={() => router.push('/get-started')} size="lg" className="h-20 px-12 rounded-xl bg-white text-black hover:bg-zinc-100 font-black text-2xl border-4 border-black sticker-effect">
-              OPEN APP
+            <Button onClick={() => router.push('/home')} size="lg" className="h-20 px-12 rounded-xl bg-white text-black hover:bg-zinc-100 font-black text-2xl border-4 border-black sticker-effect">
+              OPEN DASHBOARD
             </Button>
           </div>
           <div className="flex items-center justify-center gap-2 pt-6">
