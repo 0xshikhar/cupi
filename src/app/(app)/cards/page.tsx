@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { 
+  ArrowLeft,
   CreditCard, 
   ShieldCheck, 
   Lock, 
@@ -100,19 +102,28 @@ export default function CardsPage() {
 
   return (
     <div className="flex flex-col h-full gap-6 pb-20">
-      {/* Header */}
+      {/* Header with Back Button */}
       <div className="flex items-center justify-between py-2">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">Virtual Card</h1>
-          <p className="text-xs text-muted-foreground font-medium">Self-custodial spend card powered by Rain</p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/home"
+            className="w-9 h-9 rounded-xl border border-border bg-card hover:bg-secondary flex items-center justify-center transition-colors shadow-sm text-foreground shrink-0"
+            title="Back to Home"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">Virtual Card</h1>
+            <p className="text-xs text-muted-foreground font-medium">Self-custodial spend card powered by Rain</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <span className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border ${
             isFrozen 
-              ? "bg-blue-500/10 text-blue-400 border-blue-500/20" 
-              : "bg-green-500/10 text-green-400 border-green-500/20"
+              ? "bg-blue-500/10 text-blue-600 border-blue-500/20" 
+              : "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
           }`}>
-            <span className={`w-2 h-2 rounded-full ${isFrozen ? "bg-blue-400 animate-pulse" : "bg-green-400 animate-pulse"}`} />
+            <span className={`w-2 h-2 rounded-full ${isFrozen ? "bg-blue-500 animate-pulse" : "bg-emerald-500 animate-pulse"}`} />
             {isFrozen ? "FROZEN" : "ACTIVE"}
           </span>
         </div>
