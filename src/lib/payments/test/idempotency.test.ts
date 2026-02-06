@@ -85,5 +85,12 @@ describe("Financial Idempotency Guard", () => {
 
     expect(callCount).toBe(3);
   });
+
+  it("should execute cleanup of expired idempotency records without errors", async () => {
+    const { cleanupExpiredIdempotencyRecords } = await import("../idempotency");
+    const result = await cleanupExpiredIdempotencyRecords();
+    expect(result).toHaveProperty("deletedCount");
+    expect(typeof result.deletedCount).toBe("number");
+  });
 });
 

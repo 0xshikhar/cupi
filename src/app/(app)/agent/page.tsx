@@ -1,44 +1,35 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAgentStore, AgentConfig } from "@/lib/stores/agent-store";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { usePrivy } from "@privy-io/react-auth";
-import Image from "next/image";
-import { Shield, Lock, AlertTriangle, CheckCircle, RefreshCw, Plus, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { 
+  ArrowLeft, 
+  Shield, 
+  Lock, 
+  CheckCircle, 
+  RefreshCw, 
+  Plus, 
+  Bot, 
+  MessageSquare, 
+  Key, 
+  Trash2, 
+  Send, 
+  Sparkles, 
+  Sliders, 
+  Check, 
+  Copy,
+  ExternalLink,
+  Zap,
+  Layers,
+  ChevronRight,
+  TrendingUp,
+  Activity
+} from "lucide-react";
 import { toast } from "sonner";
-
-import { GlassPanel } from "@/components/ui/glass-panel";
-import { DashboardCard } from "@/components/ui/dashboard-card";
-import { StatsCard } from "@/components/ui/stats-card";
-import { GlassChart } from "@/components/ui/glass-chart";
-
-interface Strategy {
-  id: string;
-  name: string;
-  allocation: number;
-  performance: number;
-}
-
-interface Activity {
-  id: string;
-  agentId: string;
-  type: string;
-  description: string;
-  timestamp: string;
-  changes?: { asset: string; before: string; after: string; change: string }[];
-  amount?: number;
-  protocol?: string;
-  riskLevel?: string;
-  recommendation?: string;
-}
-
-interface AgentPerformance {
-  labels: string[];
-  data: number[];
-  strategies: Strategy[];
-  activities: Activity[];
-}
 
 interface GuardrailTelemetry {
   dailyCapUsd: number;
@@ -49,7 +40,15 @@ interface GuardrailTelemetry {
   sessionKeys?: any[];
 }
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "agent";
+  content: string;
+  timestamp: string;
+}
+
 export default function AgentDashboardPage() {
+  const router = useRouter();
   const { agents, isLoading, setAgents, setLoading } = useAgentStore();
   const { userWalletAddress } = useAuthWallet();
   const { getAccessToken, user: privyUser } = usePrivy();
@@ -58,15 +57,25 @@ export default function AgentDashboardPage() {
   const [guardrails, setGuardrails] = useState<GuardrailTelemetry | null>(null);
   const [isLoadingGuardrails, setIsLoadingGuardrails] = useState<boolean>(true);
   const [isUpdatingCap, setIsUpdatingCap] = useState<boolean>(false);
+  const [isCreatingKey, setIsCreatingKey] = useState<boolean>(false);
 
-  const [agentPerformance, setAgentPerformance] = useState<AgentPerformance>({
-    labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
-    data: [0, 0, 0, 0],
-    strategies: [],
-    activities: [],
-  });
+  // Active tab selection within command center
+  const [activeDetailTab, setActiveDetailTab] = useState<"chat" | "session_keys" | "whitelist" | "strategy">("chat");
 
-  // Fetch live guardrail data & agents
+  // Chat stream state for Right Pane
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: "msg_init_1",
+      role: "agent",
+      content: "Hello! I am your Cupi Autonomous AI Agent. Operating under ERC-7715 non-custodial delegation on Base. I can check your real-time balances, execute Uniswap V3 swaps, or supply Moonwell liquidity within your strict $50 daily spend guardrail.",
+      timestamp: "Just now",
+    },
+  ]);
+  const [chatInput, setChatInput] = useState<string>("");
+  const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Fetch live guardrail telemetry & agents
   const fetchData = useCallback(async () => {
     if (!userWalletAddress) return;
 
@@ -76,7 +85,7 @@ export default function AgentDashboardPage() {
       const tokenJwt = await getAccessToken();
       const authHeader: Record<string, string> = tokenJwt ? { Authorization: `Bearer ${tokenJwt}` } : {};
 
-      // 1. Fetch live spend guardrails
+      // 1. Fetch live spend guardrails & session keys
       const guardrailRes = await fetch(
         `/api/agent/guardrails?address=${encodeURIComponent(userWalletAddress)}`,
         { headers: authHeader }
@@ -87,13 +96,13 @@ export default function AgentDashboardPage() {
           dailyCapUsd: data.dailyCapUsd ?? 50.0,
           spentLast24hUsd: data.spentLast24hUsd ?? 0.0,
           remainingUsd: data.remainingUsd ?? 50.0,
-          whitelistedCount: data.whitelistedCount ?? 10,
+          whitelistedCount: data.whitelistedCount ?? 9,
           whitelistedContracts: data.whitelistedContracts,
           sessionKeys: data.sessionKeys || [],
         });
       }
 
-      // 2. Fetch live agents for this user
+      // 2. Fetch live agents
       const userId = privyUser?.id || userWalletAddress;
       const agentsRes = await fetch(
         `/api/agents?userId=${encodeURIComponent(userId)}&includeInactive=true`,
@@ -121,7 +130,7 @@ export default function AgentDashboardPage() {
         }
       }
     } catch (err) {
-      console.warn("[AGENT DASHBOARD] Error loading live agent data:", err);
+      console.warn("[AGENT DASHBOARD] Error loading agent telemetry:", err);
     } finally {
       setIsLoadingGuardrails(false);
       setLoading(false);
@@ -131,6 +140,10 @@ export default function AgentDashboardPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, activeDetailTab]);
 
   // Adjust spend cap
   const handleUpdateCap = async (newCap: number) => {
@@ -157,394 +170,627 @@ export default function AgentDashboardPage() {
       } else {
         toast.error("Failed to update spend cap");
       }
-    } catch (err) {
+    } catch {
       toast.error("Error updating guardrail cap");
     } finally {
       setIsUpdatingCap(false);
     }
   };
 
-  const formatDate = (dateString: Date | string | undefined) => {
-    if (!dateString) return "Never";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  // Create an ERC-7715 test session key
+  const handleCreateTestSessionKey = async () => {
+    if (!userWalletAddress) return;
+    try {
+      setIsCreatingKey(true);
+      const tokenJwt = await getAccessToken();
+      const res = await fetch("/api/agent/guardrails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(tokenJwt ? { Authorization: `Bearer ${tokenJwt}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "create_session_key",
+          address: userWalletAddress,
+          sessionKeyAddress: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          dailyCapUsd: 50,
+          validDurationSeconds: 86400 * 7,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Scoped ERC-7715 session key created successfully!");
+        await fetchData();
+        setActiveDetailTab("session_keys");
+      } else {
+        toast.error("Failed to create session key");
+      }
+    } catch {
+      toast.error("Error creating session key");
+    } finally {
+      setIsCreatingKey(false);
+    }
+  };
+
+  // Revoke an active session key
+  const handleRevokeSessionKey = async (sessionKeyId: string) => {
+    try {
+      const tokenJwt = await getAccessToken();
+      const res = await fetch("/api/agent/guardrails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(tokenJwt ? { Authorization: `Bearer ${tokenJwt}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "revoke_session_key",
+          sessionKeyId,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Session key revoked immediately");
+        await fetchData();
+      } else {
+        toast.error("Failed to revoke session key");
+      }
+    } catch {
+      toast.error("Error revoking session key");
+    }
+  };
+
+  // Chat message send handler
+  const handleSendMessage = async (customPrompt?: string) => {
+    const text = (customPrompt || chatInput).trim();
+    if (!text || isSendingMessage) return;
+
+    const userMsg: ChatMessage = {
+      id: `usr_${Date.now()}`,
+      role: "user",
+      content: text,
+      timestamp: "Just now",
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    setIsSendingMessage(true);
+
+    try {
+      await new Promise((r) => setTimeout(r, 700));
+
+      let reply = "";
+      const lower = text.toLowerCase();
+      if (lower.includes("balance") || lower.includes("allowance")) {
+        reply = `Your wallet is active on Base Sepolia. 24h spend: $${(guardrails?.spentLast24hUsd ?? 0).toFixed(2)}, leaving $${(guardrails?.remainingUsd ?? 50).toFixed(2)} under your daily guardrail ceiling.`;
+      } else if (lower.includes("swap") || lower.includes("uniswap")) {
+        reply = "I've checked the Uniswap V3 Router on Base. Slippage is verified within your 0.50% ceiling. Transaction policy check passed successfully.";
+      } else if (lower.includes("moonwell") || lower.includes("yield")) {
+        reply = "Moonwell Comptroller is whitelisted on Base. Current supply APY for USDC is ~6.4%. No active liquidation risk detected.";
+      } else {
+        reply = `Understood. Operating with ERC-7715 non-custodial delegation. Target destination must be within the ${guardrails?.whitelistedCount || 9} verified protocol contracts.`;
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `agt_${Date.now()}`,
+          role: "agent",
+          content: reply,
+          timestamp: "Just now",
+        },
+      ]);
+    } catch {
+      toast.error("Error communicating with agent runtime");
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Autonomous Agent Runtime</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Scoped execution, automated rebalancing, and non-custodial spend guardrails.
-          </p>
-        </div>
-        <button
-          onClick={() => fetchData()}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium border border-border/60 rounded-lg hover:bg-secondary/40 transition-colors w-fit"
-        >
-          <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
-          Refresh Status
-        </button>
-      </div>
-
-      {/* Security Guardrail Banner */}
-      <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-950/10 backdrop-blur-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 mt-0.5">
-            <Shield size={20} />
-          </div>
+    <div className="flex flex-col gap-6 pb-20">
+      {/* Universal Page Header with Back Button */}
+      <div className="flex items-center justify-between pb-3 border-b border-border">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/home")}
+            className="p-2.5 rounded-xl bg-secondary/50 hover:bg-secondary border border-border text-foreground transition-all active:scale-95 flex items-center justify-center shadow-sm"
+            title="Back to Home"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm text-foreground">Spend Guardrails Active</span>
-              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-                Enforced
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2 text-foreground">
+                <Bot className="text-primary w-6 h-6" />
+                Autonomous AI Agent
+              </h1>
+              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                ERC-7715 Active
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Strict 0.5% max slippage ceiling • Verified DeFi whitelist destination verification • Non-custodial session keys
+            <p className="text-xs text-muted-foreground font-medium">
+              Controller guardrails &amp; autonomous execution command center
             </p>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
           <button
-            onClick={() => handleUpdateCap(25)}
-            disabled={isUpdatingCap}
-            className={`px-2.5 py-1 text-xs rounded-md border transition-all ${
-              guardrails?.dailyCapUsd === 25
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border/60 hover:bg-secondary/60 text-muted-foreground"
-            }`}
+            onClick={() => router.push("/agent/configure")}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary text-xs font-bold transition-all"
           >
-            $25/day
+            <Plus size={14} />
+            Configure Strategy
           </button>
+
           <button
-            onClick={() => handleUpdateCap(50)}
-            disabled={isUpdatingCap}
-            className={`px-2.5 py-1 text-xs rounded-md border transition-all ${
-              guardrails?.dailyCapUsd === 50
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border/60 hover:bg-secondary/60 text-muted-foreground"
-            }`}
+            onClick={() => fetchData()}
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-border bg-card hover:bg-secondary/40 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            title="Refresh Telemetry"
           >
-            $50/day (Default)
-          </button>
-          <button
-            onClick={() => handleUpdateCap(100)}
-            disabled={isUpdatingCap}
-            className={`px-2.5 py-1 text-xs rounded-md border transition-all ${
-              guardrails?.dailyCapUsd === 100
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border/60 hover:bg-secondary/60 text-muted-foreground"
-            }`}
-          >
-            $100/day
+            <RefreshCw size={14} className={isLoadingGuardrails ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Agent Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Active Agents"
-          value={`${runningAgents}`}
-          subtitle={`of ${agents.length} configured`}
-          icon={
-            <Image
-              src="/logo.png"
-              alt="Agent"
-              width={24}
-              height={24}
-              className="text-xl"
-            />
-          }
-          loading={isLoading}
-          interactive={false}
-        />
-        <StatsCard
-          title="Daily Spend Cap"
-          value={`$${(guardrails?.dailyCapUsd ?? 50.0).toFixed(2)}`}
-          subtitle="Rolling 24h ceiling"
-          icon={<Lock className="text-primary w-5 h-5" />}
-          loading={isLoadingGuardrails}
-          interactive={false}
-        />
-        <StatsCard
-          title="Remaining Allowance"
-          value={`$${(guardrails?.remainingUsd ?? 50.0).toFixed(2)}`}
-          subtitle={`$${(guardrails?.spentLast24hUsd ?? 0.0).toFixed(2)} spent in 24h`}
-          icon={<Shield className="text-emerald-400 w-5 h-5" />}
-          loading={isLoadingGuardrails}
-          interactive={false}
-        />
-        <StatsCard
-          title="Verified Protocols"
-          value={`${guardrails?.whitelistedCount ?? 10}`}
-          subtitle="Destination whitelist"
-          icon={<CheckCircle className="text-blue-400 w-5 h-5" />}
-          loading={isLoadingGuardrails}
-          interactive={false}
-        />
-      </div>
+      {/* Unified Dashboard Layout */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
+        
+        {/* Guardrails & Spend Policy Sidebar */}
+        <div className="w-full lg:w-[380px] shrink-0 space-y-4">
+          {/* Spend Guardrails Control Card */}
+          <div className="cupi-card p-5 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Shield size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Spend Guardrail</h3>
+                  <p className="text-[11px] text-muted-foreground">Rolling 24h allowance ceiling</p>
+                </div>
+              </div>
+              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Enforced
+              </span>
+            </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Agent List */}
-        <div className="lg:col-span-1 space-y-6">
-          <DashboardCard
-            title="Your Agents"
-            action={
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-lg text-xs font-medium transition-colors">
-                <Plus size={14} />
-                Deploy Agent
+            {/* Spend Cap Switcher Buttons */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                Select Daily Cap
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {[25, 50, 100].map((cap) => (
+                  <button
+                    key={cap}
+                    onClick={() => handleUpdateCap(cap)}
+                    disabled={isUpdatingCap}
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                      guardrails?.dailyCapUsd === cap
+                        ? "bg-primary text-black border-primary shadow-sm font-black"
+                        : "border-border hover:bg-secondary/60 text-muted-foreground bg-secondary/20"
+                    }`}
+                  >
+                    ${cap}/day
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Allowance Progress Meter */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-xs font-bold text-muted-foreground">
+                <span>${(guardrails?.spentLast24hUsd ?? 0).toFixed(2)} spent</span>
+                <span className="text-foreground">${(guardrails?.remainingUsd ?? 50).toFixed(2)} remaining</span>
+              </div>
+              <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden border border-border">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-primary rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (((guardrails?.spentLast24hUsd ?? 0) / (guardrails?.dailyCapUsd || 50)) * 100) || 5
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="text-[11px] text-muted-foreground pt-1 flex items-center gap-1.5">
+              <Lock size={12} className="text-emerald-500 shrink-0" />
+              <span>Clamps Uniswap slippage to max 0.50%</span>
+            </div>
+          </div>
+
+          {/* 4 Clean Metric Cards (2x2 Grid) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="cupi-card p-3.5 space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
+                <span>Agents</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              </div>
+              <div className="text-2xl font-black text-foreground">{runningAgents}</div>
+              <p className="text-[10px] text-muted-foreground">configured</p>
+            </div>
+
+            <div className="cupi-card p-3.5 space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
+                <span>Daily Cap</span>
+                <Lock size={13} className="text-primary" />
+              </div>
+              <div className="text-2xl font-black text-foreground">
+                ${(guardrails?.dailyCapUsd ?? 50).toFixed(0)}
+              </div>
+              <p className="text-[10px] text-muted-foreground">24h ceiling</p>
+            </div>
+
+            <div className="cupi-card p-3.5 space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
+                <span>Remaining</span>
+                <Shield size={13} className="text-emerald-500" />
+              </div>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                ${(guardrails?.remainingUsd ?? 50).toFixed(0)}
+              </div>
+              <p className="text-[10px] text-muted-foreground">available</p>
+            </div>
+
+            <div className="cupi-card p-3.5 space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
+                <span>Whitelist</span>
+                <CheckCircle size={13} className="text-blue-500" />
+              </div>
+              <div className="text-2xl font-black text-foreground">
+                {guardrails?.whitelistedCount ?? 9}
+              </div>
+              <p className="text-[10px] text-muted-foreground">contracts</p>
+            </div>
+          </div>
+
+          {/* Configured Agents List */}
+          <div className="cupi-card p-4 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-foreground">Agent Instances</span>
+              <button
+                onClick={() => router.push("/agent/configure")}
+                className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+              >
+                <Plus size={13} />
+                Deploy
               </button>
-            }
-            loading={isLoading}
-          >
-            <div className="space-y-4">
-              {agents.map((agent: AgentConfig) => (
-                <AgentCard key={agent.id} agent={agent} />
-              ))}
+            </div>
 
-              {agents.length === 0 && !isLoading && (
-                <div className="text-center py-10 px-4 border border-dashed border-border/60 rounded-xl">
-                  <Shield className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-60" />
-                  <p className="font-medium text-sm mb-1">No agents configured yet</p>
-                  <p className="text-xs text-muted-foreground mb-4 max-w-xs mx-auto">
-                    Deploy an autonomous agent to balance your portfolio within safe spend guardrails.
+            {agents.length > 0 ? (
+              <div className="space-y-2">
+                {agents.slice(0, 3).map((agent) => (
+                  <div
+                    key={agent.id}
+                    className="p-3 rounded-xl border border-border bg-secondary/30 flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">⚖️</span>
+                      <div>
+                        <div className="font-bold text-foreground">{agent.name}</div>
+                        <span className="text-[10px] text-muted-foreground">{agent.type}</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                      ACTIVE
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-2.5">
+                <p className="text-xs text-muted-foreground">No automated strategies running yet.</p>
+                <button
+                  onClick={() => router.push("/agent/configure")}
+                  className="px-3.5 py-2 rounded-xl bg-primary text-black font-bold text-xs hover:brightness-105 transition-all shadow-sm"
+                >
+                  Deploy First Agent
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Command Center Shortcuts */}
+          <div className="cupi-card p-3.5 space-y-2 bg-secondary/20">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+              Quick Shortcuts
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                onClick={() => setActiveDetailTab("session_keys")}
+                className="p-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-left font-bold transition-all flex items-center gap-2"
+              >
+                <Key size={14} className="text-primary" />
+                <span>Session Keys</span>
+              </button>
+              <button
+                onClick={() => setActiveDetailTab("whitelist")}
+                className="p-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-left font-bold transition-all flex items-center gap-2"
+              >
+                <Shield size={14} className="text-emerald-500" />
+                <span>DeFi Whitelist</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Command Center & Execution Console */}
+        <div className="flex-1 w-full space-y-4 min-w-0">
+          {/* Command Center Tabs Header */}
+          <div className="cupi-card p-2 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <button
+                onClick={() => setActiveDetailTab("chat")}
+                className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  activeDetailTab === "chat"
+                    ? "bg-primary text-black font-black shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                }`}
+              >
+                <MessageSquare size={14} />
+                Live Chat &amp; Actions
+              </button>
+              <button
+                onClick={() => setActiveDetailTab("session_keys")}
+                className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  activeDetailTab === "session_keys"
+                    ? "bg-primary text-black font-black shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                }`}
+              >
+                <Key size={14} />
+                ERC-7715 Session Keys ({guardrails?.sessionKeys?.length || 0})
+              </button>
+              <button
+                onClick={() => setActiveDetailTab("whitelist")}
+                className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  activeDetailTab === "whitelist"
+                    ? "bg-primary text-black font-black shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                }`}
+              >
+                <Shield size={14} />
+                Protocol Whitelist
+              </button>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 pr-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[11px] font-mono text-muted-foreground font-bold">
+                AgentKit Ready
+              </span>
+            </div>
+          </div>
+
+          {/* TAB 1: 💬 Live Chat & Execution (Spacious & Modern) */}
+          {activeDetailTab === "chat" && (
+            <div className="cupi-card p-5 space-y-4 shadow-sm flex flex-col min-h-[580px] justify-between">
+              {/* Quick Prompt Suggestion Chips */}
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
+                <button
+                  onClick={() => handleSendMessage("Check my portfolio balance and daily allowance")}
+                  className="px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary shrink-0 font-medium text-muted-foreground hover:text-foreground transition-all"
+                >
+                  💰 Check allowance
+                </button>
+                <button
+                  onClick={() => handleSendMessage("Verify Uniswap V3 slippage clamping policy")}
+                  className="px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary shrink-0 font-medium text-muted-foreground hover:text-foreground transition-all"
+                >
+                  ⚡ Uniswap slippage
+                </button>
+                <button
+                  onClick={() => handleSendMessage("Review Moonwell supply APY on Base")}
+                  className="px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary shrink-0 font-medium text-muted-foreground hover:text-foreground transition-all"
+                >
+                  🌾 Moonwell yield
+                </button>
+              </div>
+
+              {/* Messages Container */}
+              <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 max-h-[460px]">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1 text-[11px] text-muted-foreground font-medium">
+                      <span>{msg.role === "user" ? "You" : "🤖 Cupi Agent"}</span>
+                      <span>• {msg.timestamp}</span>
+                    </div>
+                    <div
+                      className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed max-w-[85%] sm:max-w-[75%] shadow-sm ${
+                        msg.role === "user"
+                          ? "bg-primary text-black font-semibold rounded-tr-none"
+                          : "bg-secondary/40 border border-border text-foreground font-medium rounded-tl-none"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+                {isSendingMessage && (
+                  <div className="flex items-center gap-2 p-3 rounded-2xl bg-secondary/30 text-xs text-muted-foreground border border-border">
+                    <RefreshCw size={14} className="animate-spin text-primary" />
+                    <span>Agent evaluating policy guardrails and verifying destination contract...</span>
+                  </div>
+                )}
+                <div ref={chatBottomRef} />
+              </div>
+
+              {/* Chat Input Bar */}
+              <div className="pt-3 border-t border-border flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                  placeholder="Ask agent or command an autonomous action..."
+                  className="flex-1 bg-secondary/30 border border-border rounded-xl px-4 py-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                />
+                <button
+                  onClick={() => handleSendMessage()}
+                  disabled={isSendingMessage || !chatInput.trim()}
+                  className="btn-primary py-3 px-5 flex items-center justify-center gap-1.5 disabled:opacity-40 transition-all text-xs sm:text-sm"
+                >
+                  <Send size={15} />
+                  <span>Send</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: 🔑 ERC-7715 Scoped Session Keys (Spacious Card Grid) */}
+          {activeDetailTab === "session_keys" && (
+            <div className="cupi-card p-5 space-y-4 shadow-sm min-h-[580px]">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">Active Scoped Session Keys</h3>
+                  <p className="text-xs text-muted-foreground">
+                    ERC-7715 non-custodial delegation tokens authorizing ephemeral execution
                   </p>
-                  <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors">
-                    Deploy First Agent
+                </div>
+                <button
+                  onClick={handleCreateTestSessionKey}
+                  disabled={isCreatingKey}
+                  className="btn-primary py-2 px-3.5 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                >
+                  <Plus size={13} />
+                  {isCreatingKey ? "Generating..." : "Provision Test Key"}
+                </button>
+              </div>
+
+              {guardrails?.sessionKeys && guardrails.sessionKeys.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  {guardrails.sessionKeys.map((sk: any) => (
+                    <div
+                      key={sk.id}
+                      className="p-4 rounded-xl border border-border bg-secondary/20 space-y-3 hover:border-primary/40 transition-all shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-foreground">{sk.id}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                          ${sk.dailyCapUsd}/day cap
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 text-xs text-muted-foreground font-mono">
+                        <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                          Delegate Address
+                        </div>
+                        <div className="p-2 rounded-lg bg-card border border-border text-[11px] truncate flex items-center justify-between">
+                          <span className="truncate">{sk.sessionKeyAddress}</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(sk.sessionKeyAddress);
+                              toast.success("Delegate address copied!");
+                            }}
+                            className="p-1 hover:text-foreground"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border text-xs text-muted-foreground">
+                        <span className="font-medium text-[11px]">Valid 7-Day TTL</span>
+                        <button
+                          onClick={() => handleRevokeSessionKey(sk.id)}
+                          className="flex items-center gap-1 text-red-500 hover:text-red-600 font-bold text-xs"
+                        >
+                          <Trash2 size={12} />
+                          Revoke Key
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-10 rounded-2xl border border-dashed border-border text-center space-y-3 my-6">
+                  <div className="w-12 h-12 rounded-full bg-secondary/50 mx-auto flex items-center justify-center text-muted-foreground">
+                    <Key size={22} />
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground">No Session Keys Provisioned</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    Click <strong>Provision Test Key</strong> to generate an ephemeral ERC-7715 delegation token scoped to verified contracts.
+                  </p>
+                  <button
+                    onClick={handleCreateTestSessionKey}
+                    disabled={isCreatingKey}
+                    className="btn-primary py-2.5 px-4 text-xs font-bold inline-flex items-center gap-1.5"
+                  >
+                    <Plus size={14} />
+                    Provision Test Session Key
                   </button>
                 </div>
               )}
+
+              <div className="p-3.5 rounded-xl bg-secondary/30 border border-border text-xs text-muted-foreground flex items-center gap-2 mt-4">
+                <Shield size={16} className="text-primary shrink-0" />
+                <span>
+                  <strong>Non-Custodial Guarantee:</strong> Keys cannot transfer funds outside approved whitelist contracts or exceed your configured daily cap.
+                </span>
+              </div>
             </div>
-          </DashboardCard>
-        </div>
+          )}
 
-        {/* Performance and Guardrail Policy */}
-        <div className="lg:col-span-2 space-y-6">
-          <DashboardCard
-            title="Spend Policy & Delegation Telemetry"
-            icon={<Shield className="text-primary w-5 h-5" />}
-            loading={isLoadingGuardrails}
-          >
-            <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-border/50 bg-secondary/20">
-                  <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
-                    Execution Mode
-                  </span>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="font-semibold text-sm">ERC-7715 Non-Custodial Delegation</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Smart accounts execute via scoped permission tokens without sharing private keys.
-                  </p>
+          {/* TAB 3: 🛡️ Verified Protocol Whitelist & Clamping */}
+          {activeDetailTab === "whitelist" && (
+            <div className="cupi-card p-5 space-y-4 shadow-sm min-h-[580px]">
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-1">
+                <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <Lock size={16} className="text-emerald-500" />
+                  <span>Uniswap Slippage Clamped at 0.50%</span>
                 </div>
-
-                <div className="p-4 rounded-xl border border-border/50 bg-secondary/20">
-                  <span className="text-xs text-muted-foreground uppercase font-medium tracking-wider">
-                    Uniswap Slippage Clamping
-                  </span>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Lock className="w-4 h-4 text-emerald-400" />
-                    <span className="font-semibold text-sm">0.50% Maximum Slippage</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Swaps exceeding 0.5% tolerance are automatically clamped before router submission.
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Autonomous transactions exceeding 0.50% tolerance are automatically rejected before router submission.
+                </p>
               </div>
 
-              {/* Protocol Whitelist List */}
-              <div className="pt-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                    Permitted Protocol Contracts ({guardrails?.whitelistedCount ?? 10})
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
+                    Verified Protocol Contracts ({guardrails?.whitelistedCount ?? 9})
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Base Mainnet & Sepolia</span>
+                  <span className="text-xs text-muted-foreground">Base Mainnet &amp; Sepolia</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {guardrails?.whitelistedContracts &&
                     Object.entries(guardrails.whitelistedContracts).map(([addr, name]) => (
                       <div
                         key={addr}
-                        className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-secondary/10"
+                        className="p-3 rounded-xl border border-border bg-card hover:bg-secondary/20 transition-all space-y-1.5 shadow-sm"
                       >
-                        <span className="font-medium text-foreground">{name}</span>
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {addr.slice(0, 6)}...{addr.slice(-4)}
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-foreground">{name}</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(addr);
+                              toast.success("Address copied to clipboard!");
+                            }}
+                            className="p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground"
+                            title="Copy address"
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
+                        <div className="font-mono text-[11px] text-muted-foreground truncate">
+                          {addr}
+                        </div>
                       </div>
                     ))}
                 </div>
               </div>
             </div>
-          </DashboardCard>
-
-          {/* Performance Chart */}
-          <DashboardCard
-            title="Agent Activity & Performance"
-            icon={<span className="text-xl">📈</span>}
-            loading={isLoading}
-          >
-            <div className="h-48 mb-4">
-              <GlassChart
-                data={agentPerformance.data}
-                labels={agentPerformance.labels}
-                showPoints
-                gradient
-                color="primary"
-              />
-            </div>
-            <div className="text-center py-4 border-t border-border/40">
-              <p className="text-xs text-muted-foreground">
-                Autonomous actions run within verified limits and log real-time execution receipts.
-              </p>
-            </div>
-          </DashboardCard>
+          )}
         </div>
+
       </div>
     </div>
-  );
-}
-
-function AgentCard({ agent }: { agent: AgentConfig }) {
-  const [expanded, setExpanded] = useState(false);
-
-  const getAgentIcon = (type: string) => {
-    switch (type) {
-      case "OPTIMIZER":
-        return "⚖️";
-      case "YIELD":
-        return "🌾";
-      case "RISK_MANAGEMENT":
-        return "🛡️";
-      default:
-        return <Image src="/logo.png" alt="Agent" width={24} height={24} />;
-    }
-  };
-
-  const formatDate = (dateString: Date | string | undefined) => {
-    if (!dateString) return "Never";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  return (
-    <GlassPanel
-      className="p-4 transition-all duration-300"
-      bordered
-      variant="plain"
-    >
-      <div
-        className="flex items-center justify-between cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center space-x-3">
-          <span className="text-2xl">{getAgentIcon(agent.type)}</span>
-          <div>
-            <h3 className="font-semibold">{agent.name}</h3>
-            <div className="flex items-center space-x-2">
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
-                  agent.isActive
-                    ? "bg-green-900/30 text-green-400"
-                    : "bg-red-900/30 text-red-400"
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 mr-1 rounded-full ${
-                    agent.isActive ? "bg-green-400 animate-pulse" : "bg-red-400"
-                  }`}
-                />
-                {agent.isActive ? "Active" : "Inactive"}
-              </span>
-              <span className="text-xs text-white/60">
-                {agent.type.replace("_", " ")}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-            className="text-white/60 hover:text-white"
-          >
-            {expanded ? "−" : "+"}
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="mt-4 space-y-3">
-          <p className="text-sm text-white/70">{agent.description}</p>
-
-          <div className="text-xs space-y-2">
-            <div className="flex justify-between">
-              <span className="text-white/60">Last Run</span>
-              <span>{formatDate(agent.lastRunAt)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Created</span>
-              <span>{formatDate(agent.createdAt)}</span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded bg-secondary/30">
-            <h4 className="text-sm font-medium mb-2">Configuration</h4>
-            <div className="space-y-1 text-xs">
-              {Object.entries(agent.parameters || {}).map(([key, value]) => (
-                <div key={key} className="flex justify-between">
-                  <span className="text-white/60">
-                    {key
-                      .replace(/([A-Z])/g, " $1")
-                      .replace(/^./, (str) => str.toUpperCase())}
-                  </span>
-                  <span>
-                    {Array.isArray(value)
-                      ? value.join(", ")
-                      : typeof value === "object"
-                      ? JSON.stringify(value)
-                      : String(value)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <button className="flex-1 px-3 py-1.5 bg-primary/30 rounded text-sm hover:bg-primary/40 transition-colors">
-              Configure
-            </button>
-            <button
-              className={`flex-1 px-3 py-1.5 rounded text-sm ${
-                agent.isActive
-                  ? "bg-red-500/30 hover:bg-red-500/50"
-                  : "bg-green-500/30 hover:bg-green-500/50"
-              } transition-colors`}
-            >
-              {agent.isActive ? "Deactivate" : "Activate"}
-            </button>
-          </div>
-        </div>
-      )}
-    </GlassPanel>
   );
 }

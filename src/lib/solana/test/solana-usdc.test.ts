@@ -44,4 +44,19 @@ describe("Solana USDC & Solana Pay Integration", () => {
     expect(referenceKeypair.publicKey.toBase58()).toBe(referencePublicKey);
     expect(referencePublicKey.length).toBeGreaterThan(32);
   });
+
+  it("should calculate dynamic priority fee within bounds or fallback gracefully", async () => {
+    const { estimateDynamicPriorityFee } = await import("../solana-usdc");
+    const mockConnection: any = {
+      getRecentPrioritizationFees: async () => [
+        { slot: 1, prioritizationFee: 10_000 },
+        { slot: 2, prioritizationFee: 65_000 },
+        { slot: 3, prioritizationFee: 90_000 },
+      ],
+    };
+
+    const fee = await estimateDynamicPriorityFee(mockConnection, 50_000);
+    expect(fee).toBeGreaterThanOrEqual(50_000);
+    expect(fee).toBeLessThanOrEqual(500_000);
+  });
 });
