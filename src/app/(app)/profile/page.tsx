@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText } from "lucide-react";
+import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText, Bot } from "lucide-react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { usePrivy } from "@privy-io/react-auth";
 import { getUserProfile } from "@/app/actions/user";
@@ -103,6 +103,7 @@ export default function ProfilePage() {
 
     const settingsItems = [
         { icon: User, label: "Personal details", onClick: () => setIsEditModalOpen(true) },
+        { icon: Bot, label: "Autonomous AI Agent & Guardrails", onClick: () => router.push("/agent"), badge: "ERC-7715" },
         { icon: CreditCard, label: "Payment Methods", onClick: () => setIsPaymentModalOpen(true) },
         { icon: Globe, label: "Language & Region", onClick: () => setIsLanguageModalOpen(true) },
         { icon: ShieldCheck, label: "Privacy & Security", onClick: () => setIsPrivacyModalOpen(true) },

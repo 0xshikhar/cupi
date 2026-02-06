@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
-import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy, CreditCard, QrCode, Link as LinkIcon } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy, CreditCard, QrCode, Link as LinkIcon, Bot, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import TopUpModal from "@/components/TopUpModal";
 import { toast } from "sonner";
@@ -203,12 +203,23 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        <div 
-          onClick={() => setIsRewardsOpen(true)}
-          className="flex items-center gap-1.5 font-bold cursor-pointer hover:opacity-70 bg-secondary/30 px-3 py-1.5 rounded-full border border-border transition-all"
-        >
-          <Sparkles size={14} className="text-primary fill-primary" />
-          <span className="text-sm">Points</span>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/agent"
+            className="w-9 h-9 rounded-full bg-secondary/50 border border-border hover:bg-secondary hover:border-primary/50 flex items-center justify-center text-foreground transition-all relative"
+            title="Autonomous AI Agent & Guardrails"
+          >
+            <Bot size={17} className="text-foreground" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse absolute -top-0.5 -right-0.5 ring-2 ring-card" />
+          </Link>
+
+          <div 
+            onClick={() => setIsRewardsOpen(true)}
+            className="flex items-center gap-1.5 font-bold cursor-pointer hover:opacity-70 bg-secondary/30 px-3 py-1.5 rounded-full border border-border transition-all"
+          >
+            <Sparkles size={14} className="text-primary fill-primary" />
+            <span className="text-sm">Points</span>
+          </div>
         </div>
       </header>
 
@@ -232,23 +243,28 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions (Pure Cash App / Apple Cash Model) */}
       <div className="grid grid-cols-2 gap-3">
-        <Link href="/send" className="cupi-card p-4 flex flex-col items-center gap-2 hover:bg-secondary/50 transition-colors">
-          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-            <CreditCard size={24} className="text-primary" />
+        {/* Pay */}
+        <Link
+          href="/send"
+          className="cupi-card p-5 flex flex-col items-center justify-center gap-2.5 hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 flex items-center justify-center">
+            <CreditCard size={24} className="text-emerald-700" />
           </div>
-          <span className="font-bold text-sm">Pay</span>
+          <span className="font-bold text-sm text-foreground">Pay</span>
         </Link>
 
+        {/* Add Money */}
         <button
           onClick={() => setIsTopUpOpen(true)}
-          className="cupi-card p-4 flex flex-col items-center gap-2 hover:bg-secondary/50 transition-colors"
+          className="cupi-card p-5 flex flex-col items-center justify-center gap-2.5 hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm"
         >
-          <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-            <Plus size={24} className="text-green-600 dark:text-green-400" />
+          <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center">
+            <Plus size={24} className="text-black" />
           </div>
-          <span className="font-bold text-sm">Add Money</span>
+          <span className="font-bold text-sm text-foreground">Add Money</span>
         </button>
       </div>
 

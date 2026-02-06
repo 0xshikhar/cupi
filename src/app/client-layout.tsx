@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { BottomNav } from "@/components/BottomNav";
 import SetupUsernameModal from "@/components/SetupUsernameModal";
@@ -13,6 +13,8 @@ export default function ClientLayout({
   children: React.ReactNode;
 }>) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isAgentPage = pathname?.startsWith("/agent");
   const { ready, authenticated } = usePrivy();
   const { userWalletAddress } = useAuthWallet();
 
@@ -69,7 +71,7 @@ export default function ClientLayout({
     <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pb-24">
-        <div className="max-w-md mx-auto w-full min-h-full px-4 pt-6">
+        <div className={isAgentPage ? "max-w-md lg:max-w-7xl mx-auto w-full min-h-full px-2 sm:px-6 pt-2 sm:pt-4" : "max-w-md mx-auto w-full min-h-full px-4 pt-6"}>
           {children}
         </div>
       </main>
