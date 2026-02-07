@@ -38,6 +38,8 @@ model User {
   paymentLinks PaymentLink[] @relation("UserPaymentLinks")
   paymentsSent Payment[]     @relation("PaymentsSent")
   paymentsRecv Payment[]     @relation("PaymentsRecv")
+  requestsSent PaymentRequest[] @relation("RequestsSent")
+  requestsRecv PaymentRequest[] @relation("RequestsRecv")
   portfolios   Portfolio[]
   strategies   Strategy[]
   agents       Agent[]
@@ -472,3 +474,37 @@ model WebhookReceiptLog {
   @@index([createdAt])
 }
 
+enum PaymentRequestStatus {
+  REQUESTED
+  PAID
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+model PaymentRequest {
+  id              String               @id @default(uuid())
+  requesterId     String
+  requester       User                 @relation("RequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  payeeId         String?
+  payee           User?                @relation("RequestsRecv", fields: [payeeId], references: [id], onDelete: SetNull)
+  payeeIdentifier String               // handle (@name), phone (+1...), or wallet address
+  amount          String
+  currency        String               @default("USDC")
+  network         String               @default("base") // "base" | "solana" | "arbitrum"
+  description     String?
+  status          PaymentRequestStatus @default(REQUESTED)
+  linkedPaymentId String?
+  txHash          String?
+  paidAt          DateTime?
+  declinedAt      DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([requesterId])
+  @@index([payeeId])
+  @@index([payeeIdentifier])
+  @@index([status])
+  @@index([createdAt])
+}
