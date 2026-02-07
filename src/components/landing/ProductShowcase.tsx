@@ -39,9 +39,9 @@ export function ProductShowcase() {
             <div className="w-24 h-24 bg-brand-green border-4 border-black rounded-3xl flex items-center justify-center sticker-effect shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
               <LinkIcon size={40} className="text-black" />
             </div>
-            <h3 className="text-2xl font-black uppercase">2. ESCROW &amp; BLINKS</h3>
+            <h3 className="text-2xl font-black uppercase">2. CLAIM LINKS &amp; ACTIONS</h3>
             <p className="font-bold text-muted-foreground">
-              Share gasless zero-knowledge claim links (<code className="text-foreground">#key=</code>) or 1-tap Solana Actions &amp; Blinks.
+              Share gasless claim links (<code className="text-foreground">#key=</code>) or 1-tap Solana Actions &amp; Blinks.
             </p>
           </div>
           <div className="flex flex-col items-center text-center space-y-4">

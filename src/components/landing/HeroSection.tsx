@@ -32,7 +32,7 @@ export function HeroSection() {
         >
           {/* Rail Tag Badge */}
           <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full border-2 border-black bg-brand-green-light text-black text-xs sm:text-sm font-black uppercase tracking-wider sticker-effect shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-            <Zap size={16} fill="currentColor" /> Multi-Chain Payments • Base • Solana • Arbitrum
+            <Zap size={16} fill="currentColor" /> Multi-Chain Instant Settlement • Base &amp; Solana
           </div>
 
           {/* Main Headline */}
@@ -43,9 +43,7 @@ export function HeroSection() {
 
           {/* Value Prop Subtitle */}
           <p className="text-lg md:text-2xl text-muted-foreground max-w-3xl mx-auto font-bold leading-tight">
-            The next-generation self-custodial financial super-app. High-speed Solana Pay &amp; Blinks, 
-            zero-knowledge link escrow (<code className="text-foreground font-mono text-base px-2 py-0.5 rounded bg-muted">#key=</code>), 
-            EVM smart accounts, and AI agent guardrails. Built for global digital commerce with upcoming India UPI settlement.
+            Instant, borderless payments directly from self-custody. Send to anyone via simple link, username, or QR code — settled in seconds across Base and Solana with zero gas fees for the recipient.
           </p>
 
           {/* Action CTAs */}
@@ -69,24 +67,24 @@ export function HeroSection() {
           {/* Protocol Capabilities Pills */}
           <div className="pt-6 flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto text-xs font-bold text-muted-foreground">
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              Solana Pay (Sub-400ms)
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              Base L2 &amp; Arbitrum
             </span>
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
-              Peanut-Style Link Escrow
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Solana Pay (Sub-Second)
             </span>
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-purple-400" />
-              Base &amp; Arbitrum Smart Accounts
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              Gasless Claim Links (#key=)
             </span>
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary" />
-              ERC-7715 Agent Guardrails
+              Virtual Spend Cards
             </span>
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              Upcoming India UPI Rails
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              ERC-7715 Guardrails
             </span>
           </div>
         </motion.div>
@@ -94,11 +92,11 @@ export function HeroSection() {
         {/* Supported Asset Tickers */}
         <div className="mt-20 grid grid-cols-3 md:grid-cols-6 gap-4 sm:gap-8 opacity-40 font-black tracking-widest text-lg sm:text-2xl">
           <div>USDC</div>
-          <div>SOLANA</div>
           <div>BASE</div>
+          <div>SOLANA</div>
           <div>ARBITRUM</div>
           <div>ETHEREUM</div>
-          <div>INR / UPI</div>
+          <div>FIAT RAILS</div>
         </div>
       </div>
     </section>

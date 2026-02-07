@@ -32,8 +32,8 @@ export function ProductFeatures() {
               Global Reach.
             </h2>
             <p className="text-xl font-bold text-muted-foreground">
-              Built on Base Sepolia, Base Mainnet, Arbitrum One, and Solana. Send digital dollars across borders,
-              tap-to-pay with virtual cards, or off-ramp to global bank accounts and upcoming Indian UPI.
+              Built across Base and Solana. Send digital dollars across borders,
+              tap-to-pay with virtual cards, or off-ramp to global bank accounts with sub-second finality.
             </p>
             <Button
               size="lg"
@@ -48,10 +48,10 @@ export function ProductFeatures() {
             <div className="text-center relative z-10 space-y-6">
               <div className="text-7xl font-black text-black tracking-tight">&lt; 400ms</div>
               <p className="font-black uppercase tracking-widest text-black text-sm">
-                Solana Pay Cluster Confirmation
+                Instant Settlement Finality
               </p>
               <div className="flex justify-center gap-3">
-                <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Base</span>
+                <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Base L2</span>
                 <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Solana</span>
                 <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Arbitrum</span>
               </div>
@@ -64,10 +64,10 @@ export function ProductFeatures() {
           <div className="order-2 lg:order-1 bg-zinc-100 dark:bg-zinc-900 border-4 border-black rounded-[3rem] p-6 md:p-10 sticker-effect max-w-md mx-auto w-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
             <div className="flex items-center gap-4 mb-8">
               <div className="w-12 h-12 bg-brand-green rounded-2xl border-2 border-black flex items-center justify-center font-black text-black">
-                C
+                c
               </div>
               <div>
-                <div className="font-black text-foreground">Cupi Protocol Support</div>
+                <div className="font-black text-foreground">cUPI Support</div>
                 <div className="text-xs font-bold text-brand-green">Online • Multi-Rail</div>
               </div>
             </div>
@@ -76,13 +76,13 @@ export function ProductFeatures() {
                 Can I send $25 to a friend who doesn&apos;t have a crypto wallet yet?
               </div>
               <div className="bg-brand-green border-2 border-black p-4 rounded-2xl rounded-tr-none ml-auto max-w-[85%] font-bold text-sm text-black">
-                Yes! Generate a Cupi Claim Link. Send it via WhatsApp or Telegram — they claim in 1 click with zero gas fees. 🚀
+                Yes! Generate a cUPI Claim Link. Send it via WhatsApp or Telegram — they claim in 1 click with zero gas fees. 🚀
               </div>
               <div className="bg-white dark:bg-zinc-800 border-2 border-black p-4 rounded-2xl rounded-tl-none max-w-[85%] font-bold text-sm">
                 Can I also tap-to-pay at coffee shops?
               </div>
               <div className="bg-brand-green border-2 border-black p-4 rounded-2xl rounded-tr-none ml-auto max-w-[85%] font-bold text-sm text-black">
-                Add your Cupi Virtual Card to Apple Wallet or Google Pay. It settles directly from your self-custody balance! 💳
+                Add your cUPI Virtual Card to Apple Wallet or Google Pay. It settles directly from your self-custody balance! 💳
               </div>
             </div>
           </div>
@@ -114,9 +114,9 @@ export function ProductFeatures() {
           </div>
           <div className="p-8 bg-white dark:bg-zinc-900 border-4 border-black rounded-[2rem] sticker-effect space-y-4 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
             <Globe size={44} className="text-brand-green" />
-            <h3 className="text-2xl font-black uppercase">India UPI &amp; Global Off-Ramp</h3>
+            <h3 className="text-2xl font-black uppercase">Global Bank Off-Ramps</h3>
             <p className="font-bold text-muted-foreground text-sm">
-              Direct ACH/SEPA liquidation via Bridge.xyz and upcoming Indian UPI / INR settlement rolling out.
+              Direct ACH and SEPA liquidation via Bridge.xyz, with localized instant payment gateways.
             </p>
           </div>
         </div>

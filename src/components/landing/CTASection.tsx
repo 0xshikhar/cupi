@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { Cloud } from 'lucide-react';
+import { Cloud, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function CTASection() {
@@ -37,8 +37,8 @@ export function CTASection() {
             <span className="bg-black text-brand-green px-4 inline-block">START NOW.</span>
           </h2>
           <p className="text-xl md:text-2xl font-black opacity-80 uppercase leading-tight">
-            The bridge between your world and Web3 is finally open. <br />
-            Join 100,000+ early adopters.
+            Self-custodial money built for global digital commerce. <br />
+            Send, claim, and spend across Base and Solana.
           </p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
             <Button onClick={() => router.push('/get-started')} size="lg" className="h-20 px-12 rounded-xl bg-black text-white hover:bg-zinc-800 font-black text-2xl border-4 border-black sticker-effect">
@@ -49,12 +49,9 @@ export function CTASection() {
             </Button>
           </div>
           <div className="flex items-center justify-center gap-2 pt-6">
-            <div className="flex -space-x-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-brand-green-light" />
-              ))}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-black bg-white/40 text-black text-xs sm:text-sm font-black uppercase tracking-wider">
+              <ShieldCheck size={16} /> Non-Custodial Architecture • Ephemeral Key Security
             </div>
-            <span className="text-sm font-black uppercase tracking-tighter">Verified by Certik & Quantstamp</span>
           </div>
         </div>
       </motion.div>

@@ -53,40 +53,40 @@ export function FeatureGrid() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           <FeatureCard
-            title="Solana Pay & Actions Engine"
-            description="Sub-400ms confirmation times with dynamic cluster priority fee estimation and Twitter/X Action Blinks integration."
-            badge="Sub-400ms"
+            title="Solana Pay &amp; Base Fast Settlement"
+            description="Sub-second confirmation times with dynamic priority fee estimation on Solana, alongside instant low-cost L2 execution on Base."
+            badge="Sub-Second"
             icon={<Zap size={28} />}
             className="md:col-span-2"
           />
           <FeatureCard
             title="Client-Side Link Escrow"
-            description="Peanut-protocol style zero-knowledge ephemeral keys (#key=). Send money over WhatsApp or Telegram with zero gas for the recipient."
+            description="Non-custodial ephemeral cryptographic keys (#key=). Send money over WhatsApp, Telegram, or SMS with zero gas for the recipient."
             badge="#key="
             icon={<LinkIcon size={28} />}
           />
           <FeatureCard
-            title="Autonomous AI Agent"
+            title="Autonomous AI Guardrails"
             description="ERC-7715 scoped session keys with strict $50 daily spend guardrails and verified DeFi protocol whitelists."
             badge="ERC-7715"
             icon={<Bot size={28} />}
           />
           <FeatureCard
             title="Self-Custodial Virtual Cards"
-            description="Instant Visa debit cards powered by Rain Cards. Live card freeze toggle, $2,500 spend limits, and Apple/Google wallet support."
-            badge="Rain Cards"
+            description="Instant Visa debit cards linked directly to your smart wallet. Live freeze toggle, spend limits, and Apple/Google Pay contactless support."
+            badge="Virtual Cards"
             icon={<CreditCard size={28} />}
             className="md:col-span-2"
           />
           <FeatureCard
-            title="ERC-4337 Smart Accounts"
+            title="EVM Account Abstraction"
             description="Gasless onboarding and instant social login via Privy MPC on Base Mainnet, Base Sepolia, and Arbitrum One."
-            badge="Base & Arb"
+            badge="Base &amp; Arb"
             icon={<Shield size={28} />}
           />
           <FeatureCard
-            title="India UPI & Global Settlement"
-            description="Instant resolution for @handles, ENS .eth, phone numbers, with Bridge.xyz ACH/SEPA and upcoming native India UPI / INR off-ramps."
+            title="Global Directory &amp; Bank Off-Ramps"
+            description="Instant directory resolution for @handles, ENS .eth, and phone numbers, backed by Bridge.xyz ACH/SEPA and localized gateway integrations."
             badge="Global Rails"
             icon={<Globe size={28} />}
             className="md:col-span-2"

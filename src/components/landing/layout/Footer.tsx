@@ -12,12 +12,12 @@ export function Footer() {
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
-                <span className="font-black text-black text-xs">C</span>
+                <span className="font-black text-black text-xs">c</span>
               </div>
-              <span className="text-2xl font-black">Cupi</span>
+              <span className="text-2xl font-black">cUPI</span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed max-w-xs font-medium">
-              Multi-chain self-custodial payment protocol. High-speed Solana Pay, zero-knowledge link escrow, EVM smart accounts, and virtual spend cards with upcoming India UPI settlement.
+              Multi-chain self-custodial payment application. Instant settlement across Base and Solana, gasless claim links, EVM smart accounts, and virtual spend cards.
             </p>
             <div className="flex gap-4">
               <a href="https://x.com" target="_blank" rel="noreferrer" className="p-2 bg-white/5 rounded-full hover:bg-brand-green hover:text-black transition-all">
@@ -31,11 +31,11 @@ export function Footer() {
           <div>
             <h4 className="font-bold mb-6 text-sm uppercase tracking-wider text-brand-green">Protocol &amp; Rails</h4>
             <ul className="space-y-3 text-gray-400 text-sm font-medium">
-              <li><Link href="/home" className="hover:text-brand-green transition-colors">Solana Pay Engine</Link></li>
-              <li><Link href="/send/link" className="hover:text-brand-green transition-colors">Zero-Knowledge Escrow (#key=)</Link></li>
-              <li><Link href="/agent" className="hover:text-brand-green transition-colors">Autonomous AI Agent</Link></li>
-              <li><Link href="/cards" className="hover:text-brand-green transition-colors">Rain Virtual Visa Cards</Link></li>
-              <li><Link href="/send" className="hover:text-brand-green transition-colors">Upcoming India UPI Rails</Link></li>
+              <li><Link href="/home" className="hover:text-brand-green transition-colors">Base &amp; Solana Rails</Link></li>
+              <li><Link href="/send" className="hover:text-brand-green transition-colors">Gasless Claim Links (#key=)</Link></li>
+              <li><Link href="/agent" className="hover:text-brand-green transition-colors">Autonomous Agent Guardrails</Link></li>
+              <li><Link href="/cards" className="hover:text-brand-green transition-colors">Virtual Visa Spend Cards</Link></li>
+              <li><Link href="/send" className="hover:text-brand-green transition-colors">Global Bank Off-Ramps</Link></li>
             </ul>
           </div>
           <div>
@@ -59,7 +59,7 @@ export function Footer() {
           </div>
         </div>
         <div className="pt-8 border-t border-white/5 text-center text-gray-500 text-xs">
-          © {new Date().getFullYear()} Cupi Protocol. Self-Custodial Multi-Chain Infrastructure. All rights reserved.
+          © {new Date().getFullYear()} cUPI Protocol. Self-Custodial Multi-Chain Infrastructure. All rights reserved.
         </div>
       </div>
     </footer>

@@ -9,8 +9,8 @@ import {
 export function FAQ() {
   const faqs = [
     {
-      q: "WHAT IS CUPI?",
-      a: "Cupi is a multi-chain self-custodial payment protocol and financial super-app. It brings together high-speed Solana Pay (sub-400ms settlement), client-side encrypted link escrow (#key=), EVM smart accounts on Base & Arbitrum, autonomous AI agent execution, and self-custodial virtual Visa cards."
+      q: "WHAT IS cUPI?",
+      a: "cUPI is a multi-chain self-custodial payment application. It enables anyone to send, claim, and spend digital dollars instantly across Base and Solana with zero gas fees for the recipient, plus virtual Visa spend cards and non-custodial guardrails."
     },
     {
       q: "HOW DO CLIENT-SIDE ESCROW LINKS WORK?",
@@ -25,11 +25,11 @@ export function FAQ() {
       a: "You can deploy an autonomous agent that executes DeFi operations (swaps on Uniswap, yields on Moonwell) within strict, non-custodial ERC-7715 session keys. An enforced $50 daily spend guardrail and verified contract whitelist ensures your funds are always safe."
     },
     {
-      q: "CAN I USE CUPI FOR INDIAN UPI AND INR SETTLEMENT?",
-      a: "Yes! We are rolling out native Indian UPI integration allowing users to scan any UPI QR code and liquidate from stablecoin balances into INR merchant accounts, alongside global ACH/SEPA bank liquidation via Bridge.xyz."
+      q: "CAN I USE cUPI FOR GLOBAL BANK SETTLEMENT?",
+      a: "Yes! cUPI supports direct ACH and SEPA bank liquidation via Bridge.xyz, enabling instant stablecoin-to-fiat payouts to international bank accounts, alongside localized gateway integrations."
     },
     {
-      q: "HOW DO CUPI VIRTUAL CARDS WORK?",
+      q: "HOW DO cUPI VIRTUAL CARDS WORK?",
       a: "Powered by Rain Cards, you get an instant self-custodial Visa debit card linked to your smart balance. You can freeze/unfreeze it with 1 click, adjust spend limits, and add it to Apple Wallet or Google Pay for worldwide contactless spending."
     }
   ];
@@ -39,7 +39,7 @@ export function FAQ() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-5xl font-black uppercase tracking-tighter mb-4">GOT QUESTIONS?</h2>
-          <p className="text-muted-foreground font-bold">FREQUENTLY ASKED QUESTIONS ABOUT CUPI</p>
+          <p className="text-muted-foreground font-bold">FREQUENTLY ASKED QUESTIONS ABOUT cUPI</p>
         </div>
         <Accordion type="single" collapsible className="w-full space-y-4">
           {faqs.map((faq, idx) => (
