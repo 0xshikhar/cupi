@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Loader2, AlertTriangle, Copy, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, AlertTriangle, Copy, ExternalLink, ShieldCheck, Store } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -25,37 +25,70 @@ type PaymentLinkDetail = {
   };
 };
 
+type MerchantSessionDetail = {
+  id: string;
+  orderId: string;
+  amount: string;
+  currency: string;
+  network: string;
+  description?: string | null;
+  status: "PENDING" | "PAID" | "EXPIRED" | "FAILED" | "REFUNDED";
+  checkoutUrl: string;
+  callbackUrl: string;
+  successUrl?: string | null;
+  cancelUrl?: string | null;
+  txHash?: string | null;
+  payerAddress?: string | null;
+  expiresAt: string;
+};
+
 export default function PayInvoicePage() {
   const params = useParams<{ slug: string }>();
   const { userWalletAddress, sendToken, isLoading } = useAuthWallet();
+
+  const isMerchantCheckout = params?.slug?.startsWith("merchant-");
   const [link, setLink] = useState<PaymentLinkDetail | null>(null);
+  const [merchantSession, setMerchantSession] = useState<MerchantSessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadLink = async () => {
+    const loadInvoiceOrSession = async () => {
       try {
-        const response = await fetch(`/api/payment-links/${params.slug}`);
-        const data = await response.json();
+        if (isMerchantCheckout) {
+          const sessionId = params.slug.replace("merchant-", "");
+          const response = await fetch(`/api/merchant/checkout/${sessionId}`);
+          const data = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to load invoice");
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to load merchant checkout session");
+          }
+          setMerchantSession(data.session);
+          if (data.session.txHash) {
+            setTxHash(data.session.txHash);
+          }
+        } else {
+          const response = await fetch(`/api/payment-links/${params.slug}`);
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to load invoice");
+          }
+          setLink(data.link);
         }
-
-        setLink(data.link);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load invoice");
+        setError(err instanceof Error ? err.message : "Failed to load payment invoice");
       } finally {
         setLoading(false);
       }
     };
 
-    if (params.slug) {
-      loadLink();
+    if (params?.slug) {
+      loadInvoiceOrSession();
     }
-  }, [params.slug]);
+  }, [params?.slug, isMerchantCheckout]);
 
   const handlePay = async () => {
     if (!userWalletAddress) {
@@ -63,44 +96,79 @@ export default function PayInvoicePage() {
       return;
     }
 
-    if (!link) return;
-
     setPaying(true);
     try {
-      toast.info("Submitting payment via your wallet...");
-      const executedTxHash = await sendToken({
-        to: link.creator.walletAddress,
-        amount: link.amount,
-        token: link.tokenSymbol,
-        executionPreference: "gasless-preferred",
-      });
+      if (isMerchantCheckout && merchantSession) {
+        toast.info("Submitting merchant payment...");
+        
+        // Target recipient: default merchant receiver or smart contract
+        const recipient = "0x0000000000000000000000000000000000000000";
+        const executedTxHash = await sendToken({
+          to: recipient,
+          amount: merchantSession.amount,
+          token: (merchantSession.currency as "USDC" | "ETH") || "USDC",
+          executionPreference: "gasless-preferred",
+        });
 
-      const response = await fetch(`/api/payment-links/${link.slug}/claim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          senderWalletAddress: userWalletAddress,
-          txHash: executedTxHash,
-        }),
-      });
+        // Settle session on server and trigger institutional webhooks
+        const response = await fetch(`/api/merchant/checkout/${merchantSession.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            txHash: executedTxHash,
+            payerAddress: userWalletAddress,
+          }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to finalize checkout status");
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to finalize payment record");
+        setTxHash(executedTxHash);
+        setMerchantSession(data.session);
+        toast.success("Merchant payment confirmed and webhooks dispatched!");
+
+        if (data.session.successUrl) {
+          setTimeout(() => {
+            window.location.href = data.session.successUrl;
+          }, 2000);
+        }
+      } else if (link) {
+        toast.info("Submitting payment via your wallet...");
+        const executedTxHash = await sendToken({
+          to: link.creator.walletAddress,
+          amount: link.amount,
+          token: link.tokenSymbol,
+          executionPreference: "gasless-preferred",
+        });
+
+        const response = await fetch(`/api/payment-links/${link.slug}/claim`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            senderWalletAddress: userWalletAddress,
+            txHash: executedTxHash,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to finalize payment record");
+        }
+
+        setTxHash(executedTxHash);
+        setLink((current) =>
+          current
+            ? {
+                ...current,
+                status: data.paymentLink?.status || current.status,
+                usedCount: data.paymentLink?.usedCount ?? current.usedCount + 1,
+              }
+            : current
+        );
+        toast.success("Payment completed successfully!");
       }
-
-      setTxHash(executedTxHash);
-      setLink((current) =>
-        current
-          ? {
-              ...current,
-              status: data.paymentLink?.status || current.status,
-              usedCount: data.paymentLink?.usedCount ?? current.usedCount + 1,
-            }
-          : current
-      );
-      toast.success("Payment completed successfully!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Payment failed");
     } finally {
@@ -108,10 +176,9 @@ export default function PayInvoicePage() {
     }
   };
 
-  const copyAddress = async () => {
-    if (!link) return;
-    await navigator.clipboard.writeText(link.creator.walletAddress);
-    toast.success("Creator wallet copied");
+  const copyAddress = async (addr: string) => {
+    await navigator.clipboard.writeText(addr);
+    toast.success("Address copied to clipboard");
   };
 
   if (loading || isLoading) {
@@ -136,11 +203,15 @@ export default function PayInvoicePage() {
     );
   }
 
-  if (!link) {
-    return null;
-  }
-
-  const isExpired = link.status !== "ACTIVE";
+  // Display details for either Merchant Checkout or P2P Payment Link
+  const amount = isMerchantCheckout ? merchantSession?.amount : link?.amount;
+  const currency = isMerchantCheckout ? merchantSession?.currency : link?.tokenSymbol;
+  const description = isMerchantCheckout ? merchantSession?.description : link?.description;
+  const status = isMerchantCheckout ? merchantSession?.status : link?.status;
+  const isSettledOrExpired = isMerchantCheckout
+    ? merchantSession?.status !== "PENDING"
+    : link?.status !== "ACTIVE";
+  const isPaid = isMerchantCheckout ? merchantSession?.status === "PAID" : false;
 
   return (
     <div className="flex flex-col gap-6 pb-24 max-w-lg mx-auto mt-6">
@@ -149,8 +220,10 @@ export default function PayInvoicePage() {
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Invoice Request</p>
-          <h1 className="text-2xl font-black tracking-tight">Pay with Cupi</h1>
+          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+            {isMerchantCheckout ? "Institutional Checkout" : "Invoice Request"}
+          </p>
+          <h1 className="text-2xl font-black tracking-tight">Pay with cUPI</h1>
         </div>
       </div>
 
@@ -159,44 +232,66 @@ export default function PayInvoicePage() {
           <div>
             <p className="text-sm text-muted-foreground">Amount Due</p>
             <p className="text-4xl font-black tracking-tight">
-              {link.amount} {link.tokenSymbol}
+              {amount} {currency}
             </p>
           </div>
-          <div className="rounded-full border border-border bg-secondary/30 px-3 py-1 text-xs uppercase tracking-wider text-muted-foreground">
-            {link.status}
+          <div className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wider font-semibold ${
+            isPaid || status === "PAID"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              : "border-border bg-secondary/30 text-muted-foreground"
+          }`}>
+            {status}
           </div>
         </div>
 
-        {link.description && (
+        {description && (
           <div className="p-3 rounded-lg border border-border/50 bg-secondary/10">
             <p className="text-xs text-muted-foreground uppercase font-medium">Description</p>
-            <p className="text-sm mt-0.5">{link.description}</p>
+            <p className="text-sm mt-0.5">{description}</p>
           </div>
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-border bg-secondary/20 p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Recipient</p>
-            <p className="mt-1 font-semibold">
-              {link.creator.username ? `@${link.creator.username}` : link.creator.fullName || "Unknown"}
-            </p>
-            <button onClick={copyAddress} className="mt-3 inline-flex items-center gap-2 text-xs text-primary hover:underline">
-              <Copy size={12} />
-              Copy address
-            </button>
+            {isMerchantCheckout ? (
+              <div className="mt-1 flex items-center gap-1.5 font-semibold">
+                <Store size={16} className="text-primary" />
+                <span>Order #{merchantSession?.orderId}</span>
+              </div>
+            ) : (
+              <>
+                <p className="mt-1 font-semibold">
+                  {link?.creator.username ? `@${link.creator.username}` : link?.creator.fullName || "Unknown"}
+                </p>
+                {link?.creator.walletAddress && (
+                  <button
+                    onClick={() => copyAddress(link.creator.walletAddress)}
+                    className="mt-3 inline-flex items-center gap-2 text-xs text-primary hover:underline"
+                  >
+                    <Copy size={12} />
+                    Copy address
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
           <div className="rounded-xl border border-border bg-secondary/20 p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Settlement</p>
             <p className="mt-1 font-semibold flex items-center gap-1 text-emerald-400">
               <ShieldCheck size={16} />
-              Base Network
+              {isMerchantCheckout ? `${merchantSession?.network?.toUpperCase()} Network` : "Base Network"}
             </p>
-            {link.expiresAt && (
+            {isMerchantCheckout && merchantSession?.expiresAt ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Expires {new Date(merchantSession.expiresAt).toLocaleTimeString()}
+              </p>
+            ) : link?.expiresAt ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 Expires {new Date(link.expiresAt).toLocaleDateString()}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -204,9 +299,13 @@ export default function PayInvoicePage() {
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-semibold text-sm">Direct On-Chain Transfer</p>
+              <p className="font-semibold text-sm">
+                {isMerchantCheckout ? "Instant Webhook Reconciled" : "Direct On-Chain Transfer"}
+              </p>
               <p className="text-xs text-muted-foreground">
-                Funds are transferred directly from your wallet to the recipient.
+                {isMerchantCheckout
+                  ? "Merchants receive cryptographically signed HMAC webhooks immediately upon confirmation."
+                  : "Funds are transferred directly from your wallet to the recipient."}
               </p>
             </div>
           </div>
@@ -214,28 +313,32 @@ export default function PayInvoicePage() {
 
         <button
           onClick={handlePay}
-          disabled={paying || isExpired}
+          disabled={paying || isSettledOrExpired}
           className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          {isExpired ? "Invoice Expired or Paid" : `Pay ${link.amount} ${link.tokenSymbol}`}
+          {isPaid
+            ? "Payment Completed"
+            : isSettledOrExpired
+            ? "Invoice Expired or Inactive"
+            : `Pay ${amount} ${currency}`}
         </button>
 
         {txHash && (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 space-y-1">
             <p className="text-xs uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
               <CheckCircle2 size={14} />
-              Transaction Broadcasted
+              Transaction Broadcasted & Reconciled
             </p>
             <p className="font-mono text-xs break-all text-foreground mt-1">{txHash}</p>
-            <a
-              href={`https://basescan.org/tx/${txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2 pt-1"
-            >
-              View on Basescan <ExternalLink size={12} />
-            </a>
+            {isMerchantCheckout && merchantSession?.successUrl && (
+              <a
+                href={merchantSession.successUrl}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2 pt-1 font-semibold"
+              >
+                Return to Merchant Store <ExternalLink size={12} />
+              </a>
+            )}
           </div>
         )}
       </section>
