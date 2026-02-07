@@ -56,12 +56,32 @@ export const GET = withAuth(async (request: NextRequest, { auth }) => {
     const spendStatus = await getAgentSpendStatus(userAddress, customDailyCap);
     const activeSessionKeys = getActiveSessionKeys(userAddress);
 
+    // Dynamic AgentKit key status check
+    const cdpKeyName = process.env.CDP_API_KEY_NAME;
+    const cdpKeySecret = process.env.CDP_API_KEY_PRIVATE_KEY;
+    const isNewAgentKeyValid = Boolean(
+      cdpKeyName &&
+      cdpKeySecret &&
+      cdpKeyName.startsWith("organizations/") &&
+      cdpKeySecret.includes("PRIVATE KEY")
+    );
+
+    const agentKitStatus = {
+      isReady: isNewAgentKeyValid,
+      status: isNewAgentKeyValid ? "ready" : "key_update_required",
+      label: isNewAgentKeyValid ? "AgentKit Ready" : "AgentKit: Key Update Required",
+      details: isNewAgentKeyValid 
+        ? "Coinbase AgentKit credentials active" 
+        : "Coinbase AgentKit key rotation pending",
+    };
+
     return NextResponse.json({
       success: true,
       userAddress,
       ...spendStatus,
       whitelistedContracts: WHITELISTED_PROTOCOL_CONTRACTS,
       sessionKeys: activeSessionKeys,
+      agentKitStatus,
     });
   } catch (error) {
     console.error("[GUARDRAILS API] Error fetching guardrail status:", error);

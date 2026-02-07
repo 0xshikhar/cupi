@@ -38,6 +38,12 @@ interface GuardrailTelemetry {
   whitelistedCount: number;
   whitelistedContracts?: Record<string, string>;
   sessionKeys?: any[];
+  agentKitStatus?: {
+    isReady: boolean;
+    status: "ready" | "key_update_required";
+    label: string;
+    details: string;
+  };
 }
 
 interface ChatMessage {
@@ -99,6 +105,7 @@ export default function AgentDashboardPage() {
           whitelistedCount: data.whitelistedCount ?? 9,
           whitelistedContracts: data.whitelistedContracts,
           sessionKeys: data.sessionKeys || [],
+          agentKitStatus: data.agentKitStatus,
         });
       }
 
@@ -137,13 +144,28 @@ export default function AgentDashboardPage() {
     }
   }, [userWalletAddress, getAccessToken, privyUser?.id, setAgents, setLoading]);
 
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialChatMount = useRef<boolean>(true);
+
   useEffect(() => {
+    // Ensure viewport stays at top of page on load
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     fetchData();
   }, [fetchData]);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, activeDetailTab]);
+    // Only scroll message container internally when user or agent sends messages
+    if (isInitialChatMount.current) {
+      isInitialChatMount.current = false;
+      return;
+    }
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+  }, [messages]);
 
   // Adjust spend cap
   const handleUpdateCap = async (newCap: number) => {
@@ -558,12 +580,31 @@ export default function AgentDashboardPage() {
               </button>
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 pr-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[11px] font-mono text-muted-foreground font-bold">
-                AgentKit Ready
-              </span>
-            </div>
+            {(() => {
+              const isReady = guardrails?.agentKitStatus?.isReady;
+              const label = guardrails?.agentKitStatus?.label || (isReady ? "AgentKit Ready" : "AgentKit: Key Update Required");
+              const details = guardrails?.agentKitStatus?.details || (isReady ? "Coinbase AgentKit credentials active" : "Coinbase AgentKit key rotation pending");
+
+              return (
+                <div
+                  className={`hidden sm:flex items-center gap-2 pr-2 px-2.5 py-1 rounded-lg border transition-all ${
+                    isReady
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                      : "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400"
+                  }`}
+                  title={details}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full animate-pulse ${
+                      isReady ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
+                  <span className="text-[11px] font-mono font-bold">
+                    {label}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* TAB 1: 💬 Live Chat & Execution (Spacious & Modern) */}
@@ -592,7 +633,7 @@ export default function AgentDashboardPage() {
               </div>
 
               {/* Messages Container */}
-              <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 max-h-[460px]">
+              <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-3.5 pr-1 max-h-[460px]">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
