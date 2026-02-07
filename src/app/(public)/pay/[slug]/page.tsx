@@ -2,7 +2,17 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Loader2, AlertTriangle, Copy, ExternalLink, ShieldCheck, Store } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  AlertTriangle,
+  Copy,
+  ExternalLink,
+  ShieldCheck,
+  Store,
+  UserCheck,
+} from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -42,13 +52,34 @@ type MerchantSessionDetail = {
   expiresAt: string;
 };
 
+type PaymentRequestDetail = {
+  id: string;
+  amount: string;
+  currency: string;
+  network: string;
+  description?: string | null;
+  status: "REQUESTED" | "PAID" | "DECLINED" | "EXPIRED" | "CANCELLED";
+  txHash?: string | null;
+  expiresAt?: string | null;
+  requester: {
+    id: string;
+    username?: string | null;
+    fullName?: string | null;
+    walletAddress: string;
+  };
+};
+
 export default function PayInvoicePage() {
   const params = useParams<{ slug: string }>();
   const { userWalletAddress, sendToken, isLoading } = useAuthWallet();
 
   const isMerchantCheckout = params?.slug?.startsWith("merchant-");
+  const isPaymentRequest = params?.slug?.startsWith("request-");
+
   const [link, setLink] = useState<PaymentLinkDetail | null>(null);
   const [merchantSession, setMerchantSession] = useState<MerchantSessionDetail | null>(null);
+  const [paymentRequest, setPaymentRequest] = useState<PaymentRequestDetail | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -69,6 +100,18 @@ export default function PayInvoicePage() {
           if (data.session.txHash) {
             setTxHash(data.session.txHash);
           }
+        } else if (isPaymentRequest) {
+          const requestId = params.slug.replace("request-", "");
+          const response = await fetch(`/api/payment-requests/${requestId}`);
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to load payment request");
+          }
+          setPaymentRequest(data.request);
+          if (data.request.txHash) {
+            setTxHash(data.request.txHash);
+          }
         } else {
           const response = await fetch(`/api/payment-links/${params.slug}`);
           const data = await response.json();
@@ -88,7 +131,7 @@ export default function PayInvoicePage() {
     if (params?.slug) {
       loadInvoiceOrSession();
     }
-  }, [params?.slug, isMerchantCheckout]);
+  }, [params?.slug, isMerchantCheckout, isPaymentRequest]);
 
   const handlePay = async () => {
     if (!userWalletAddress) {
@@ -100,8 +143,6 @@ export default function PayInvoicePage() {
     try {
       if (isMerchantCheckout && merchantSession) {
         toast.info("Submitting merchant payment...");
-        
-        // Target recipient: default merchant receiver or smart contract
         const recipient = "0x0000000000000000000000000000000000000000";
         const executedTxHash = await sendToken({
           to: recipient,
@@ -110,7 +151,6 @@ export default function PayInvoicePage() {
           executionPreference: "gasless-preferred",
         });
 
-        // Settle session on server and trigger institutional webhooks
         const response = await fetch(`/api/merchant/checkout/${merchantSession.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -127,13 +167,40 @@ export default function PayInvoicePage() {
 
         setTxHash(executedTxHash);
         setMerchantSession(data.session);
-        toast.success("Merchant payment confirmed and webhooks dispatched!");
+        toast.success("Merchant payment confirmed!");
 
         if (data.session.successUrl) {
           setTimeout(() => {
             window.location.href = data.session.successUrl;
           }, 2000);
         }
+      } else if (isPaymentRequest && paymentRequest) {
+        toast.info("Sending payment to requester...");
+        const executedTxHash = await sendToken({
+          to: paymentRequest.requester.walletAddress,
+          amount: paymentRequest.amount,
+          token: (paymentRequest.currency as "USDC" | "ETH") || "USDC",
+          executionPreference: "gasless-preferred",
+        });
+
+        const patchRes = await fetch(`/api/payment-requests/${paymentRequest.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "pay",
+            txHash: executedTxHash,
+            payerUserId: userWalletAddress,
+          }),
+        });
+
+        const patchData = await patchRes.json();
+        if (!patchRes.ok) {
+          throw new Error(patchData.error || "Payment sent but failed to update status");
+        }
+
+        setTxHash(executedTxHash);
+        setPaymentRequest(patchData.request);
+        toast.success("Payment request fulfilled successfully!");
       } else if (link) {
         toast.info("Submitting payment via your wallet...");
         const executedTxHash = await sendToken({
@@ -203,15 +270,48 @@ export default function PayInvoicePage() {
     );
   }
 
-  // Display details for either Merchant Checkout or P2P Payment Link
-  const amount = isMerchantCheckout ? merchantSession?.amount : link?.amount;
-  const currency = isMerchantCheckout ? merchantSession?.currency : link?.tokenSymbol;
-  const description = isMerchantCheckout ? merchantSession?.description : link?.description;
-  const status = isMerchantCheckout ? merchantSession?.status : link?.status;
+  // Display details for Merchant Checkout, Payment Request, or P2P Payment Link
+  const amount = isMerchantCheckout
+    ? merchantSession?.amount
+    : isPaymentRequest
+    ? paymentRequest?.amount
+    : link?.amount;
+
+  const currency = isMerchantCheckout
+    ? merchantSession?.currency
+    : isPaymentRequest
+    ? paymentRequest?.currency
+    : link?.tokenSymbol;
+
+  const description = isMerchantCheckout
+    ? merchantSession?.description
+    : isPaymentRequest
+    ? paymentRequest?.description
+    : link?.description;
+
+  const status = isMerchantCheckout
+    ? merchantSession?.status
+    : isPaymentRequest
+    ? paymentRequest?.status
+    : link?.status;
+
+  const isPaid = isMerchantCheckout
+    ? merchantSession?.status === "PAID"
+    : isPaymentRequest
+    ? paymentRequest?.status === "PAID"
+    : false;
+
   const isSettledOrExpired = isMerchantCheckout
     ? merchantSession?.status !== "PENDING"
+    : isPaymentRequest
+    ? paymentRequest?.status !== "REQUESTED"
     : link?.status !== "ACTIVE";
-  const isPaid = isMerchantCheckout ? merchantSession?.status === "PAID" : false;
+
+  const networkName = isMerchantCheckout
+    ? merchantSession?.network
+    : isPaymentRequest
+    ? paymentRequest?.network
+    : "Base";
 
   return (
     <div className="flex flex-col gap-6 pb-24 max-w-lg mx-auto mt-6">
@@ -221,7 +321,11 @@ export default function PayInvoicePage() {
         </Link>
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            {isMerchantCheckout ? "Institutional Checkout" : "Invoice Request"}
+            {isMerchantCheckout
+              ? "Institutional Checkout"
+              : isPaymentRequest
+              ? "Direct Payment Request"
+              : "Invoice Request"}
           </p>
           <h1 className="text-2xl font-black tracking-tight">Pay with cUPI</h1>
         </div>
@@ -235,11 +339,13 @@ export default function PayInvoicePage() {
               {amount} {currency}
             </p>
           </div>
-          <div className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wider font-semibold ${
-            isPaid || status === "PAID"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-              : "border-border bg-secondary/30 text-muted-foreground"
-          }`}>
+          <div
+            className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wider font-semibold ${
+              isPaid || status === "PAID"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-border bg-secondary/30 text-muted-foreground"
+            }`}
+          >
             {status}
           </div>
         </div>
@@ -258,6 +364,24 @@ export default function PayInvoicePage() {
               <div className="mt-1 flex items-center gap-1.5 font-semibold">
                 <Store size={16} className="text-primary" />
                 <span>Order #{merchantSession?.orderId}</span>
+              </div>
+            ) : isPaymentRequest ? (
+              <div>
+                <p className="mt-1 font-semibold flex items-center gap-1.5">
+                  <UserCheck size={16} className="text-emerald-400" />
+                  {paymentRequest?.requester.username
+                    ? `@${paymentRequest.requester.username}`
+                    : paymentRequest?.requester.fullName || "Contact"}
+                </p>
+                {paymentRequest?.requester.walletAddress && (
+                  <button
+                    onClick={() => copyAddress(paymentRequest.requester.walletAddress)}
+                    className="mt-3 inline-flex items-center gap-2 text-xs text-primary hover:underline"
+                  >
+                    <Copy size={12} />
+                    Copy address
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -281,7 +405,7 @@ export default function PayInvoicePage() {
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Settlement</p>
             <p className="mt-1 font-semibold flex items-center gap-1 text-emerald-400">
               <ShieldCheck size={16} />
-              {isMerchantCheckout ? `${merchantSession?.network?.toUpperCase()} Network` : "Base Network"}
+              {networkName?.toUpperCase()} Network
             </p>
             {isMerchantCheckout && merchantSession?.expiresAt ? (
               <p className="mt-2 text-xs text-muted-foreground">
@@ -300,11 +424,17 @@ export default function PayInvoicePage() {
             <CheckCircle2 className="h-5 w-5 text-primary" />
             <div>
               <p className="font-semibold text-sm">
-                {isMerchantCheckout ? "Instant Webhook Reconciled" : "Direct On-Chain Transfer"}
+                {isMerchantCheckout
+                  ? "Instant Webhook Reconciled"
+                  : isPaymentRequest
+                  ? "Direct Wallet-to-Wallet Settlement"
+                  : "Direct On-Chain Transfer"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {isMerchantCheckout
                   ? "Merchants receive cryptographically signed HMAC webhooks immediately upon confirmation."
+                  : isPaymentRequest
+                  ? "Fulfilled instantly on-chain and notifies the requester."
                   : "Funds are transferred directly from your wallet to the recipient."}
               </p>
             </div>
