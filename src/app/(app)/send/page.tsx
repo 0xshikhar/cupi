@@ -6,12 +6,17 @@ import { ArrowLeft, ChevronRight, Link as LinkIcon, User, Zap, Send, QrCode, Pho
 import PayToUsernameModal from "@/components/PayToUsernameModal";
 import SolanaPayModal from "@/components/SolanaPayModal";
 import BankTransferModal from "@/components/BankTransferModal";
+import PaymentRequestTab from "@/components/payments/PaymentRequestTab";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 function SendContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { userWalletAddress } = useAuthWallet();
+
+    const [activeTab, setActiveTab] = useState<"send" | "request">(
+        searchParams.get("tab") === "request" ? "request" : "send"
+    );
 
     const [isPayModalOpen, setIsPayModalOpen] = useState(false);
     const [isSolanaModalOpen, setIsSolanaModalOpen] = useState(false);
@@ -25,6 +30,11 @@ function SendContent() {
         const recipientParam = searchParams.get("recipient");
         const amountParam = searchParams.get("amount");
         const railParam = searchParams.get("rail");
+        const tabParam = searchParams.get("tab");
+
+        if (tabParam === "request") {
+            setActiveTab("request");
+        }
 
         if (recipientParam) {
             setTargetRecipient(recipientParam);
@@ -43,17 +53,45 @@ function SendContent() {
     };
 
     return (
-        <div className="flex flex-col h-full gap-6">
-            {/* Header */}
-            <div className="relative flex items-center justify-center py-4">
+        <div className="flex flex-col h-full gap-5 max-w-lg mx-auto w-full">
+            {/* Header with Back button and Segmented Tab */}
+            <div className="flex items-center justify-between py-2">
                 <button
                     onClick={() => router.back()}
-                    className="absolute left-0 p-2 hover:bg-secondary rounded-lg transition-colors"
+                    className="p-2 hover:bg-secondary rounded-lg transition-colors"
                 >
                     <ArrowLeft size={20} />
                 </button>
-                <h1 className="text-xl font-bold tracking-tight">Send Money</h1>
+                <div className="flex bg-secondary/40 p-1 rounded-xl border border-border">
+                    <button
+                        onClick={() => setActiveTab("send")}
+                        className={`py-1.5 px-4 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                            activeTab === "send"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        Send Money
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("request")}
+                        className={`py-1.5 px-4 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                            activeTab === "request"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        Request Money
+                    </button>
+                </div>
+                <div className="w-9" />
             </div>
+
+            {activeTab === "request" ? (
+                <PaymentRequestTab />
+            ) : (
+                <>
+
 
             {/* Pay by Username Card */}
             <div className="cupi-card p-6 text-center space-y-5 bg-primary/5 border-primary/30">
@@ -200,6 +238,8 @@ function SendContent() {
                     <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
             </div>
+            </>
+            )}
 
             {/* Payment Modal */}
             <PayToUsernameModal
