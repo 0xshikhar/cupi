@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isValidAlchemySignature } from "@/lib/webhooks/alchemy-verify";
+import { recordStatusTransition, recordWebhookReceipt } from "@/lib/reconciliation/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +32,8 @@ interface AlchemyWebhookPayload {
 
 /**
  * POST /api/webhooks/alchemy
- * Asynchronously ingests on-chain events from Alchemy webhooks,
- * marking pending payments and transactions as CONFIRMED without blocking user HTTP requests.
+ * Ingests on-chain events from Alchemy webhooks, verifies HMAC signature,
+ * reconciles pending payments and transactions, and logs an immutable audit trail.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -45,6 +46,13 @@ export async function POST(req: NextRequest) {
       const isValid = isValidAlchemySignature(rawBody, signature, signingKey);
       if (!isValid) {
         console.warn("[ALCHEMY WEBHOOK] Unauthorized: Signature mismatch");
+        await recordWebhookReceipt({
+          provider: "ALCHEMY",
+          signature,
+          payload: { raw: rawBody.slice(0, 1000) },
+          status: "FAILED",
+          errorMessage: "Cryptographic signature verification failed",
+        });
         return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
       }
     } else if (process.env.NODE_ENV === "production") {
@@ -77,6 +85,14 @@ export async function POST(req: NextRequest) {
 
     const hashes = Array.from(txHashesToReconcile);
     if (hashes.length === 0) {
+      await recordWebhookReceipt({
+        provider: "ALCHEMY",
+        eventId: payload.webhookId || payload.id,
+        signature,
+        payload: payload as unknown as Record<string, unknown>,
+        status: "IGNORED",
+        processedCount: 0,
+      });
       return NextResponse.json({ success: true, message: "No transaction hashes in payload" });
     }
 
@@ -103,8 +119,19 @@ export async function POST(req: NextRequest) {
         data: { status: "CONFIRMED" },
       });
 
-      // Generate notifications for confirmed payments
+      // Audit status transition and generate notifications
       for (const payment of pendingPayments) {
+        await recordStatusTransition({
+          entityType: "PAYMENT",
+          entityId: payment.id,
+          txHash: payment.txHash,
+          previousStatus: "PENDING",
+          newStatus: "CONFIRMED",
+          source: "ALCHEMY_WEBHOOK",
+          reason: "Alchemy on-chain activity webhook delivered mined event",
+          metadata: { amount: payment.amount.toString(), token: payment.tokenSymbol },
+        });
+
         if (payment.receiverId) {
           await prisma.notification.create({
             data: {
@@ -115,7 +142,7 @@ export async function POST(req: NextRequest) {
               amount: payment.amount.toString(),
               status: "unread",
             },
-          });
+          }).catch((err) => console.error("[ALCHEMY WEBHOOK] Notification error:", err));
         }
       }
     }
@@ -137,9 +164,31 @@ export async function POST(req: NextRequest) {
         where: { id: { in: txIds } },
         data: { status: "CONFIRMED" },
       });
+
+      for (const tx of pendingTxRecords) {
+        await recordStatusTransition({
+          entityType: "TRANSACTION",
+          entityId: tx.id,
+          txHash: tx.txHash,
+          previousStatus: "PENDING",
+          newStatus: "CONFIRMED",
+          source: "ALCHEMY_WEBHOOK",
+          reason: "Alchemy mined transaction block event",
+        });
+      }
     }
 
     const totalReconciled = pendingPayments.length + pendingTxRecords.length;
+
+    // Log successful webhook receipt
+    await recordWebhookReceipt({
+      provider: "ALCHEMY",
+      eventId: payload.webhookId || payload.id,
+      signature,
+      payload: payload as unknown as Record<string, unknown>,
+      status: "PROCESSED",
+      processedCount: totalReconciled,
+    });
 
     return NextResponse.json({
       success: true,
