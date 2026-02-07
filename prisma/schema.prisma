@@ -43,6 +43,7 @@ model User {
   agents       Agent[]
   notifications Notification[]
   transactions Transaction[]
+  merchants    Merchant[]
 }
 
 model Notification {
@@ -342,5 +343,132 @@ model IdempotencyRecord {
 
   @@index([key])
   @@index([expiresAt])
+}
+
+model Merchant {
+  id                String               @id @default(uuid())
+  userId            String?
+  user              User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name              String
+  email             String?
+  webhookUrl        String?
+  webhookSecret     String               // Secret for HMAC-SHA256 signature verification
+  settlementAddress String?              // Address to settle received crypto/stablecoins
+  status            String               @default("ACTIVE") // "ACTIVE" | "SUSPENDED"
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  apiKeys           MerchantApiKey[]
+  checkoutSessions  CheckoutSession[]
+  webhookLogs       WebhookDeliveryLog[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model MerchantApiKey {
+  id          String    @id @default(uuid())
+  merchantId  String
+  merchant    Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  keyPrefix   String    // e.g. "cupi_live_..."
+  keyHash     String    @unique // SHA-256 hash of API secret key
+  name        String    @default("Default Secret Key")
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([keyHash])
+  @@index([merchantId])
+}
+
+model CheckoutSession {
+  id                 String               @id // e.g. "cs_live_..."
+  merchantId         String
+  merchant           Merchant             @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  orderId            String
+  amount             String
+  currency           String               @default("USDC") // "USDC" | "EURC" | "SOL"
+  network            String               @default("solana") // "solana" | "base" | "arbitrum"
+  description        String?
+  status             String               @default("PENDING") // "PENDING" | "PAID" | "EXPIRED" | "FAILED" | "REFUNDED"
+  checkoutUrl        String
+  callbackUrl        String
+  successUrl         String?
+  cancelUrl          String?
+  txHash             String?
+  payerAddress       String?
+  paidAt             DateTime?
+  expiresAt          DateTime
+  webhookAttempts    Int                  @default(0)
+  webhookDeliveredAt DateTime?
+  webhookLastStatus  Int?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  webhookLogs        WebhookDeliveryLog[]
+
+  @@unique([merchantId, orderId])
+  @@index([merchantId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model WebhookDeliveryLog {
+  id             String           @id @default(uuid())
+  merchantId     String
+  merchant       Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  sessionId      String?
+  session        CheckoutSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  event          String           // "checkout.session.completed", "checkout.session.expired"
+  url            String
+  requestPayload Json
+  signature      String
+  responseStatus Int?
+  responseBody   String?
+  attemptNumber  Int
+  success        Boolean
+  errorMessage   String?
+  durationMs     Int?
+  createdAt      DateTime         @default(now())
+
+  @@index([merchantId])
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model ReconciliationAuditLog {
+  id             String   @id @default(uuid())
+  entityType     String   // "PAYMENT" | "TRANSACTION" | "MERCHANT_CHECKOUT"
+  entityId       String
+  txHash         String?
+  previousStatus String
+  newStatus      String
+  source         String   // "ALCHEMY_WEBHOOK" | "CRON_SWEEP" | "RPC_POLLER" | "MERCHANT_API"
+  reason         String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([txHash])
+  @@index([source])
+  @@index([createdAt])
+}
+
+model WebhookReceiptLog {
+  id             String   @id @default(uuid())
+  provider       String   // "ALCHEMY" | "BRIDGE" | "SUMSUB"
+  eventId        String?
+  signature      String?
+  payload        Json
+  status         String   // "PROCESSED" | "FAILED" | "DUPLICATE" | "IGNORED"
+  errorMessage   String?
+  processedCount Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([provider])
+  @@index([status])
+  @@index([createdAt])
 }
 
