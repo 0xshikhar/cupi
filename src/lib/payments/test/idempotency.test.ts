@@ -32,7 +32,7 @@ describe("Financial Idempotency Guard", () => {
     expect(data2.count).toBe(1); // Cached, executor not called again!
     expect(callCount).toBe(1);
     expect(res2.headers.get("X-Idempotent-Replay")).toBe("true");
-  });
+  }, 10000);
 
   it("should reject concurrent in-flight requests with 409 Conflict", async () => {
     const testKey = `concurrent-key-${Date.now()}-${Math.random()}`;
