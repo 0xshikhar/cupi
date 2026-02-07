@@ -1,89 +1,134 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { z } from "zod";
 import { handleIdempotency, getIdempotencyKey } from "@/lib/payments/idempotency";
+import {
+  extractMerchantKeyFromRequest,
+  validateMerchantApiKey,
+  verifyHmacSignature,
+} from "@/lib/merchant/auth";
+import {
+  createCheckoutSession,
+  getCheckoutSession,
+} from "@/lib/merchant/merchant-service";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 const checkoutCreateSchema = z.object({
-  merchantId: z.string().min(1, "merchantId is required"),
+  merchantId: z.string().optional(),
   orderId: z.string().min(1, "orderId is required"),
   amount: z.string().refine((val) => Number(val) > 0, "Amount must be greater than 0"),
-  currency: z.enum(["USDC", "EURC"]).default("USDC"),
+  currency: z.enum(["USDC", "EURC", "SOL"]).default("USDC"),
+  network: z.enum(["solana", "base", "arbitrum"]).default("solana"),
   description: z.string().optional(),
   callbackUrl: z.string().url("Valid callbackUrl required for webhook notification"),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
+  metadata: z.record(z.unknown()).optional(),
+  expiresInMinutes: z.number().min(5).max(1440).optional(),
 });
-
-interface CheckoutSession {
-  sessionId: string;
-  merchantId: string;
-  orderId: string;
-  amount: string;
-  currency: string;
-  description?: string;
-  status: "pending" | "completed" | "expired";
-  checkoutUrl: string;
-  callbackUrl: string;
-  successUrl?: string;
-  cancelUrl?: string;
-  txHash?: string;
-  payerAddress?: string;
-  createdAt: string;
-  expiresAt: string;
-}
-
-// In-memory registry for merchant checkout sessions
-const checkoutSessions = new Map<string, CheckoutSession>();
 
 /**
  * POST /api/merchant/checkout
- * Generates an institutional merchant checkout session with webhook notifications.
+ * Institutional Merchant Checkout Session Creation API.
+ * Authenticated via X-Merchant-Key header and optional X-Signature HMAC header.
  */
 export async function POST(request: Request) {
   const idempotencyKey = getIdempotencyKey(request);
 
   return handleIdempotency(idempotencyKey, async () => {
     try {
-      const body = await request.json();
+      const rawBody = await request.text();
+      let body: unknown;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      }
+
       const input = checkoutCreateSchema.parse(body);
 
-      const sessionId = `cs_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
+      // Authenticate via X-Merchant-Key or Bearer token
+      const rawApiKey = extractMerchantKeyFromRequest(request);
+      let merchantId = input.merchantId;
+      let merchantSecret: string | null = null;
+
+      if (rawApiKey) {
+        const authResult = await validateMerchantApiKey(rawApiKey);
+        if (!authResult) {
+          return NextResponse.json(
+            { error: "Unauthorized: Invalid or revoked merchant API key" },
+            { status: 401 }
+          );
+        }
+        merchantId = authResult.merchant.id;
+        merchantSecret = authResult.merchant.webhookSecret;
+      } else if (merchantId) {
+        // Direct merchantId fallback
+        const existingMerchant = await prisma.merchant.findUnique({
+          where: { id: merchantId },
+        });
+        if (!existingMerchant) {
+          return NextResponse.json(
+            { error: `Merchant with id '${merchantId}' not found` },
+            { status: 404 }
+          );
+        }
+        merchantSecret = existingMerchant.webhookSecret;
+      } else {
+        return NextResponse.json(
+          { error: "Authentication required: Provide X-Merchant-Key header or valid merchantId" },
+          { status: 401 }
+        );
+      }
+
+      // Optional payload HMAC signature verification if X-Signature header is provided
+      const signatureHeader = request.headers.get("x-signature");
+      const timestampHeader = request.headers.get("x-timestamp");
+      if (signatureHeader && merchantSecret) {
+        const sigCheck = verifyHmacSignature({
+          payload: rawBody,
+          secret: merchantSecret,
+          signatureHeader,
+          timestampHeader,
+        });
+
+        if (!sigCheck.valid) {
+          return NextResponse.json(
+            { error: `Invalid request signature: ${sigCheck.reason}` },
+            { status: 401 }
+          );
+        }
+      }
+
       const origin = new URL(request.url).origin;
-      const checkoutUrl = `${origin}/pay/merchant-${sessionId}`;
-
-      const now = Date.now();
-      const session: CheckoutSession = {
-        sessionId,
-        merchantId: input.merchantId,
-        orderId: input.orderId,
-        amount: input.amount,
-        currency: input.currency,
-        description: input.description,
-        status: "pending",
-        checkoutUrl,
-        callbackUrl: input.callbackUrl,
-        successUrl: input.successUrl,
-        cancelUrl: input.cancelUrl,
-        createdAt: new Date(now).toISOString(),
-        expiresAt: new Date(now + 30 * 60 * 1000).toISOString(), // 30 mins
-      };
-
-      checkoutSessions.set(sessionId, session);
-
-      return NextResponse.json({
-        success: true,
-        session: {
-          sessionId: session.sessionId,
-          checkoutUrl: session.checkoutUrl,
-          amount: session.amount,
-          currency: session.currency,
-          expiresAt: session.expiresAt,
+      const session = await createCheckoutSession(
+        {
+          merchantId,
+          orderId: input.orderId,
+          amount: input.amount,
+          currency: input.currency,
+          network: input.network,
+          description: input.description,
+          callbackUrl: input.callbackUrl,
+          successUrl: input.successUrl,
+          cancelUrl: input.cancelUrl,
+          metadata: input.metadata,
+          expiresInMinutes: input.expiresInMinutes,
         },
-      });
+        origin
+      );
+
+      return NextResponse.json(
+        {
+          success: true,
+          session,
+        },
+        { status: 201 }
+      );
     } catch (error) {
       console.error("[MERCHANT CHECKOUT] Error:", error);
+
       if (error instanceof z.ZodError) {
         return NextResponse.json(
           {
@@ -93,6 +138,15 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+
+      // Handle duplicate orderId for merchant (unique constraint)
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+        return NextResponse.json(
+          { error: "Conflict: A checkout session with this orderId already exists for this merchant" },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Failed to create checkout session" },
         { status: 500 }
@@ -103,7 +157,7 @@ export async function POST(request: Request) {
 
 /**
  * GET /api/merchant/checkout?sessionId=...
- * Retrieves status of a merchant checkout session.
+ * Retrieves status of a merchant checkout session from the database.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -113,7 +167,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
   }
 
-  const session = checkoutSessions.get(sessionId);
+  const session = await getCheckoutSession(sessionId);
   if (!session) {
     return NextResponse.json({ error: "Checkout session not found" }, { status: 404 });
   }
