@@ -116,6 +116,8 @@ async function fetchBlockscoutTransactions(baseUrl: string, address: string, cha
     }
 }
 
+export const dynamic = "force-dynamic";
+
 export const GET = async (request: Request) => {
     try {
         const { searchParams } = new URL(request.url);

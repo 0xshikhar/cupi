@@ -26,6 +26,8 @@ const PRICES = {
     USDC: 1,   // $1 per USDC
 };
 
+export const dynamic = "force-dynamic";
+
 export const GET = async (request: Request) => {
     try {
         const { searchParams } = new URL(request.url);

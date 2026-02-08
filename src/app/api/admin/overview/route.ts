@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/modules/auth/server";
 
+export const dynamic = "force-dynamic";
+
 export const GET = withAuth(async (_req, { auth }) => {
   try {
     const [

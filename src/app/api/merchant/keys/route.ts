@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 const createKeySchema = z.object({
+  merchantId: z.string().optional(),
   name: z.string().min(1).default("Secondary Secret Key"),
 });
 
@@ -17,20 +18,34 @@ const createKeySchema = z.object({
 export async function POST(request: Request) {
   try {
     const rawKey = extractMerchantKeyFromRequest(request);
-    if (!rawKey) {
-      return NextResponse.json({ error: "X-Merchant-Key header required" }, { status: 401 });
-    }
-
-    const auth = await validateMerchantApiKey(rawKey);
-    if (!auth) {
-      return NextResponse.json({ error: "Invalid or inactive API key" }, { status: 401 });
-    }
-
     const body = await request.json().catch(() => ({}));
     const input = createKeySchema.parse(body);
 
+    let targetMerchantId: string | null = null;
+
+    if (rawKey) {
+      const auth = await validateMerchantApiKey(rawKey);
+      if (!auth) {
+        return NextResponse.json({ error: "Invalid or inactive API key" }, { status: 401 });
+      }
+      targetMerchantId = auth.merchant.id;
+    } else if (input.merchantId) {
+      const merchant = await prisma.merchant.findUnique({
+        where: { id: input.merchantId },
+      });
+      if (!merchant) {
+        return NextResponse.json({ error: "Merchant not found" }, { status: 404 });
+      }
+      targetMerchantId = merchant.id;
+    } else {
+      return NextResponse.json(
+        { error: "Authentication required: Provide X-Merchant-Key or merchantId" },
+        { status: 401 }
+      );
+    }
+
     const { apiKeyRecord, rawKey: newRawKey } = await createApiKeyForMerchant(
-      auth.merchant.id,
+      targetMerchantId,
       input.name
     );
 

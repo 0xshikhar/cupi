@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
 import { createMerchant } from "@/lib/merchant/merchant-service";
 import { extractMerchantKeyFromRequest, validateMerchantApiKey } from "@/lib/merchant/auth";
 
@@ -105,3 +106,46 @@ export async function GET(request: Request) {
     );
   }
 }
+
+/**
+ * PATCH /api/merchant
+ * Updates merchant settings (webhookUrl, settlementAddress, name).
+ */
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { merchantId, webhookUrl, settlementAddress, name } = body;
+
+    if (!merchantId) {
+      return NextResponse.json({ error: "merchantId is required" }, { status: 400 });
+    }
+
+    const updated = await prisma.merchant.update({
+      where: { id: merchantId },
+      data: {
+        ...(webhookUrl !== undefined && { webhookUrl }),
+        ...(settlementAddress !== undefined && { settlementAddress }),
+        ...(name !== undefined && { name }),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      merchant: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        webhookUrl: updated.webhookUrl,
+        settlementAddress: updated.settlementAddress,
+        status: updated.status,
+      },
+    });
+  } catch (error) {
+    console.error("[MERCHANT PATCH] Error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to update merchant" },
+      { status: 500 }
+    );
+  }
+}
+
