@@ -401,7 +401,7 @@ export async function claimPaymentLink(input: {
     throw new Error("Payment link is no longer active");
   }
 
-  // Branch A: Peanut-style Escrow Claim (Link recipient claiming locked funds)
+  // Branch A: cUPI Cryptographic Escrow Claim (Link recipient claiming locked funds)
   if (input.recipientAddress && input.signature && input.claimKeyHash) {
     const verification = await verifyClaimSignature({
       claimKeyHash: input.claimKeyHash as `0x${string}`,

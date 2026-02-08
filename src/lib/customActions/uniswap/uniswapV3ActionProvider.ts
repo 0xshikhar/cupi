@@ -15,6 +15,9 @@ import {
   TOKENS,
 } from "./constants";
 
+type QuoteInput = z.infer<typeof QuoteSchema>;
+type SwapInput = z.infer<typeof SwapSchema>;
+
 const SUPPORTED_NETWORKS = ["base-mainnet", "base-sepolia"] as const;
 
 export class UniswapV3ActionProvider extends ActionProvider<EvmWalletProvider> {
@@ -47,7 +50,7 @@ export class UniswapV3ActionProvider extends ActionProvider<EvmWalletProvider> {
   })
   async getQuote(
     wallet: EvmWalletProvider,
-    args: z.infer<typeof QuoteSchema>,
+    args: QuoteInput,
   ): Promise<string> {
     try {
       const network = wallet.getNetwork();
@@ -141,7 +144,7 @@ export class UniswapV3ActionProvider extends ActionProvider<EvmWalletProvider> {
   })
   async swap(
     wallet: EvmWalletProvider,
-    args: z.infer<typeof SwapSchema>,
+    args: SwapInput,
   ): Promise<string> {
     try {
       const network = wallet.getNetwork();

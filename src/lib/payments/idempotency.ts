@@ -17,6 +17,12 @@ const memoryStore = new Map<string, { state: RequestState; response?: CachedResp
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const LOCK_TIMEOUT_MS = 60 * 1000; // 60s max execution before lock reclaim
 
+let forceMemory = false;
+
+export function _setForceMemoryFallback(force: boolean) {
+  forceMemory = force;
+}
+
 /**
  * Distributed Idempotency Guard.
  * Uses PostgreSQL IdempotencyRecord with atomic row-level locks,
@@ -31,6 +37,11 @@ export async function handleIdempotency(
   }
 
   const normalizedKey = key.trim();
+
+  if (forceMemory || process.env.IDEMPOTENCY_DRIVER === "memory") {
+    return handleMemoryFallback(normalizedKey, executor);
+  }
+
   const now = new Date();
   const expiresAt = new Date(now.getTime() + TTL_MS);
 
