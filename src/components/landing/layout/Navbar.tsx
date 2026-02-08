@@ -28,6 +28,7 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-10 text-sm font-black uppercase tracking-widest">
           <a href="#features" className="hover:text-brand-green transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-brand-green transition-colors">How It Works</a>
+          <Link href="/docs" className="hover:text-brand-green transition-colors">Docs</Link>
           <a href="#faq" className="hover:text-brand-green transition-colors">FAQ</a>
         </div>
         <Button

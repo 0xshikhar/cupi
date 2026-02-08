@@ -41,10 +41,11 @@ export function Footer() {
           <div>
             <h4 className="font-bold mb-6 text-sm uppercase tracking-wider text-brand-green">Resources</h4>
             <ul className="space-y-3 text-gray-400 text-sm font-medium">
+              <li><Link href="/docs" className="hover:text-brand-green transition-colors">Developer Docs &amp; API</Link></li>
+              <li><Link href="/merchant" className="hover:text-brand-green transition-colors">Merchant Portal</Link></li>
               <li><a href="#how-it-works" className="hover:text-brand-green transition-colors">How It Works</a></li>
               <li><a href="#features" className="hover:text-brand-green transition-colors">Architecture &amp; Security</a></li>
               <li><a href="#faq" className="hover:text-brand-green transition-colors">FAQ</a></li>
-              <li><Link href="/profile" className="hover:text-brand-green transition-colors">Privacy &amp; Self-Custody</Link></li>
             </ul>
           </div>
           <div className="space-y-6">
