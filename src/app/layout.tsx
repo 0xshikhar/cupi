@@ -1,18 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Orbitron, Share_Tech_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Orbitron } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 const orbitron = Orbitron({
   subsets: ["latin"],
   variable: "--font-orbitron",
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
-
-const shareTechMono = Share_Tech_Mono({
-  subsets: ["latin"],
-  variable: "--font-share-tech-mono",
-  weight: ["400"],
+  weight: ["500", "700", "900"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -40,8 +47,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${orbitron.variable} ${shareTechMono.variable}`}>
-      <body className="bg-background text-foreground min-h-screen">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} ${orbitron.variable}`}>
+      <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         <Providers>
           {children}
         </Providers>

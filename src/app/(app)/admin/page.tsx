@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Loader2, RefreshCcw, ShieldCheck, Users, Link as LinkIcon, Wallet, ArrowUpRight } from "lucide-react";
+import { Loader2, RefreshCcw, ShieldCheck, Users, Link as LinkIcon, Wallet, ArrowUpRight, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 type AdminOverview = {
@@ -83,6 +84,15 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-24">
+      {/* Return to Settings */}
+      <Link
+        href="/profile"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft size={14} />
+        Back to Settings
+      </Link>
+
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Operations</p>

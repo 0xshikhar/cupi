@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText, Bot } from "lucide-react";
+import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText, Bot, Store } from "lucide-react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { usePrivy } from "@privy-io/react-auth";
 import { getUserProfile } from "@/app/actions/user";
@@ -121,6 +121,12 @@ export default function ProfilePage() {
                 }
             },
             description: "Self-custody private key and recovery backup",
+        },
+        {
+            icon: Store,
+            label: "Merchant Portal & API Keys",
+            onClick: () => router.push("/merchant"),
+            description: "Institutional checkout, API keys, and HMAC webhooks",
         },
         { 
             icon: Settings, 

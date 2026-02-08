@@ -12,9 +12,13 @@ import {
   ShieldCheck,
   Store,
   UserCheck,
+  QrCode,
+  Smartphone,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
@@ -84,6 +88,19 @@ export default function PayInvoicePage() {
   const [paying, setPaying] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [payMethod, setPayMethod] = useState<"WALLET" | "QR">("WALLET");
+
+  const [currentUrl, setCurrentUrl] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCurrentUrl(window.location.href);
+    }
+  }, []);
+
+  const phantomDeepLink = currentUrl
+    ? `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`
+    : "#";
 
   useEffect(() => {
     const loadInvoiceOrSession = async () => {
@@ -228,10 +245,10 @@ export default function PayInvoicePage() {
         setLink((current) =>
           current
             ? {
-                ...current,
-                status: data.paymentLink?.status || current.status,
-                usedCount: data.paymentLink?.usedCount ?? current.usedCount + 1,
-              }
+              ...current,
+              status: data.paymentLink?.status || current.status,
+              usedCount: data.paymentLink?.usedCount ?? current.usedCount + 1,
+            }
             : current
         );
         toast.success("Payment completed successfully!");
@@ -274,44 +291,44 @@ export default function PayInvoicePage() {
   const amount = isMerchantCheckout
     ? merchantSession?.amount
     : isPaymentRequest
-    ? paymentRequest?.amount
-    : link?.amount;
+      ? paymentRequest?.amount
+      : link?.amount;
 
   const currency = isMerchantCheckout
     ? merchantSession?.currency
     : isPaymentRequest
-    ? paymentRequest?.currency
-    : link?.tokenSymbol;
+      ? paymentRequest?.currency
+      : link?.tokenSymbol;
 
   const description = isMerchantCheckout
     ? merchantSession?.description
     : isPaymentRequest
-    ? paymentRequest?.description
-    : link?.description;
+      ? paymentRequest?.description
+      : link?.description;
 
   const status = isMerchantCheckout
     ? merchantSession?.status
     : isPaymentRequest
-    ? paymentRequest?.status
-    : link?.status;
+      ? paymentRequest?.status
+      : link?.status;
 
   const isPaid = isMerchantCheckout
     ? merchantSession?.status === "PAID"
     : isPaymentRequest
-    ? paymentRequest?.status === "PAID"
-    : false;
+      ? paymentRequest?.status === "PAID"
+      : false;
 
   const isSettledOrExpired = isMerchantCheckout
     ? merchantSession?.status !== "PENDING"
     : isPaymentRequest
-    ? paymentRequest?.status !== "REQUESTED"
-    : link?.status !== "ACTIVE";
+      ? paymentRequest?.status !== "REQUESTED"
+      : link?.status !== "ACTIVE";
 
   const networkName = isMerchantCheckout
     ? merchantSession?.network
     : isPaymentRequest
-    ? paymentRequest?.network
-    : "Base";
+      ? paymentRequest?.network
+      : "Base";
 
   return (
     <div className="flex flex-col gap-6 pb-24 max-w-lg mx-auto mt-6">
@@ -324,8 +341,8 @@ export default function PayInvoicePage() {
             {isMerchantCheckout
               ? "Institutional Checkout"
               : isPaymentRequest
-              ? "Direct Payment Request"
-              : "Invoice Request"}
+                ? "Direct Payment Request"
+                : "Invoice Request"}
           </p>
           <h1 className="text-2xl font-black tracking-tight">Pay with cUPI</h1>
         </div>
@@ -340,11 +357,10 @@ export default function PayInvoicePage() {
             </p>
           </div>
           <div
-            className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wider font-semibold ${
-              isPaid || status === "PAID"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-secondary/30 text-muted-foreground"
-            }`}
+            className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wider font-semibold ${isPaid || status === "PAID"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              : "border-border bg-secondary/30 text-muted-foreground"
+              }`}
           >
             {status}
           </div>
@@ -427,32 +443,86 @@ export default function PayInvoicePage() {
                 {isMerchantCheckout
                   ? "Instant Webhook Reconciled"
                   : isPaymentRequest
-                  ? "Direct Wallet-to-Wallet Settlement"
-                  : "Direct On-Chain Transfer"}
+                    ? "Direct Wallet-to-Wallet Settlement"
+                    : "Direct On-Chain Transfer"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {isMerchantCheckout
                   ? "Merchants receive cryptographically signed HMAC webhooks immediately upon confirmation."
                   : isPaymentRequest
-                  ? "Fulfilled instantly on-chain and notifies the requester."
-                  : "Funds are transferred directly from your wallet to the recipient."}
+                    ? "Fulfilled instantly on-chain and notifies the requester."
+                    : "Funds are transferred directly from your wallet to the recipient."}
               </p>
             </div>
           </div>
         </div>
 
-        <button
-          onClick={handlePay}
-          disabled={paying || isSettledOrExpired}
-          className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          {isPaid
-            ? "Payment Completed"
-            : isSettledOrExpired
-            ? "Invoice Expired or Inactive"
-            : `Pay ${amount} ${currency}`}
-        </button>
+        {/* Payment Method Selector (1-Tap Web3 Wallet vs Scan QR Code) */}
+        {!isSettledOrExpired && (
+          <div className="flex rounded-xl bg-secondary/40 p-1 border border-border">
+            <button
+              type="button"
+              onClick={() => setPayMethod("WALLET")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${payMethod === "WALLET"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
+            >
+              <Wallet size={14} />
+              Connect & Pay
+            </button>
+            <button
+              type="button"
+              onClick={() => setPayMethod("QR")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${payMethod === "QR"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
+            >
+              <QrCode size={14} />
+              Scan QR / Mobile
+            </button>
+          </div>
+        )}
+
+        {/* QR Code Presentation */}
+        {payMethod === "QR" && !isSettledOrExpired ? (
+          <div className="flex flex-col items-center justify-center p-6 rounded-2xl border border-border bg-secondary/10 space-y-4 text-center">
+            <div className="p-3 bg-white rounded-2xl shadow-md border border-neutral-200">
+              <QRCodeSVG value={currentUrl} size={180} level="M" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">Scan with Phantom, Solflare, or Camera</p>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                Scan this interactive payment URI with your mobile wallet to settle {amount} {currency} instantly.
+              </p>
+            </div>
+            {networkName?.toLowerCase() === "solana" && (
+              <a
+                href={phantomDeepLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline pt-1"
+              >
+                <Smartphone size={14} />
+                Open in Phantom App <ExternalLink size={12} />
+              </a>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={handlePay}
+            disabled={paying || isSettledOrExpired}
+            className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            {isPaid
+              ? "Payment Completed"
+              : isSettledOrExpired
+                ? "Invoice Expired or Inactive"
+                : `Pay ${amount} ${currency}`}
+          </button>
+        )}
 
         {txHash && (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 space-y-1">

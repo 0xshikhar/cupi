@@ -14,7 +14,7 @@ export default function ClientLayout({
 }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const isAgentPage = pathname?.startsWith("/agent");
+  const isWidePage = pathname?.startsWith("/agent") || pathname?.startsWith("/merchant") || pathname?.startsWith("/admin") || pathname?.startsWith("/send/link");
   const { ready, authenticated } = usePrivy();
   const { userWalletAddress } = useAuthWallet();
 
@@ -71,7 +71,7 @@ export default function ClientLayout({
     <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pb-24">
-        <div className={isAgentPage ? "max-w-md lg:max-w-7xl mx-auto w-full min-h-full px-2 sm:px-6 pt-2 sm:pt-4" : "max-w-md mx-auto w-full min-h-full px-4 pt-6"}>
+        <div className={isWidePage ? "max-w-md lg:max-w-7xl mx-auto w-full min-h-full px-2 sm:px-6 pt-2 sm:pt-4" : "max-w-md mx-auto w-full min-h-full px-4 pt-6"}>
           {children}
         </div>
       </main>

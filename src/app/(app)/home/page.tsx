@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
-import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy, CreditCard, QrCode, Link as LinkIcon, Bot, MessageSquare } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy, CreditCard, QrCode, Link as LinkIcon, Bot, MessageSquare, Store } from "lucide-react";
 import Link from "next/link";
 import TopUpModal from "@/components/TopUpModal";
 import { toast } from "sonner";
@@ -266,6 +266,42 @@ export default function DashboardPage() {
           </div>
           <span className="font-bold text-sm text-foreground">Add Money</span>
         </button>
+      </div>
+
+      {/* Services & Quick Access */}
+      <div className="grid grid-cols-3 gap-2.5">
+        <Link
+          href="/agent"
+          className="cupi-card p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-secondary/40 hover:border-purple-500/40 transition-all text-center group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <Bot size={18} />
+          </div>
+          <span className="font-semibold text-xs text-foreground">AI Copilot</span>
+          <span className="text-[10px] text-muted-foreground">ERC-7715 & Chat</span>
+        </Link>
+
+        <Link
+          href="/merchant"
+          className="cupi-card p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-secondary/40 hover:border-blue-500/40 transition-all text-center group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <Store size={18} />
+          </div>
+          <span className="font-semibold text-xs text-foreground">Merchant</span>
+          <span className="text-[10px] text-muted-foreground">API & Webhooks</span>
+        </Link>
+
+        <Link
+          href="/send/link"
+          className="cupi-card p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-secondary/40 hover:border-amber-500/40 transition-all text-center group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <LinkIcon size={18} />
+          </div>
+          <span className="font-semibold text-xs text-foreground">Create Link</span>
+          <span className="text-[10px] text-muted-foreground">Escrow Pay</span>
+        </Link>
       </div>
 
       {/* Recent Activity */}

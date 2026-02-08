@@ -12,10 +12,10 @@ export function BottomNav() {
     const isScan = pathname === "/scan";
     const isActivity = pathname === "/activity";
     const isProfile = pathname === "/profile";
-    const isAgent = pathname?.startsWith("/agent");
+    const isWidePage = pathname?.startsWith("/agent") || pathname?.startsWith("/merchant") || pathname?.startsWith("/admin") || pathname?.startsWith("/send/link");
 
     return (
-        <div className={`fixed bottom-0 left-0 right-0 p-4 z-50 pointer-events-none flex justify-center ${isAgent ? 'lg:hidden' : ''}`}>
+        <div className={`fixed bottom-0 left-0 right-0 p-4 z-50 pointer-events-none flex justify-center ${isWidePage ? 'lg:hidden' : ''}`}>
             <div className="w-full max-w-[400px] pointer-events-auto">
                 <nav className="mx-auto bg-black/90 backdrop-blur-md text-white rounded-2xl p-2 shadow-2xl flex justify-around items-center border border-white/10">
                     <Link 
