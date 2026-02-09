@@ -221,9 +221,19 @@ export async function createPaymentLink(
   };
 }
 
+export function sanitizeSlug(rawSlug: string): string {
+  try {
+    const decoded = decodeURIComponent(rawSlug);
+    return decoded.split(/[#?%]/)[0].trim();
+  } catch {
+    return rawSlug.split(/[#?%]/)[0].trim();
+  }
+}
+
 export async function getPaymentLinkBySlug(slug: string) {
+  const cleanSlug = sanitizeSlug(slug);
   const link = await prisma.paymentLink.findUnique({
-    where: { slug },
+    where: { slug: cleanSlug },
     include: {
       creator: true,
       payments: {
@@ -251,7 +261,7 @@ export async function getPaymentLinkBySlug(slug: string) {
 
   if (derivedStatus !== link.status) {
     const updated = await prisma.paymentLink.update({
-      where: { slug },
+      where: { slug: cleanSlug },
       data: { status: derivedStatus },
       include: {
         creator: true,
@@ -329,7 +339,7 @@ export async function executePaymentTransfer(
         amount: input.amount,
         tokenSymbol: input.token,
         tokenAddress: getTokenAddress(input.token),
-        txHash,
+        txHash: `${txHash}:sent`,
         chainId: DEFAULT_CHAIN.id,
         status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
         fromAddress: sender.walletAddress,
@@ -341,13 +351,14 @@ export async function executePaymentTransfer(
         amount: input.amount,
         tokenSymbol: input.token,
         tokenAddress: getTokenAddress(input.token),
-        txHash,
+        txHash: `${txHash}:recv`,
         chainId: DEFAULT_CHAIN.id,
         status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
         fromAddress: sender.walletAddress,
         toAddress: receiver.walletAddress,
       },
     ],
+    skipDuplicates: true,
   });
 
   await recordPaymentNotifications({
@@ -460,7 +471,7 @@ export async function claimPaymentLink(input: {
           amount: amountStr,
           tokenSymbol: link.tokenSymbol,
           tokenAddress: link.tokenAddress,
-          txHash,
+          txHash: `${txHash}:claim`,
           chainId: link.chainId,
           status: "CONFIRMED",
           fromAddress: link.creator.walletAddress,
@@ -472,13 +483,14 @@ export async function claimPaymentLink(input: {
           amount: amountStr,
           tokenSymbol: link.tokenSymbol,
           tokenAddress: link.tokenAddress,
-          txHash,
+          txHash: `${txHash}:recv`,
           chainId: link.chainId,
           status: "CONFIRMED",
           fromAddress: link.creator.walletAddress,
           toAddress: recipient.walletAddress,
         },
       ],
+      skipDuplicates: true,
     });
 
     await prisma.notification.createMany({

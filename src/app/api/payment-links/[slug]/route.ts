@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getPaymentLinkBySlug } from "@/lib/payments/payment-service";
+import { getPaymentLinkBySlug, sanitizeSlug } from "@/lib/payments/payment-service";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -8,7 +8,8 @@ export async function GET(
   { params }: { params: { slug: string } }
 ) {
   try {
-    const link = await getPaymentLinkBySlug(params.slug);
+    const cleanSlug = sanitizeSlug(params.slug);
+    const link = await getPaymentLinkBySlug(cleanSlug);
 
     if (!link) {
       return NextResponse.json({ error: "Payment link not found" }, { status: 404 });
@@ -46,8 +47,9 @@ export async function PATCH(
       );
     }
 
+    const cleanSlug = sanitizeSlug(params.slug);
     const updated = await prisma.paymentLink.update({
-      where: { slug: params.slug },
+      where: { slug: cleanSlug },
       data: { status },
     });
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { claimPaymentLink } from "@/lib/payments/payment-service";
+import { claimPaymentLink, sanitizeSlug } from "@/lib/payments/payment-service";
 import { paymentLinkClaimSchema } from "@/lib/payments/payment-schemas";
 
 function mapClaimErrorStatus(message: string) {
@@ -18,9 +18,10 @@ export async function POST(
 ) {
   try {
     const body = await request.json();
+    const cleanSlug = sanitizeSlug(params.slug);
     const input = paymentLinkClaimSchema.parse({
       ...body,
-      slug: params.slug,
+      slug: cleanSlug,
     });
 
     const result = await claimPaymentLink(input);

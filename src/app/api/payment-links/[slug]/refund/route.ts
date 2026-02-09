@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { refundPaymentLink } from "@/lib/payments/payment-service";
+import { refundPaymentLink, sanitizeSlug } from "@/lib/payments/payment-service";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +22,9 @@ export async function POST(
       );
     }
 
+    const cleanSlug = sanitizeSlug(params.slug);
     const result = await refundPaymentLink({
-      slug: params.slug,
+      slug: cleanSlug,
       creatorWalletAddress,
     });
 

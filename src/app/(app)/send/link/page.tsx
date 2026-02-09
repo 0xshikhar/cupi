@@ -72,7 +72,12 @@ export default function PaymentLinkCreatePage() {
       if (!userWalletAddress) return;
       try {
         const response = await fetch(
-          `/api/payment-links?creatorWalletAddress=${encodeURIComponent(userWalletAddress)}`
+          `/api/payment-links?creatorWalletAddress=${encodeURIComponent(userWalletAddress)}`,
+          {
+            headers: {
+              "x-wallet-address": userWalletAddress,
+            },
+          }
         );
         const data = await response.json();
         if (response.ok && Array.isArray(data.links)) {
@@ -118,7 +123,10 @@ export default function PaymentLinkCreatePage() {
 
       const response = await fetch("/api/payment-links", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-wallet-address": userWalletAddress,
+        },
         body: JSON.stringify({
           creatorWalletAddress: userWalletAddress,
           amount,
@@ -136,8 +144,10 @@ export default function PaymentLinkCreatePage() {
         throw new Error(data.error || "Failed to create payment link");
       }
 
-      // 2. Attach ephemeral private key in the URL hash fragment
-      const fullClaimUrl = `${window.location.origin}/claim/${data.link.slug}#key=${keyPair.claimPrivateKey}`;
+      // 2. Attach ephemeral private key in both query parameter (?key=...) and hash fragment (#key=...)
+      // Chat messengers (WhatsApp, Telegram) often strip or encode hash fragments (%23) when redirecting through click-gateways.
+      // Providing ?key= ensures 100% reliable 1-click opening across all chat apps while preserving zero-knowledge escrow security.
+      const fullClaimUrl = `${window.location.origin}/claim/${data.link.slug}?key=${keyPair.claimPrivateKey}#key=${keyPair.claimPrivateKey}`;
 
       const linkWithHash: CreatedLink = {
         ...data.link,
@@ -558,6 +568,20 @@ export default function PaymentLinkCreatePage() {
                     Show QR Code
                   </button>
                 </div>
+
+                {/* Localhost Testing Helper */}
+                {typeof window !== "undefined" &&
+                  (window.location.hostname === "localhost" ||
+                    window.location.hostname === "127.0.0.1") && (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200/90 space-y-1">
+                      <p className="font-semibold text-amber-300 flex items-center gap-1.5">
+                        <span>💡</span> Local Dev Link Notice
+                      </p>
+                      <p className="text-[11px] leading-relaxed text-amber-200/80">
+                        When testing WhatsApp, open the link in <strong>WhatsApp Web</strong> on this machine. If opening on a separate mobile phone, replace <code className="bg-black/30 px-1 rounded">localhost</code> with your computer&apos;s local Wi-Fi IP.
+                      </p>
+                    </div>
+                  )}
               </div>
             ) : (
               <div className="p-4 rounded-xl border border-border/50 bg-secondary/10 text-center">
