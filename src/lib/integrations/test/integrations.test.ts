@@ -34,6 +34,9 @@ describe("Fintech Infrastructure Services (Ihsan Pay Stack)", () => {
 
       expect(BridgeRampService.verifyWebhookSignature(payload, signature)).toBe(true);
       expect(BridgeRampService.verifyWebhookSignature(payload, "invalid_sig")).toBe(false);
+      expect(BridgeRampService.verifyWebhookSignature(payload, null)).toBe(false);
+      expect(BridgeRampService.verifyWebhookSignature(payload, "")).toBe(false);
+      expect(BridgeRampService.verifyWebhookSignature(payload, signature.slice(0, 10))).toBe(false);
     });
   });
 

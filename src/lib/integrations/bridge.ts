@@ -98,7 +98,10 @@ export class BridgeRampService {
     try {
       const hmac = crypto.createHmac("sha256", this.webhookSecret);
       const digest = hmac.update(rawBody).digest("hex");
-      return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
+      const digestBuf = Buffer.from(digest);
+      const sigBuf = Buffer.from(signature);
+      if (digestBuf.length !== sigBuf.length) return false;
+      return crypto.timingSafeEqual(digestBuf, sigBuf);
     } catch {
       return false;
     }
