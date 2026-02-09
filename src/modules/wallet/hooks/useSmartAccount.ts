@@ -100,9 +100,14 @@ export function useSmartAccount(): SmartAccountState {
 
   const gaslessFeatureEnabled = isGaslessFeatureEnabledClient();
 
-  const [balances, setBalances] = useState<TokenBalances>({
-    eth: "0.00",
-    usdc: "0.00",
+  const [balances, setBalances] = useState<TokenBalances>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("cupi_cached_smart_balances");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return { eth: "0.00", usdc: "0.00" };
   });
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
 
@@ -150,10 +155,16 @@ export function useSmartAccount(): SmartAccountState {
           .catch(() => BigInt(0)),
       ]);
 
-      setBalances({
+      const nextBalances: TokenBalances = {
         eth: parseFloat(formatUnits(ethRaw, 18)).toFixed(4),
         usdc: parseFloat(formatUnits(usdcRaw, 6)).toFixed(2),
-      });
+      };
+      setBalances(nextBalances);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("cupi_cached_smart_balances", JSON.stringify(nextBalances));
+        } catch {}
+      }
     } catch (err) {
       console.error("[SMART ACCOUNT] Balance fetch error:", err);
     } finally {
@@ -179,6 +190,27 @@ export function useSmartAccount(): SmartAccountState {
         throw new Error("No active Privy wallet found for signing");
       }
 
+      const normalizedAmount = amount.startsWith(".") ? `0${amount}` : amount;
+
+      // Ensure wallet is switched to the target chain (Base Sepolia)
+      if (activeWallet.chainId !== `eip155:${baseSepolia.id}`) {
+        try {
+          await activeWallet.switchChain(baseSepolia.id);
+        } catch (switchErr) {
+          console.warn("[WALLET] Auto-switch chain failed or prompt declined:", switchErr);
+        }
+      }
+
+      // Pre-flight balance check to prevent cryptic contract reverts
+      const availableBalance = token === "USDC" ? parseFloat(balances.usdc || "0") : parseFloat(balances.eth || "0");
+      const transferAmount = parseFloat(normalizedAmount);
+
+      if (transferAmount > availableBalance) {
+        throw new Error(
+          `Insufficient ${token} balance. Your wallet has ${availableBalance.toFixed(4)} ${token} on Base Sepolia, but the transfer requires ${normalizedAmount} ${token}. Please top up your wallet with testnet ${token}.`
+        );
+      }
+
       const ethereumProvider = await activeWallet.getEthereumProvider();
       const walletClient = createWalletClient({
         account: address as Address,
@@ -195,7 +227,7 @@ export function useSmartAccount(): SmartAccountState {
         if (token === "ETH") {
           const hash = await walletClient.sendTransaction({
             to: to as Address,
-            value: parseEther(amount),
+            value: parseEther(normalizedAmount),
           });
           refreshBalances();
           return hash;
@@ -205,7 +237,7 @@ export function useSmartAccount(): SmartAccountState {
             address: usdcAddress,
             abi: ERC20_ABI,
             functionName: "transfer",
-            args: [to as Address, parseUnits(amount, 6)],
+            args: [to as Address, parseUnits(normalizedAmount, 6)],
           });
           refreshBalances();
           return hash;
@@ -214,7 +246,7 @@ export function useSmartAccount(): SmartAccountState {
         throw new Error(mapTransferErrorMessage(error, token));
       }
     },
-    [address, wallets, refreshBalances, gaslessFeatureEnabled]
+    [address, wallets, refreshBalances, gaslessFeatureEnabled, balances]
   );
 
   return {

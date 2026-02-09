@@ -12,6 +12,7 @@ export interface AuthWalletState {
 
   // Loading states
   isLoading: boolean;
+  isLoadingBalances?: boolean;
   isCreatingWallet: boolean;
 
   // Error state
@@ -55,7 +56,8 @@ export function useAuthWallet(): AuthWalletState {
   return {
     userWalletAddress: account.address,
     basicWalletAddress: account.address, // Canonical single address
-    isLoading: !account.ready || account.isLoadingBalances,
+    isLoading: !account.ready,
+    isLoadingBalances: account.isLoadingBalances,
     isCreatingWallet: false,
     error: null,
     isAuthenticated: account.authenticated,

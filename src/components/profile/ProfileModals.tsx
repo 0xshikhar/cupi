@@ -119,7 +119,10 @@ export function PaymentMethodsModal({
               <p className="font-bold text-sm">{username ? `@${username}` : "@user"}</p>
             </div>
             <button 
-              onClick={() => handleCopy(`https://cupi.vercel.app/${username || walletAddress}`, "Payment URL")}
+              onClick={() => {
+                const base = typeof window !== "undefined" ? window.location.origin : "https://cupi.shikhar.xyz";
+                handleCopy(`${base}/${username || walletAddress}`, "Payment URL");
+              }}
               className="text-xs btn-primary py-1.5 px-3 flex items-center gap-1"
             >
               {copied === "Payment URL" ? <Check size={14} /> : <Copy size={14} />} Share Link
@@ -704,7 +707,8 @@ export function RewardsModal({
   if (!isOpen) return null;
 
   const copyReferral = () => {
-    const refUrl = `https://cupi.vercel.app/?ref=${username || "cupi"}`;
+    const base = typeof window !== "undefined" ? window.location.origin : "https://cupi.shikhar.xyz";
+    const refUrl = `${base}/?ref=${username || "cupi"}`;
     navigator.clipboard.writeText(refUrl);
     toast.success("Referral link copied!");
   };

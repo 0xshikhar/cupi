@@ -53,10 +53,24 @@ export function withAuth(handler: AuthenticatedHandler) {
 
       // Check for address parameter or header fallback
       const url = new URL(req.url);
-      const address = url.searchParams.get("address") || 
-                      url.searchParams.get("walletAddress") || 
-                      url.searchParams.get("userWalletAddress") ||
-                      req.headers.get("x-wallet-address");
+      let address = url.searchParams.get("address") || 
+                    url.searchParams.get("walletAddress") || 
+                    url.searchParams.get("userWalletAddress") ||
+                    url.searchParams.get("creatorWalletAddress") ||
+                    url.searchParams.get("creatorAddress") ||
+                    url.searchParams.get("fromAddress") ||
+                    req.headers.get("x-wallet-address") ||
+                    req.headers.get("x-creator-address");
+
+      if (!address && (req.method === "POST" || req.method === "PUT" || req.method === "PATCH")) {
+        try {
+          const cloned = req.clone();
+          const body = await cloned.json();
+          address = body.creatorWalletAddress || body.walletAddress || body.userWalletAddress || body.address || body.fromAddress;
+        } catch {
+          // Body not JSON or empty
+        }
+      }
 
       // In development or when address-scoped context is provided, allow operation
       if (address || process.env.NODE_ENV !== "production") {
