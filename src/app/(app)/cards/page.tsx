@@ -114,7 +114,7 @@ export default function CardsPage() {
           </Link>
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">Virtual Card</h1>
-            <p className="text-xs text-muted-foreground font-medium">Self-custodial spend card powered by Rain</p>
+            <p className="text-xs text-muted-foreground font-medium">Self-custodial spend card · Rain sandbox</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -130,7 +130,7 @@ export default function CardsPage() {
       </div>
 
       {/* Virtual Card Graphic */}
-      <div className="relative group perspective">
+      <div className="on-dark relative group perspective">
         <div className={`relative w-full aspect-[1.586/1] rounded-3xl p-6 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-500 border ${
           isFrozen 
             ? "bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 border-blue-500/30 shadow-blue-500/10" 
@@ -334,7 +334,7 @@ export default function CardsPage() {
       {/* Digital Wallets Integration */}
       <div className="cupi-card p-4 flex items-center justify-between bg-secondary/20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white">
+          <div className="w-10 h-10 shrink-0 rounded-full bg-secondary border border-border flex items-center justify-center text-foreground">
             <Smartphone size={20} />
           </div>
           <div>
@@ -344,7 +344,7 @@ export default function CardsPage() {
         </div>
         <button
           onClick={() => toast.info("Apple Wallet / Google Pay token provisioning initiated via Rain SDK.")}
-          className="px-3 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-gray-100 transition-colors"
+          className="shrink-0 whitespace-nowrap px-3.5 py-2 rounded-xl bg-black text-white font-bold text-xs hover:bg-zinc-800 transition-colors"
         >
           Add Card
         </button>

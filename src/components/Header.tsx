@@ -92,7 +92,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                                     <hr className="my-1 border-[var(--color-border)]" />
                                     <button
                                         onClick={logout}
-                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:text-red-400 hover:bg-[var(--color-bg-highlight)] transition-colors"
+                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:text-red-600 hover:bg-[var(--color-bg-highlight)] transition-colors"
                                     >
                                         <LogOut size={16} />
                                         Sign Out

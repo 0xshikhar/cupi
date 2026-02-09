@@ -147,7 +147,7 @@ export default function SolanaPayModal({
         </div>
 
         {isConfirmed ? (
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-6 text-center space-y-4">
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50 p-6 text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center">
               <CheckCircle2 size={28} />
             </div>
@@ -236,7 +236,7 @@ export default function SolanaPayModal({
                   href={phantomDeepLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+                  className="p-2 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <Zap size={13} />
                   Open in Phantom
@@ -267,7 +267,7 @@ export default function SolanaPayModal({
                 href={telegramShareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+                className="p-2 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
               >
                 Share to Telegram
               </a>

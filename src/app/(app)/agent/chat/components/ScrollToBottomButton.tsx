@@ -5,21 +5,17 @@ interface ScrollToBottomButtonProps {
 	onClick: () => void
 }
 
-export const ScrollToBottomButton = ({
-	show,
-	onClick,
-}: ScrollToBottomButtonProps) => {
+export const ScrollToBottomButton = ({ show, onClick }: ScrollToBottomButtonProps) => {
 	if (!show) return null
 
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className="absolute right-4 bottom-20 bg-[rgb(210,113,254)] text-black p-2 rounded-full shadow-lg animate-bounce z-40"
-			aria-label="Scroll to bottom"
+			className="absolute left-1/2 -translate-x-1/2 bottom-3 bg-black text-white p-2 rounded-full shadow-lg z-10 hover:bg-zinc-800 transition-colors"
+			aria-label="Scroll to latest message"
 		>
 			<ArrowDown size={16} />
 		</button>
 	)
 }
-

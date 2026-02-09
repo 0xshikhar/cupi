@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { BottomNav } from "@/components/BottomNav";
+import { AppFrame } from "@/components/AppFrame";
 import SetupUsernameModal from "@/components/SetupUsernameModal";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
@@ -14,7 +15,9 @@ export default function ClientLayout({
 }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const isWidePage = pathname?.startsWith("/agent") || pathname?.startsWith("/merchant") || pathname?.startsWith("/admin") || pathname?.startsWith("/send/link");
+  // Full-screen conversational views: no page padding and no tab bar (composer owns the bottom edge)
+  const isFullBleed = pathname === "/agent/chat";
+  const isWidePage = !isFullBleed && (pathname?.startsWith("/agent") || pathname?.startsWith("/merchant") || pathname?.startsWith("/admin") || pathname?.startsWith("/send/link"));
   const { ready, authenticated } = usePrivy();
   const { userWalletAddress } = useAuthWallet();
 
@@ -57,27 +60,27 @@ export default function ClientLayout({
   // Show loading state while checking authentication
   if (!ready) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+      <AppFrame>
+        <div className="flex h-full items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black mx-auto mb-4"></div>
+            <p className="text-sm text-muted-foreground">Loading your wallet…</p>
+          </div>
         </div>
-      </div>
+      </AppFrame>
     );
   }
 
-  // App pages get the mobile layout with BottomNav
+  // App pages render inside the device frame with the nav docked to its bottom edge
   return (
-    <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto pb-24">
-        <div className={isWidePage ? "max-w-md lg:max-w-7xl mx-auto w-full min-h-full px-2 sm:px-6 pt-2 sm:pt-4" : "max-w-md mx-auto w-full min-h-full px-4 pt-6"}>
+    <AppFrame wide={isWidePage} footer={isFullBleed ? null : <BottomNav />}>
+      {isFullBleed ? (
+        children
+      ) : (
+        <div className={isWidePage ? "max-w-md lg:max-w-7xl mx-auto w-full min-h-full px-3 sm:px-6 pt-3 sm:pt-5 pb-6" : "max-w-md mx-auto w-full min-h-full px-4 pt-5 pb-6"}>
           {children}
         </div>
-      </main>
-
-      {/* Sticky Mobile Navigation */}
-      <BottomNav />
+      )}
 
       {/* Username Setup Modal */}
       {userWalletAddress && (
@@ -91,6 +94,6 @@ export default function ClientLayout({
           }}
         />
       )}
-    </div>
+    </AppFrame>
   );
 }

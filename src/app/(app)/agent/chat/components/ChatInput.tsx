@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, type FormEvent, type RefObject } from "react";
-import { Send, Grid3x3 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/modules/core/hooks/use-mobile";
+import { type FormEvent, type RefObject } from "react";
+import { ArrowUp, Loader2, Plus } from "lucide-react";
 import { ActionsPopup } from "./ActionsPopup";
-import { useTypingAnimation } from "../hooks/use-typing-animation";
 import type { ChatMode } from "../types/chat";
 
 interface ChatInputProps {
@@ -21,8 +18,8 @@ interface ChatInputProps {
   onActionClick: (prompt: string) => void;
 }
 
+/** Composer docked to the bottom of the chat screen (in-flow, so it stays inside the app frame). */
 export const ChatInput = ({
-  mode,
   input,
   onInputChange,
   onSubmit,
@@ -33,102 +30,44 @@ export const ChatInput = ({
   onActionsToggle,
   onActionClick,
 }: ChatInputProps) => {
-  const isMobile = useIsMobile();
-  const [isFocused, setIsFocused] = useState(false);
-
-  const placeholder =
-    mode === "automation"
-      ? isMobile
-        ? "Ask about portfolio..."
-        : "Ask about portfolio optimization and strategies..."
-      : isMobile
-      ? "Ask about markets..."
-      : "Ask about market trends, assets, or news...";
-
-  const proTipText = 'Pro Tip: use "$" to auto-complete token';
-  const { displayedText: animatedText } = useTypingAnimation(
-    proTipText,
-    80,
-    !input.trim() && !isLoading && !isFocused
-  );
+  const canSend = !!input.trim() && !isLoading;
 
   return (
-    <div
-      className={cn(
-        "fixed p-3 sm:p-4 bg-secondary border-t border-border shadow-lg z-50 min-h-[72px] sm:min-h-[88px] flex items-center",
-        isMobile ? "left-0 right-0 bottom-16" : "left-72 right-0 bottom-0"
-      )}
-      style={{
-        paddingBottom: isMobile
-          ? "0.75rem"
-          : `calc(0.75rem + env(safe-area-inset-bottom))`,
-      }}
-    >
-      <div className="w-full max-w-5xl sm:max-w-6xl mx-auto px-4 relative">
-        <form onSubmit={onSubmit} className="flex w-full gap-2">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={onActionsToggle}
-              className="bg-primary text-primary-foreground px-3 sm:px-4 py-3 rounded-lg shadow-lg transition-all hover:opacity-90 flex items-center justify-center"
-              aria-label="Open actions menu"
-              aria-expanded={showActionsPopup}
-              tabIndex={0}
-            >
-              <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-
-            <ActionsPopup
-              isOpen={showActionsPopup}
-              popupRef={actionsPopupRef}
-              onActionClick={onActionClick}
-            />
-          </div>
-
-          <div className="flex-1 relative">
-            <input
-              ref={inputRef}
-              type="text"
-              className="flex-1 w-full bg-background border border-border text-foreground px-3 sm:px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent shadow-inner transition-all text-sm"
-              value={input}
-              onChange={(e) => onInputChange(e.target.value)}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              disabled={isLoading}
-              aria-label={placeholder}
-            />
-            {!input.trim() && !isFocused && animatedText && (
-              <div
-                className="absolute inset-0 flex items-center left-3 sm:left-4 text-sm text-muted-foreground pointer-events-none"
-                aria-hidden="true"
-              >
-                <span className="opacity-70">{animatedText}</span>
-                <span className="animate-pulse">|</span>
-              </div>
-            )}
-            {!input.trim() && !isFocused && !animatedText && (
-              <div
-                className="absolute inset-0 flex items-center left-3 sm:left-4 text-sm text-muted-foreground pointer-events-none"
-                aria-hidden="true"
-              >
-                {placeholder}
-              </div>
-            )}
-          </div>
+    <div className="shrink-0 border-t border-border bg-white px-3 pt-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+      <form onSubmit={onSubmit} className="flex items-center gap-2">
+        <div className="relative">
           <button
-            type="submit"
-            className={cn(
-              "bg-primary text-primary-foreground px-4 sm:px-6 py-3 rounded-lg shadow-lg transition-all flex items-center justify-center",
-              !input.trim() || isLoading
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:opacity-90"
-            )}
-            disabled={!input.trim() || isLoading}
+            type="button"
+            onClick={onActionsToggle}
+            className="w-11 h-11 rounded-full border-2 border-black bg-white flex items-center justify-center hover:bg-secondary transition-colors"
+            aria-label="Quick actions"
+            aria-expanded={showActionsPopup}
           >
-            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+            <Plus className={`h-5 w-5 transition-transform ${showActionsPopup ? "rotate-45" : ""}`} />
           </button>
-        </form>
-      </div>
+          <ActionsPopup isOpen={showActionsPopup} popupRef={actionsPopupRef} onActionClick={onActionClick} />
+        </div>
+
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
+          disabled={isLoading}
+          placeholder={isLoading ? "Assistant is working…" : "Ask or tell me what to do…"}
+          aria-label="Message the assistant"
+          className="flex-1 min-w-0 h-11 px-4 rounded-full bg-secondary text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-black/80 disabled:opacity-70"
+        />
+
+        <button
+          type="submit"
+          disabled={!canSend}
+          aria-label="Send message"
+          className="w-11 h-11 shrink-0 rounded-full bg-primary border-2 border-black flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:brightness-105 enabled:active:scale-95"
+        >
+          {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowUp className="h-5 w-5" strokeWidth={2.75} />}
+        </button>
+      </form>
     </div>
   );
 };

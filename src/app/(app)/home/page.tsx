@@ -4,7 +4,9 @@ import React, { useState, useEffect } from "react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy, CreditCard, QrCode, Link as LinkIcon, Bot, MessageSquare, Store } from "lucide-react";
 import Link from "next/link";
-import TopUpModal from "@/components/TopUpModal";
+import dynamic from "next/dynamic";
+
+const TopUpModal = dynamic(() => import("@/components/TopUpModal"), { ssr: false });
 import { toast } from "sonner";
 
 import { getUserNotifications } from "@/app/actions/user";
@@ -28,6 +30,11 @@ export default function DashboardPage() {
   } = useAuthWallet();
 
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+
+  // Deep link: /home?topup=1 opens "Add money" (used by insufficient-balance prompts)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("topup") === "1") setIsTopUpOpen(true);
+  }, []);
   const [isRewardsOpen, setIsRewardsOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -196,7 +203,7 @@ export default function DashboardPage() {
       <header className="flex items-center justify-between pt-2">
         <Link href="/profile">
           <div className="flex items-center gap-3 bg-secondary/50 border border-border rounded-full px-3 py-1.5 transition-all hover:bg-secondary cursor-pointer">
-            <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary-foreground">
+            <div className="w-8 h-8 rounded-full bg-primary border border-black/10 flex items-center justify-center text-xs font-black text-black">
               {username ? username.charAt(0).toUpperCase() : (userWalletAddress ? userWalletAddress.slice(2, 4).toUpperCase() : 'U')}
             </div>
             <span className="font-bold text-sm tracking-wide">
@@ -212,11 +219,11 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/agent"
-            className="w-9 h-9 rounded-full bg-secondary/50 border border-border hover:bg-secondary hover:border-primary/50 flex items-center justify-center text-foreground transition-all relative"
-            title="Autonomous AI Agent & Guardrails"
+            className="w-9 h-9 rounded-full bg-secondary/50 border border-border hover:bg-secondary hover:border-primary/50 flex items-center justify-center text-foreground transition-all"
+            title="Payment assistant (experimental)"
+            aria-label="Payment assistant (experimental)"
           >
             <Bot size={17} className="text-foreground" />
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse absolute -top-0.5 -right-0.5 ring-2 ring-card" />
           </Link>
 
           <div 
@@ -239,7 +246,7 @@ export default function DashboardPage() {
         </span>
         <div className="flex items-center justify-center gap-2">
           {isLoadingBalance && balance === "0.00" ? (
-            <div className="h-14 w-40 bg-secondary/50 animate-pulse rounded-2xl my-1" />
+            <div className="h-14 w-40 cupi-skeleton rounded-2xl my-1" />
           ) : (
             <span className="text-6xl font-black tracking-tighter tabular-nums">
               {CURRENCY_CONFIG[currencyCode]?.symbol || "$"}
@@ -249,64 +256,56 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Actions (Pure Cash App / Apple Cash Model) */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Pay */}
-        <Link
-          href="/send"
-          className="cupi-card p-5 flex flex-col items-center justify-center gap-2.5 hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 flex items-center justify-center">
-            <CreditCard size={24} className="text-emerald-700" />
-          </div>
-          <span className="font-bold text-sm text-foreground">Pay</span>
-        </Link>
-
-        {/* Add Money */}
+      {/* Primary money actions */}
+      <div className="grid grid-cols-3 gap-3">
         <button
           onClick={() => setIsTopUpOpen(true)}
-          className="cupi-card p-5 flex flex-col items-center justify-center gap-2.5 hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm"
+          className="flex flex-col items-center gap-2 group"
         >
-          <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center">
-            <Plus size={24} className="text-black" />
-          </div>
-          <span className="font-bold text-sm text-foreground">Add Money</span>
+          <span className="w-16 h-16 rounded-2xl bg-secondary border border-border flex items-center justify-center group-hover:bg-zinc-200 group-active:scale-95 transition-all">
+            <Plus size={26} strokeWidth={2.5} />
+          </span>
+          <span className="font-semibold text-sm">Add</span>
         </button>
+        <Link href="/send" className="flex flex-col items-center gap-2 group">
+          <span className="w-16 h-16 rounded-2xl bg-black text-white flex items-center justify-center shadow-lg group-hover:bg-zinc-800 group-active:scale-95 transition-all">
+            <ArrowUpRight size={26} strokeWidth={2.5} />
+          </span>
+          <span className="font-semibold text-sm">Send</span>
+        </Link>
+        <Link href="/send?tab=request" className="flex flex-col items-center gap-2 group">
+          <span className="w-16 h-16 rounded-2xl bg-primary text-black flex items-center justify-center shadow-[0_6px_16px_rgba(0,255,149,0.35)] group-hover:brightness-105 group-active:scale-95 transition-all">
+            <ArrowDownLeft size={26} strokeWidth={2.5} />
+          </span>
+          <span className="font-semibold text-sm">Request</span>
+        </Link>
       </div>
 
-      {/* Services & Quick Access */}
-      <div className="grid grid-cols-3 gap-2.5">
-        <Link
-          href="/agent"
-          className="cupi-card p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-secondary/40 hover:border-purple-500/40 transition-all text-center group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
-            <Bot size={18} />
-          </div>
-          <span className="font-semibold text-xs text-foreground">AI Copilot</span>
-          <span className="text-[10px] text-muted-foreground">ERC-7715 & Chat</span>
-        </Link>
-
-        <Link
-          href="/merchant"
-          className="cupi-card p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-secondary/40 hover:border-blue-500/40 transition-all text-center group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-105 transition-transform">
-            <Store size={18} />
-          </div>
-          <span className="font-semibold text-xs text-foreground">Merchant</span>
-          <span className="text-[10px] text-muted-foreground">API & Webhooks</span>
-        </Link>
-
+      {/* More ways to get paid */}
+      <div className="grid grid-cols-2 gap-2.5">
         <Link
           href="/send/link"
-          className="cupi-card p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-secondary/40 hover:border-amber-500/40 transition-all text-center group"
+          className="cupi-card p-3.5 flex items-center gap-3 hover:bg-secondary/40 transition-all group"
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+          <span className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 flex items-center justify-center group-hover:scale-105 transition-transform">
             <LinkIcon size={18} />
-          </div>
-          <span className="font-semibold text-xs text-foreground">Create Link</span>
-          <span className="text-[10px] text-muted-foreground">Escrow Pay</span>
+          </span>
+          <span className="min-w-0 text-left">
+            <span className="block font-semibold text-sm">Payment link</span>
+            <span className="block text-[11px] text-muted-foreground truncate">Send via WhatsApp</span>
+          </span>
+        </Link>
+        <Link
+          href="/merchant"
+          className="cupi-card p-3.5 flex items-center gap-3 hover:bg-secondary/40 transition-all group"
+        >
+          <span className="w-10 h-10 shrink-0 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <Store size={18} />
+          </span>
+          <span className="min-w-0 text-left">
+            <span className="block font-semibold text-sm">Merchant</span>
+            <span className="block text-[11px] text-muted-foreground truncate">Checkout & webhooks</span>
+          </span>
         </Link>
       </div>
 
@@ -322,7 +321,7 @@ export default function DashboardPage() {
         {isLoadingFeed && recentActivity.length === 0 ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-secondary/30 rounded-xl animate-pulse" />
+              <div key={i} className="h-16 cupi-skeleton" />
             ))}
           </div>
         ) : recentActivity.length === 0 ? (
@@ -386,12 +385,14 @@ export default function DashboardPage() {
         onClose={() => setSelectedActivity(null)}
       />
 
-      {/* Top Up Modal */}
-      <TopUpModal
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        onSuccess={handleTopUpSuccess}
-      />
+      {/* Top Up Modal (code-split: only fetched when opened) */}
+      {isTopUpOpen && (
+        <TopUpModal
+          isOpen={isTopUpOpen}
+          onClose={() => setIsTopUpOpen(false)}
+          onSuccess={handleTopUpSuccess}
+        />
+      )}
 
       {/* Rewards Modal */}
       <RewardsModal

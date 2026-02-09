@@ -246,7 +246,7 @@ export default function PaymentRequestTab() {
           </div>
 
           {createdShareUrl && (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-50 p-4 space-y-3">
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase">
                 <CheckCircle2 size={16} />
                 <span>Request Link Ready</span>
@@ -442,7 +442,7 @@ export default function PaymentRequestTab() {
                             ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                             : isDeclined
                             ? "bg-destructive/10 border-destructive/30 text-destructive"
-                            : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                            : "bg-amber-500/10 border-amber-500/30 text-amber-700"
                         }`}
                       >
                         {item.status}

@@ -73,7 +73,7 @@ export default function AgentDashboardPage() {
     {
       id: "msg_init_1",
       role: "agent",
-      content: "Hello! I am your Cupi Autonomous AI Agent. Operating under ERC-7715 non-custodial delegation on Base. I can check your real-time balances, execute Uniswap V3 swaps, or supply Moonwell liquidity within your strict $50 daily spend guardrail.",
+      content: "Hi! I'm your cUPI payment assistant. I can check balances, send payments and run approved actions on Base — always within your daily spend limit. What would you like to do?",
       timestamp: "Just now",
     },
   ]);
@@ -309,48 +309,52 @@ export default function AgentDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-20">
-      {/* Universal Page Header with Back Button */}
-      <div className="flex items-center justify-between pb-3 border-b border-border">
-        <div className="flex items-center gap-3">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => router.push("/home")}
-            className="p-2.5 rounded-xl bg-secondary/50 hover:bg-secondary border border-border text-foreground transition-all active:scale-95 flex items-center justify-center shadow-sm"
-            title="Back to Home"
+            className="p-2.5 rounded-xl bg-white hover:bg-secondary border border-border transition-all active:scale-95 shrink-0"
+            aria-label="Back to home"
           >
             <ArrowLeft size={18} />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2 text-foreground">
-                <Bot className="text-primary w-6 h-6" />
-                Autonomous AI Agent
-              </h1>
-              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                ERC-7715 Active
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground font-medium">
-              Controller guardrails &amp; autonomous execution command center
+          <span className="w-11 h-11 shrink-0 rounded-2xl bg-primary border-2 border-black shadow-[3px_3px_0_0_#000] flex items-center justify-center">
+            <Bot className="w-6 h-6 text-black" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+              Payment Assistant
+              <span className="text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-black text-white">Beta</span>
+            </h1>
+            <p className="text-xs text-muted-foreground font-medium truncate">
+              An AI helper that can only spend inside the limits you set.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push("/agent/configure")}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary text-xs font-bold transition-all"
-          >
-            <Plus size={14} />
-            Configure Strategy
-          </button>
-
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => fetchData()}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-border bg-card hover:bg-secondary/40 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
-            title="Refresh Telemetry"
+            className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
+            aria-label="Refresh"
           >
             <RefreshCw size={14} className={isLoadingGuardrails ? "animate-spin" : ""} />
             <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => router.push("/agent/configure")}
+            className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
+          >
+            <Plus size={14} />
+            New automation
+          </button>
+          <button
+            onClick={() => router.push("/agent/chat")}
+            className="text-xs font-bold py-2 px-3.5 rounded-xl bg-black text-white hover:bg-zinc-800 transition-colors flex items-center gap-1.5"
+          >
+            <MessageSquare size={14} />
+            Open chat
           </button>
         </div>
       </div>
@@ -361,7 +365,7 @@ export default function AgentDashboardPage() {
         {/* Guardrails & Spend Policy Sidebar */}
         <div className="w-full lg:w-[380px] shrink-0 space-y-4">
           {/* Spend Guardrails Control Card */}
-          <div className="cupi-card p-5 space-y-4 shadow-sm">
+          <div className="rounded-3xl bg-white p-5 space-y-4 border-2 border-black shadow-[5px_5px_0_0_#000]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -543,8 +547,8 @@ export default function AgentDashboardPage() {
         {/* Command Center & Execution Console */}
         <div className="flex-1 w-full space-y-4 min-w-0">
           {/* Command Center Tabs Header */}
-          <div className="cupi-card p-2 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="cupi-card p-1.5 flex items-center justify-between gap-2 shadow-sm">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0" role="tablist">
               <button
                 onClick={() => setActiveDetailTab("chat")}
                 className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
@@ -554,7 +558,7 @@ export default function AgentDashboardPage() {
                 }`}
               >
                 <MessageSquare size={14} />
-                Live Chat &amp; Actions
+                Chat
               </button>
               <button
                 onClick={() => setActiveDetailTab("session_keys")}
@@ -565,7 +569,7 @@ export default function AgentDashboardPage() {
                 }`}
               >
                 <Key size={14} />
-                ERC-7715 Session Keys ({guardrails?.sessionKeys?.length || 0})
+                Session keys ({guardrails?.sessionKeys?.length || 0})
               </button>
               <button
                 onClick={() => setActiveDetailTab("whitelist")}
@@ -576,18 +580,18 @@ export default function AgentDashboardPage() {
                 }`}
               >
                 <Shield size={14} />
-                Protocol Whitelist
+                Allowed apps
               </button>
             </div>
 
             {(() => {
               const isReady = guardrails?.agentKitStatus?.isReady;
-              const label = guardrails?.agentKitStatus?.label || (isReady ? "AgentKit Ready" : "AgentKit: Key Update Required");
+              const label = isReady ? "Agent online" : "Agent offline";
               const details = guardrails?.agentKitStatus?.details || (isReady ? "Coinbase AgentKit credentials active" : "Coinbase AgentKit key rotation pending");
 
               return (
                 <div
-                  className={`hidden sm:flex items-center gap-2 pr-2 px-2.5 py-1 rounded-lg border transition-all ${
+                  className={`hidden md:flex shrink-0 items-center gap-2 px-2.5 py-1 rounded-full border transition-all ${
                     isReady
                       ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                       : "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400"
@@ -599,7 +603,7 @@ export default function AgentDashboardPage() {
                       isReady ? "bg-emerald-500" : "bg-amber-500"
                     }`}
                   />
-                  <span className="text-[11px] font-mono font-bold">
+                  <span className="text-[11px] font-bold whitespace-nowrap">
                     {label}
                   </span>
                 </div>
@@ -612,24 +616,19 @@ export default function AgentDashboardPage() {
             <div className="cupi-card p-5 space-y-4 shadow-sm flex flex-col min-h-[580px] justify-between">
               {/* Quick Prompt Suggestion Chips */}
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
-                <button
-                  onClick={() => handleSendMessage("Check my portfolio balance and daily allowance")}
-                  className="px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary shrink-0 font-medium text-muted-foreground hover:text-foreground transition-all"
-                >
-                  💰 Check allowance
-                </button>
-                <button
-                  onClick={() => handleSendMessage("Verify Uniswap V3 slippage clamping policy")}
-                  className="px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary shrink-0 font-medium text-muted-foreground hover:text-foreground transition-all"
-                >
-                  ⚡ Uniswap slippage
-                </button>
-                <button
-                  onClick={() => handleSendMessage("Review Moonwell supply APY on Base")}
-                  className="px-3 py-1.5 rounded-xl border border-border bg-secondary/40 hover:bg-secondary shrink-0 font-medium text-muted-foreground hover:text-foreground transition-all"
-                >
-                  🌾 Moonwell yield
-                </button>
+                {[
+                  { label: "Check my balance", prompt: "Check my wallet balance and remaining daily allowance" },
+                  { label: "Get testnet gas", prompt: "Request testnet ETH from the faucet" },
+                  { label: "What can you do?", prompt: "Explain what you are allowed to do and my daily spend limit" },
+                ].map((chip) => (
+                  <button
+                    key={chip.label}
+                    onClick={() => handleSendMessage(chip.prompt)}
+                    className="px-3 py-1.5 rounded-full border border-black/80 bg-white hover:bg-secondary shrink-0 font-semibold transition-all"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
               </div>
 
               {/* Messages Container */}
@@ -640,14 +639,14 @@ export default function AgentDashboardPage() {
                     className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
                   >
                     <div className="flex items-center gap-1.5 mb-1 text-[11px] text-muted-foreground font-medium">
-                      <span>{msg.role === "user" ? "You" : "🤖 Cupi Agent"}</span>
+                      <span>{msg.role === "user" ? "You" : "Assistant"}</span>
                       <span>• {msg.timestamp}</span>
                     </div>
                     <div
                       className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed max-w-[85%] sm:max-w-[75%] shadow-sm ${
                         msg.role === "user"
-                          ? "bg-primary text-black font-semibold rounded-tr-none"
-                          : "bg-secondary/40 border border-border text-foreground font-medium rounded-tl-none"
+                          ? "bg-black text-white rounded-br-md"
+                          : "bg-secondary text-foreground rounded-bl-md"
                       }`}
                     >
                       {msg.content}
@@ -657,7 +656,7 @@ export default function AgentDashboardPage() {
                 {isSendingMessage && (
                   <div className="flex items-center gap-2 p-3 rounded-2xl bg-secondary/30 text-xs text-muted-foreground border border-border">
                     <RefreshCw size={14} className="animate-spin text-primary" />
-                    <span>Agent evaluating policy guardrails and verifying destination contract...</span>
+                    <span>Checking your spend limit and allowed apps…</span>
                   </div>
                 )}
                 <div ref={chatBottomRef} />
@@ -670,7 +669,7 @@ export default function AgentDashboardPage() {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                  placeholder="Ask agent or command an autonomous action..."
+                  placeholder="Ask or tell the assistant what to do…"
                   className="flex-1 bg-secondary/30 border border-border rounded-xl px-4 py-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                 />
                 <button

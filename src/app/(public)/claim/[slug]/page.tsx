@@ -3,20 +3,17 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   CheckCircle2,
   Loader2,
   AlertTriangle,
-  Copy,
   Gift,
   ArrowRight,
-  ExternalLink,
-  ShieldCheck,
   RefreshCw,
   KeyRound,
   Unlock,
 } from "lucide-react";
 import Link from "next/link";
+import { DEFAULT_CHAIN } from "@/config/chains";
 import { toast } from "sonner";
 
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
@@ -288,21 +285,25 @@ export default function ClaimPaymentLinkPage() {
 
   if (loading || isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-4" aria-busy="true">
+        <div className="h-6 w-48 cupi-skeleton" />
+        <div className="h-72 cupi-skeleton rounded-3xl" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="cupi-card p-6 max-w-lg mx-auto mt-10">
-        <div className="flex items-center gap-3 text-destructive">
-          <AlertTriangle className="h-5 w-5" />
-          <span className="font-semibold">{error}</span>
+      <div className="bg-white rounded-3xl border border-border p-8 text-center space-y-4 shadow-sm">
+        <div className="w-14 h-14 mx-auto rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
         </div>
-        <Link href="/home" className="mt-4 inline-flex text-sm font-medium text-primary">
-          Back to home
+        <div>
+          <h1 className="text-lg font-bold">This link isn&apos;t available</h1>
+          <p className="text-sm text-muted-foreground mt-1">{error}. Ask the sender to share a new link.</p>
+        </div>
+        <Link href="/" className="inline-flex text-sm font-semibold text-primary hover:underline">
+          What is cUPI?
         </Link>
       </div>
     );
@@ -313,70 +314,50 @@ export default function ClaimPaymentLinkPage() {
   }
 
   const isExpired = link.status !== "ACTIVE";
+  const senderName = link.creator.username ? `@${link.creator.username}` : link.creator.fullName || "Someone";
   const isEscrowClaim = Boolean(claimPrivateKey || link.claimKeyHash);
 
   return (
-    <div className="flex flex-col gap-6 pb-24 max-w-lg mx-auto mt-6">
-      <div className="flex items-center gap-3">
-        <Link href="/home" className="rounded-lg border border-border p-2 hover:bg-secondary transition-colors">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            {isEscrowClaim ? "cUPI Instant Escrow Claim" : "Payment Request"}
-          </p>
-          <h1 className="text-2xl font-black tracking-tight">
-            {isEscrowClaim ? "Claim Your Payment" : "Payment Link"}
-          </h1>
-        </div>
+    <div className="flex flex-col gap-4 pb-10">
+      <div className="px-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          {isEscrowClaim ? "Payment link" : "Invoice"}
+        </p>
+        <h1 className="text-2xl font-black tracking-tight mt-1">
+          {isEscrowClaim ? `${senderName} sent you money` : `Pay ${senderName}`}
+        </h1>
       </div>
 
-      <section className="cupi-card p-6 space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              {isEscrowClaim ? "Available to Claim" : "Amount"}
-            </p>
-            <p className="text-4xl font-black tracking-tight text-emerald-400">
-              {link.amount} {link.tokenSymbol}
-            </p>
-          </div>
-          <div className="rounded-full border border-border bg-secondary/30 px-3 py-1 text-xs uppercase tracking-wider text-muted-foreground">
-            {link.status}
-          </div>
+      <section className="bg-white rounded-3xl border border-border shadow-sm sm:border-2 sm:border-black sm:shadow-[6px_6px_0_0_#000] p-6 space-y-5">
+        <div className="text-center py-2">
+          <p className="text-sm text-muted-foreground">
+            {isEscrowClaim ? (txHash ? "Claimed" : "Ready to claim") : "Amount"}
+          </p>
+          <p className="text-5xl font-black tracking-tighter tabular-nums mt-1">
+            {link.amount}
+            <span className="text-xl font-bold text-muted-foreground ml-2">{link.tokenSymbol}</span>
+          </p>
+          <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <span className="w-2 h-2 rounded-full bg-blue-500" />
+            {DEFAULT_CHAIN.name}
+            {isEscrowClaim && " · no gas fees to claim"}
+          </p>
         </div>
 
         {link.description && (
-          <p className="text-sm text-muted-foreground bg-secondary/10 p-3 rounded-lg border border-border/40">
+          <p className="text-sm text-center text-muted-foreground bg-secondary/50 p-3 rounded-xl">
             {link.description}
           </p>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-border bg-secondary/20 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Sender / Creator</p>
-            <p className="mt-1 font-semibold">
-              {link.creator.username ? `@${link.creator.username}` : link.creator.fullName || "Cupi User"}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-secondary/20 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Network</p>
-            <p className="mt-1 font-semibold flex items-center gap-1.5 text-foreground">
-              <ShieldCheck size={16} className="text-emerald-400" />
-              Base Mainnet
-            </p>
-          </div>
-        </div>
-
         {/* Escrow Status / Unlock */}
         {isEscrowClaim ? (
           claimPrivateKey ? (
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-5">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50 p-5">
               <div className="flex items-center gap-3">
                 <Gift className="h-6 w-6 text-emerald-400" />
                 <div>
-                  <p className="font-semibold text-sm text-emerald-300">Escrow Link Verified</p>
+                  <p className="font-semibold text-sm text-emerald-900">Escrow Link Verified</p>
                   <p className="text-xs text-muted-foreground">
                     Valid claim key found. Connect your wallet to withdraw directly without gas fees.
                   </p>
@@ -384,13 +365,13 @@ export default function ClaimPaymentLinkPage() {
               </div>
             </div>
           ) : !isExpired ? (
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-5 space-y-4">
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-50 p-5 space-y-4">
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 shrink-0">
                   <KeyRound size={20} />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-bold text-sm text-amber-300">Escrow Security Key Required</p>
+                  <p className="font-bold text-sm text-amber-900">Escrow Security Key Required</p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     Chat apps (like WhatsApp) sometimes strip security fragments from links. If you received this link in chat, copy the key or entire message and paste below:
                   </p>
@@ -533,8 +514,8 @@ export default function ClaimPaymentLinkPage() {
 
         {/* Refund Success Card */}
         {refundTx && (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-5 space-y-3">
-            <div className="flex items-center gap-2 text-amber-400 font-bold">
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-50 p-5 space-y-3">
+            <div className="flex items-center gap-2 text-amber-700 font-bold">
               <CheckCircle2 size={18} />
               <span>${link.amount} {link.tokenSymbol} Returned to Your Wallet</span>
             </div>
@@ -553,7 +534,7 @@ export default function ClaimPaymentLinkPage() {
         )}
 
         {txHash && (
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-3">
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50 p-5 space-y-3">
             <div className="flex items-center gap-2 text-emerald-400 font-bold">
               <CheckCircle2 size={18} />
               <span>${link.amount} {link.tokenSymbol} Added to Your Wallet</span>

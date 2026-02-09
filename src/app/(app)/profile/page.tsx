@@ -103,7 +103,7 @@ export default function ProfilePage() {
 
     const settingsItems = [
         { icon: User, label: "Personal details", onClick: () => setIsEditModalOpen(true) },
-        { icon: Bot, label: "Autonomous AI Agent & Guardrails", onClick: () => router.push("/agent"), badge: "ERC-7715" },
+        { icon: Bot, label: "Payment assistant", onClick: () => router.push("/agent"), badge: "Beta" },
         { icon: CreditCard, label: "Payment Methods", onClick: () => setIsPaymentModalOpen(true) },
         { icon: Globe, label: "Language & Region", onClick: () => setIsLanguageModalOpen(true) },
         { icon: ShieldCheck, label: "Privacy & Security", onClick: () => setIsPrivacyModalOpen(true) },
@@ -169,7 +169,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="flex flex-col h-full gap-6 pb-24">
+        <div className="flex flex-col h-full gap-6 pb-4">
             {/* Header */}
             <div className="flex items-center justify-between py-2">
                 <button

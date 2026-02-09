@@ -310,7 +310,7 @@ export function PrivacySecurityModal({
           <div className="p-4 bg-secondary/30 border border-border rounded-xl space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Key Architecture</span>
-              <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-bold">NON-CUSTODIAL</span>
+              <span className="text-[10px] bg-blue-500/10 text-blue-600 border border-blue-500/20 px-2 py-0.5 rounded-full font-bold">NON-CUSTODIAL</span>
             </div>
             <p className="text-xs text-muted-foreground">
               Your wallet uses Shamir secret sharing and MPC encryption via Privy. Neither Cupi nor any centralized server holds your private keys.
@@ -555,7 +555,7 @@ export function HelpSupportModal({
                 rel="noreferrer"
                 className="p-3 bg-secondary/30 border border-border rounded-xl text-xs font-bold text-center hover:bg-secondary/50 transition-colors flex items-center justify-center gap-2"
               >
-                <Send size={14} className="text-blue-400" /> Telegram Chat
+                <Send size={14} className="text-blue-600" /> Telegram Chat
               </a>
               <a
                 href="mailto:support@cupi.app"

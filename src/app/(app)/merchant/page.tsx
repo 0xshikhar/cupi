@@ -211,7 +211,7 @@ export default function MerchantPortalPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-24">
+    <div className="max-w-6xl mx-auto space-y-8 pb-4">
       {/* Return to App */}
       <Link
         href="/home"
@@ -222,23 +222,26 @@ export default function MerchantPortalPage() {
       </Link>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-primary/10 text-primary">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-xl bg-primary/15 text-primary shrink-0">
               <Store size={22} />
             </span>
-            <h1 className="text-2xl font-black tracking-tight">{merchant?.name || "Merchant Portal"}</h1>
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Active Gateway
-            </span>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-black tracking-tight truncate">{merchant?.name || "Merchant Portal"}</h1>
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Accepting payments
+              </span>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Institutional Merchant Checkout APIs, HMAC Webhook Infrastructure, and Reconciliation Logs.
+          <p className="text-sm text-muted-foreground mt-3">
+            Checkout API, signed webhooks and on-chain settlement for your store.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={loadDashboard}
             className="btn-secondary text-xs flex items-center gap-1.5"
@@ -249,10 +252,10 @@ export default function MerchantPortalPage() {
           </button>
           <button
             onClick={() => setIsCreatingSession(true)}
-            className="btn-primary text-xs flex items-center gap-1.5"
+            className="btn-primary text-xs py-2.5 px-4 flex items-center gap-1.5"
           >
             <Plus size={14} />
-            New Test Checkout
+            New test checkout
           </button>
         </div>
       </div>
@@ -267,7 +270,7 @@ export default function MerchantPortalPage() {
         <div className="cupi-card p-4 space-y-1">
           <p className="text-xs text-muted-foreground uppercase font-semibold">Paid Orders</p>
           <p className="text-2xl font-black text-emerald-400">{stats.paidSessions}</p>
-          <p className="text-[11px] text-emerald-500/80">On-Chain Verified Finality</p>
+          <p className="text-[11px] text-emerald-700">On-Chain Verified Finality</p>
         </div>
         <div className="cupi-card p-4 space-y-1">
           <p className="text-xs text-muted-foreground uppercase font-semibold">Webhook Health</p>
@@ -304,13 +307,13 @@ export default function MerchantPortalPage() {
           </div>
 
           {newlyCreatedKey && (
-            <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 space-y-2">
+            <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-50 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-400">Newly Generated Secret Key</span>
                 <span className="text-[10px] text-muted-foreground">Shown only once</span>
               </div>
               <div className="flex items-center justify-between bg-background/80 p-2 rounded-lg border border-border">
-                <code className="text-xs font-mono text-emerald-300 break-all select-all">
+                <code className="text-xs font-mono text-emerald-900 break-all select-all">
                   {newlyCreatedKey}
                 </code>
                 <button
@@ -371,7 +374,7 @@ export default function MerchantPortalPage() {
                   value={webhookUrlInput}
                   onChange={(e) => setWebhookUrlInput(e.target.value)}
                   placeholder="https://api.yourstore.com/webhooks/cupi"
-                  className="cupi-input text-xs flex-1"
+                  className="cupi-input text-xs py-3 flex-1 min-w-0"
                 />
                 <button
                   onClick={handleSaveWebhook}
@@ -431,7 +434,26 @@ export default function MerchantPortalPage() {
             No checkout sessions created yet. Click &ldquo;New Test Checkout&rdquo; above to test the flow.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <ul className="sm:hidden divide-y divide-border/60">
+            {sessions.map((s) => (
+              <li key={s.id} className="py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-semibold truncate">{s.orderId}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {s.amount} {s.currency} · <span className="uppercase">{s.network}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <SessionStatusBadge status={s.status} />
+                  <Link href={s.checkoutUrl} target="_blank" className="p-1.5 rounded-lg border border-border hover:bg-secondary" aria-label={`Open checkout ${s.orderId}`}>
+                    <ExternalLink size={12} />
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
@@ -452,17 +474,7 @@ export default function MerchantPortalPage() {
                     </td>
                     <td className="py-3 uppercase text-muted-foreground font-medium">{s.network}</td>
                     <td className="py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          s.status === "PAID"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : s.status === "PENDING"
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            : "bg-secondary text-muted-foreground"
-                        }`}
-                      >
-                        {s.status}
-                      </span>
+                      <SessionStatusBadge status={s.status} />
                     </td>
                     <td className="py-3 font-mono text-muted-foreground">
                       {s.txHash ? `${s.txHash.slice(0, 8)}...${s.txHash.slice(-6)}` : "—"}
@@ -481,6 +493,7 @@ export default function MerchantPortalPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
@@ -499,7 +512,21 @@ export default function MerchantPortalPage() {
             No webhook delivery events recorded yet. Confirming a payment will trigger automatic signed dispatches.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <ul className="sm:hidden divide-y divide-border/60">
+            {webhookLogs.map((log) => (
+              <li key={log.id} className="py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-xs font-semibold truncate">{log.event}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    HTTP {log.statusCode || "—"} · attempt {log.attempts}/3 · {new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+                <DeliveryStatusBadge status={log.status} />
+              </li>
+            ))}
+          </ul>
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
@@ -517,18 +544,10 @@ export default function MerchantPortalPage() {
                     <td className="py-3 font-mono font-semibold text-foreground">{log.event}</td>
                     <td className="py-3 font-mono text-muted-foreground max-w-xs truncate">{log.url}</td>
                     <td className="py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          log.status === "DELIVERED"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                        }`}
-                      >
-                        {log.status}
-                      </span>
+                      <DeliveryStatusBadge status={log.status} />
                     </td>
                     <td className="py-3 font-mono text-muted-foreground">
-                      {log.statusCode ? `${log.statusCode} OK` : "Pending"}
+                      {log.statusCode ? `HTTP ${log.statusCode}` : "—"}
                     </td>
                     <td className="py-3 text-muted-foreground">{log.attempts}/3</td>
                     <td className="py-3 text-right text-muted-foreground">
@@ -539,6 +558,7 @@ export default function MerchantPortalPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
@@ -603,5 +623,33 @@ export default function MerchantPortalPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function SessionStatusBadge({ status }: { status: string }) {
+  const tone =
+    status === "PAID"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : status === "PENDING"
+        ? "bg-amber-50 text-amber-700 border-amber-200"
+        : "bg-secondary text-muted-foreground border-border";
+  return (
+    <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${tone}`}>
+      {status}
+    </span>
+  );
+}
+
+function DeliveryStatusBadge({ status }: { status: string }) {
+  const tone =
+    status === "DELIVERED"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : status === "RETRYING"
+        ? "bg-amber-50 text-amber-700 border-amber-200"
+        : "bg-rose-50 text-rose-700 border-rose-200";
+  return (
+    <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${tone}`}>
+      {status}
+    </span>
   );
 }

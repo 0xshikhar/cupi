@@ -206,7 +206,7 @@ export default function PaymentLinkCreatePage() {
   const displayMemo = description.trim() || "Payment via Cupi";
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-24">
+    <div className="max-w-6xl mx-auto space-y-8 pb-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -461,7 +461,7 @@ export default function PaymentLinkCreatePage() {
             </div>
 
             {/* Simulated Chat Window */}
-            <div className="rounded-2xl border border-border/80 bg-neutral-950 p-4 sm:p-5 relative overflow-hidden">
+            <div className="on-dark rounded-2xl border border-border/80 bg-neutral-950 p-4 sm:p-5 relative overflow-hidden">
               <div className="flex items-center justify-between pb-3 border-b border-white/10 text-[11px] text-neutral-400">
                 <span className="flex items-center gap-1.5 font-semibold text-white">
                   {previewPlatform === "whatsapp" ? (

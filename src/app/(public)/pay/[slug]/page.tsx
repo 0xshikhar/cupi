@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  ArrowLeft,
   CheckCircle2,
   Loader2,
   AlertTriangle,
@@ -22,6 +21,8 @@ import { QRCodeSVG } from "qrcode.react";
 
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 import type { CheckoutPaymentInstructions } from "@/lib/merchant/types";
+import { getTxExplorerUrl } from "@/lib/utils/explorer";
+import { DEFAULT_CHAIN } from "@/config/chains";
 
 type PaymentLinkDetail = {
   id: string;
@@ -80,7 +81,7 @@ type PaymentRequestDetail = {
 
 export default function PayInvoicePage() {
   const params = useParams<{ slug: string }>();
-  const { userWalletAddress, sendToken, isLoading } = useAuthWallet();
+  const { userWalletAddress, sendToken, isLoading, login } = useAuthWallet();
 
   const isMerchantCheckout = params?.slug?.startsWith("merchant-");
   const isPaymentRequest = params?.slug?.startsWith("request-");
@@ -305,21 +306,26 @@ export default function PayInvoicePage() {
 
   if (loading || isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-4" aria-busy="true">
+        <div className="h-6 w-40 cupi-skeleton" />
+        <div className="h-64 cupi-skeleton rounded-3xl" />
+        <div className="h-14 cupi-skeleton rounded-2xl" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="cupi-card p-6 max-w-lg mx-auto mt-10">
-        <div className="flex items-center gap-3 text-destructive">
-          <AlertTriangle className="h-5 w-5" />
-          <span className="font-semibold">{error}</span>
+      <div className="bg-white rounded-3xl border border-border p-8 text-center space-y-4 shadow-sm">
+        <div className="w-14 h-14 mx-auto rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
         </div>
-        <Link href="/home" className="mt-4 inline-flex text-sm font-medium text-primary">
-          Return to home
+        <div>
+          <h1 className="text-lg font-bold">This payment link isn&apos;t available</h1>
+          <p className="text-sm text-muted-foreground mt-1">{error}. Ask the sender for a new link.</p>
+        </div>
+        <Link href="/" className="inline-flex text-sm font-semibold text-primary hover:underline">
+          What is cUPI?
         </Link>
       </div>
     );
@@ -344,12 +350,6 @@ export default function PayInvoicePage() {
       ? paymentRequest?.description
       : link?.description;
 
-  const status = isMerchantCheckout
-    ? merchantSession?.status
-    : isPaymentRequest
-      ? paymentRequest?.status
-      : link?.status;
-
   const isPaid = isMerchantCheckout
     ? merchantSession?.status === "PAID"
     : isPaymentRequest
@@ -368,243 +368,221 @@ export default function PayInvoicePage() {
       ? paymentRequest?.network
       : "Base";
 
+  const payeeName = isMerchantCheckout
+    ? merchantSession?.merchantName || "Merchant"
+    : isPaymentRequest
+      ? paymentRequest?.requester.username
+        ? `@${paymentRequest.requester.username}`
+        : paymentRequest?.requester.fullName || "Your contact"
+      : link?.creator.username
+        ? `@${link.creator.username}`
+        : link?.creator.fullName || "Recipient";
+
+  const payeeAddress = isPaymentRequest ? paymentRequest?.requester.walletAddress : link?.creator.walletAddress;
+  const kindLabel = isMerchantCheckout ? "Checkout" : isPaymentRequest ? "Payment request" : "Invoice";
+  const expiresAt = isMerchantCheckout ? merchantSession?.expiresAt : isPaymentRequest ? paymentRequest?.expiresAt : link?.expiresAt;
+  const isSolanaNetwork = networkName?.toLowerCase() === "solana";
+  const explorerUrl = txHash
+    ? isSolanaNetwork
+      ? `https://solscan.io/tx/${txHash}${instructions?.network === "solana" && instructions.cluster === "devnet" ? "?cluster=devnet" : ""}`
+      : getTxExplorerUrl(txHash, DEFAULT_CHAIN.id)
+    : null;
+  const shortHash = txHash ? `${txHash.slice(0, 10)}…${txHash.slice(-8)}` : "";
+
   return (
-    <div className="flex flex-col gap-6 pb-24 max-w-lg mx-auto mt-6">
-      <div className="flex items-center gap-3">
-        <Link href="/home" className="rounded-lg border border-border p-2 hover:bg-secondary transition-colors">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            {isMerchantCheckout
-              ? "Institutional Checkout"
-              : isPaymentRequest
-                ? "Direct Payment Request"
-                : "Invoice Request"}
-          </p>
-          <h1 className="text-2xl font-black tracking-tight">Pay with cUPI</h1>
-        </div>
+    <div className="flex flex-col gap-4 pb-10">
+      <div className="px-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{kindLabel}</p>
+        <h1 className="text-2xl font-black tracking-tight mt-1 flex items-center gap-2">
+          {isMerchantCheckout ? <Store size={22} className="shrink-0" /> : <UserCheck size={22} className="shrink-0" />}
+          <span className="truncate">{isPaymentRequest ? `${payeeName} requested` : `Pay ${payeeName}`}</span>
+        </h1>
       </div>
 
-      <section className="cupi-card p-6 space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Amount Due</p>
-            <p className="text-4xl font-black tracking-tight">
-              {amount} {currency}
-            </p>
-          </div>
-          <div
-            className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wider font-semibold ${isPaid || status === "PAID"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-              : "border-border bg-secondary/30 text-muted-foreground"
-              }`}
-          >
-            {status}
-          </div>
+      <section className="bg-white rounded-3xl border border-border shadow-sm sm:border-2 sm:border-black sm:shadow-[6px_6px_0_0_#000] overflow-hidden">
+        {/* Amount */}
+        <div className="p-6 text-center border-b border-border">
+          <p className="text-sm text-muted-foreground">{isPaid ? "Amount paid" : "Amount due"}</p>
+          <p className="text-5xl font-black tracking-tighter tabular-nums mt-1">
+            {amount}
+            <span className="text-xl font-bold text-muted-foreground ml-2">{currency}</span>
+          </p>
+          {description && <p className="text-sm text-muted-foreground mt-3 line-clamp-2">{description}</p>}
         </div>
 
-        {description && (
-          <div className="p-3 rounded-lg border border-border/50 bg-secondary/10">
-            <p className="text-xs text-muted-foreground uppercase font-medium">Description</p>
-            <p className="text-sm mt-0.5">{description}</p>
-          </div>
-        )}
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-border bg-secondary/20 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Recipient</p>
-            {isMerchantCheckout ? (
-              <div>
-                <div className="mt-1 flex items-center gap-1.5 font-semibold">
-                  <Store size={16} className="text-primary" />
-                  <span>{merchantSession?.merchantName || "Merchant"}</span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">Order #{merchantSession?.orderId}</p>
-              </div>
-            ) : isPaymentRequest ? (
-              <div>
-                <p className="mt-1 font-semibold flex items-center gap-1.5">
-                  <UserCheck size={16} className="text-emerald-400" />
-                  {paymentRequest?.requester.username
-                    ? `@${paymentRequest.requester.username}`
-                    : paymentRequest?.requester.fullName || "Contact"}
-                </p>
-                {paymentRequest?.requester.walletAddress && (
-                  <button
-                    onClick={() => copyAddress(paymentRequest.requester.walletAddress)}
-                    className="mt-3 inline-flex items-center gap-2 text-xs text-primary hover:underline"
-                  >
-                    <Copy size={12} />
-                    Copy address
-                  </button>
-                )}
-              </div>
-            ) : (
-              <>
-                <p className="mt-1 font-semibold">
-                  {link?.creator.username ? `@${link.creator.username}` : link?.creator.fullName || "Unknown"}
-                </p>
-                {link?.creator.walletAddress && (
-                  <button
-                    onClick={() => copyAddress(link.creator.walletAddress)}
-                    className="mt-3 inline-flex items-center gap-2 text-xs text-primary hover:underline"
-                  >
-                    <Copy size={12} />
-                    Copy address
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-border bg-secondary/20 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Settlement</p>
-            <p className="mt-1 font-semibold flex items-center gap-1 text-emerald-400">
-              <ShieldCheck size={16} />
-              {networkName?.toUpperCase()} Network
-            </p>
-            {isMerchantCheckout && merchantSession?.expiresAt ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Expires {new Date(merchantSession.expiresAt).toLocaleTimeString()}
-              </p>
-            ) : link?.expiresAt ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Expires {new Date(link.expiresAt).toLocaleDateString()}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-background p-5">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-semibold text-sm">
-                {isMerchantCheckout
-                  ? "Instant Webhook Reconciled"
-                  : isPaymentRequest
-                    ? "Direct Wallet-to-Wallet Settlement"
-                    : "Direct On-Chain Transfer"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {isMerchantCheckout
-                  ? "Merchants receive cryptographically signed HMAC webhooks immediately upon confirmation."
-                  : isPaymentRequest
-                    ? "Fulfilled instantly on-chain and notifies the requester."
-                    : "Funds are transferred directly from your wallet to the recipient."}
-              </p>
+        {/* Details */}
+        <dl className="px-6 py-4 space-y-3 text-sm">
+          {isMerchantCheckout && merchantSession?.orderId && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Order</dt>
+              <dd className="font-mono font-semibold truncate">{merchantSession.orderId}</dd>
             </div>
+          )}
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Network</dt>
+            <dd className="font-semibold inline-flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${isSolanaNetwork ? "bg-purple-500" : "bg-blue-500"}`} />
+              {isSolanaNetwork ? "Solana" : "Base"}
+              {instructions?.network === "solana" && instructions.cluster === "devnet" && (
+                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-secondary">devnet</span>
+              )}
+            </dd>
           </div>
-        </div>
-
-        {/* Payment Method Selector (1-Tap Web3 Wallet vs Scan QR Code) */}
-        {!isSettledOrExpired && !isSolanaCheckout && (
-          <div className="flex rounded-xl bg-secondary/40 p-1 border border-border">
-            <button
-              type="button"
-              onClick={() => setPayMethod("WALLET")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${payMethod === "WALLET"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
-            >
-              <Wallet size={14} />
-              Connect & Pay
-            </button>
-            <button
-              type="button"
-              onClick={() => setPayMethod("QR")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${payMethod === "QR"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
-            >
-              <QrCode size={14} />
-              Scan QR / Mobile
-            </button>
-          </div>
-        )}
-
-        {/* QR Code Presentation */}
-        {payMethod === "QR" && !isSettledOrExpired ? (
-          <div className="flex flex-col items-center justify-center p-6 rounded-2xl border border-border bg-secondary/10 space-y-4 text-center">
-            <div className="p-3 bg-white rounded-2xl shadow-md border border-neutral-200">
-              <QRCodeSVG
-                value={isSolanaCheckout && instructions?.network === "solana" ? instructions.solanaPayUrl : currentUrl}
-                size={200}
-                level="M"
-              />
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-semibold">
-                {isSolanaCheckout ? "Scan with Phantom, Solflare or Backpack" : "Scan with Phantom, Solflare, or Camera"}
-              </p>
-              <p className="text-xs text-muted-foreground max-w-xs">
-                {isSolanaCheckout
-                  ? `Solana Pay request for ${amount} USDC. This page confirms automatically once the transfer lands on-chain.`
-                  : `Scan this interactive payment URI with your mobile wallet to settle ${amount} ${currency} instantly.`}
-              </p>
-            </div>
-            {isSolanaCheckout && instructions?.network === "solana" ? (
-              <div className="flex flex-col items-center gap-2">
-                <a
-                  href={instructions.solanaPayUrl}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+          {payeeAddress && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">To</dt>
+              <dd>
+                <button
+                  onClick={() => copyAddress(payeeAddress)}
+                  className="font-mono font-semibold inline-flex items-center gap-1.5 hover:text-primary transition-colors"
                 >
-                  <Smartphone size={14} />
-                  Open in Solana wallet <ExternalLink size={12} />
-                </a>
-                <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Waiting for payment on Solana {instructions.cluster === "devnet" ? "devnet" : ""}
-                </p>
-              </div>
-            ) : networkName?.toLowerCase() === "solana" && (
-              <a
-                href={phantomDeepLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline pt-1"
-              >
-                <Smartphone size={14} />
-                Open in Phantom App <ExternalLink size={12} />
-              </a>
-            )}
-          </div>
-        ) : (
-          <button
-            onClick={handlePay}
-            disabled={paying || isSettledOrExpired}
-            className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {isPaid
-              ? "Payment Completed"
-              : isSettledOrExpired
-                ? "Invoice Expired or Inactive"
-                : `Pay ${amount} ${currency}`}
-          </button>
-        )}
+                  {payeeAddress.slice(0, 6)}…{payeeAddress.slice(-4)}
+                  <Copy size={12} />
+                </button>
+              </dd>
+            </div>
+          )}
+          {expiresAt && !isSettledOrExpired && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Expires</dt>
+              <dd className="font-semibold">
+                {isMerchantCheckout
+                  ? new Date(expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : new Date(expiresAt).toLocaleDateString()}
+              </dd>
+            </div>
+          )}
+        </dl>
 
-        {txHash && (
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 space-y-1">
-            <p className="text-xs uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-              {isMerchantCheckout && !isPaid ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              {isMerchantCheckout && !isPaid ? "Submitted · awaiting on-chain confirmation" : "Verified on-chain"}
-            </p>
-            <p className="font-mono text-xs break-all text-foreground mt-1">{txHash}</p>
-            {isMerchantCheckout && merchantSession?.successUrl && (
-              <a
-                href={merchantSession.successUrl}
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2 pt-1 font-semibold"
-              >
-                Return to Merchant Store <ExternalLink size={12} />
-              </a>
-            )}
-          </div>
-        )}
+        {/* Action / status */}
+        <div className="p-6 pt-2 space-y-4">
+          {isPaid ? (
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-5 text-center space-y-2">
+              <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-600" />
+              <p className="font-bold text-emerald-900">Payment complete</p>
+              <p className="text-xs text-emerald-800/80">Verified on-chain. {isMerchantCheckout ? "The merchant has been notified." : "The requester has been notified."}</p>
+            </div>
+          ) : isSettledOrExpired ? (
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 text-center space-y-1">
+              <AlertTriangle className="h-8 w-8 mx-auto text-amber-600" />
+              <p className="font-bold text-amber-900">This payment is no longer active</p>
+              <p className="text-xs text-amber-800/80">It has expired or was already completed. Ask {payeeName} for a new link.</p>
+            </div>
+          ) : (
+            <>
+              {!isSolanaCheckout && (
+                <div className="flex rounded-xl bg-secondary p-1" role="tablist" aria-label="Payment method">
+                  {([
+                    { key: "WALLET", label: "Pay with cUPI", icon: Wallet },
+                    { key: "QR", label: "Other wallet", icon: QrCode },
+                  ] as const).map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={payMethod === key}
+                      onClick={() => setPayMethod(key)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-lg transition-all ${payMethod === key ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Icon size={14} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {payMethod === "QR" ? (
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="p-3 bg-white rounded-2xl border border-border shadow-sm">
+                    <QRCodeSVG
+                      value={isSolanaCheckout && instructions?.network === "solana" ? instructions.solanaPayUrl : currentUrl}
+                      size={208}
+                      level="M"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold">
+                      {isSolanaCheckout ? "Scan with Phantom, Solflare or Backpack" : "Scan to open on your phone"}
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-xs">
+                      {isSolanaCheckout
+                        ? `Solana Pay request for ${amount} USDC. This page updates automatically once the transfer lands.`
+                        : "Open this payment page on another device to pay from there."}
+                    </p>
+                  </div>
+                  {isSolanaCheckout && instructions?.network === "solana" ? (
+                    <>
+                      <a href={instructions.solanaPayUrl} className="btn-primary w-full inline-flex items-center justify-center gap-2">
+                        <Smartphone size={16} />
+                        Open in Solana wallet
+                      </a>
+                      <p className="inline-flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Waiting for payment…
+                      </p>
+                    </>
+                  ) : isSolanaNetwork ? (
+                    <a href={phantomDeepLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                      <Smartphone size={14} />
+                      Open in Phantom <ExternalLink size={12} />
+                    </a>
+                  ) : null}
+                </div>
+              ) : (
+                <button
+                  onClick={userWalletAddress ? handlePay : login}
+                  disabled={paying}
+                  className="w-full h-14 rounded-2xl bg-black text-white font-bold text-base inline-flex items-center justify-center gap-2 hover:bg-zinc-800 active:scale-[0.99] transition-all disabled:opacity-60"
+                >
+                  {paying ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      {txHash ? "Confirming on-chain…" : "Waiting for signature…"}
+                    </>
+                  ) : userWalletAddress ? (
+                    `Pay ${amount} ${currency}`
+                  ) : (
+                    "Sign in to pay"
+                  )}
+                </button>
+              )}
+            </>
+          )}
+
+          {txHash && explorerUrl && (
+            <a
+              href={explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-4 py-3 text-xs hover:bg-secondary transition-colors"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                {isPaid ? <CheckCircle2 size={14} className="text-emerald-600 shrink-0" /> : <Loader2 size={14} className="animate-spin shrink-0" />}
+                <span className="font-mono truncate">{shortHash}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 font-semibold shrink-0">
+                View on explorer <ExternalLink size={12} />
+              </span>
+            </a>
+          )}
+
+          {isMerchantCheckout && isPaid && merchantSession?.successUrl && (
+            <a href={merchantSession.successUrl} className="btn-primary w-full inline-flex items-center justify-center gap-2">
+              Return to {merchantSession.merchantName || "merchant"}
+            </a>
+          )}
+          {isMerchantCheckout && !isPaid && merchantSession?.cancelUrl && (
+            <a href={merchantSession.cancelUrl} className="block text-center text-xs font-semibold text-muted-foreground hover:text-foreground">
+              Cancel and return to {merchantSession.merchantName || "merchant"}
+            </a>
+          )}
+        </div>
       </section>
+
+      <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+        <ShieldCheck size={13} />
+        You approve the transfer in your own wallet. cUPI never holds your funds.
+      </p>
     </div>
   );
 }

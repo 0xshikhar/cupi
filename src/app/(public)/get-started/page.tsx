@@ -3,7 +3,8 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
-import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, AtSign, Loader2, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useAuthWallet } from '@/modules/wallet/hooks/useAuthWallet';
 
 export default function GetStartedPage() {
@@ -54,23 +55,54 @@ export default function GetStartedPage() {
     // Not authenticated state - Show Connect button
     if (!authenticated) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-4 bg-white dark:bg-brand-dark">
-                <div className="text-center space-y-4 max-w-md animate-in fade-in zoom-in duration-500">
-                    <h1 className="text-4xl font-black  tracking-tighter">
-                        WELCOME TO <span className="text-brand-green">cUPI</span>
+            <div className="min-h-screen flex flex-col justify-center app-canvas sm:p-6">
+                <div className="flex-1 sm:flex-none flex flex-col justify-center w-full max-w-sm sm:max-w-md mx-auto px-5 py-10 sm:p-10 sm:my-auto sm:bg-white sm:border-4 sm:border-black sm:rounded-[2rem] sm:shadow-[10px_10px_0_0_#000] animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <Link href="/" className="inline-flex items-center gap-2 mb-10" aria-label="cUPI home">
+                        <span className="w-10 h-10 rounded-xl bg-primary border border-black/10 flex items-center justify-center font-black text-black text-lg">c</span>
+                        <span className="text-xl font-black tracking-tight">cUPI</span>
+                    </Link>
+
+                    <h1 className="text-4xl font-black tracking-tighter leading-[1.05]">
+                        Send money like a message.
                     </h1>
-                    <p className="text-muted-foreground text-lg">
-                        Connect your wallet to get started with instant crypto payments.
+                    <p className="text-muted-foreground mt-3">
+                        Pay anyone by @handle, phone number, QR or a link in chat. USDC settles in seconds on Solana and Base.
+                    </p>
+
+                    <ul className="mt-8 space-y-3 text-sm">
+                        {[
+                            { icon: AtSign, text: "Pay @handles, phone numbers and QR codes" },
+                            { icon: MessageCircle, text: "Payment links that work inside WhatsApp & Telegram" },
+                            { icon: ShieldCheck, text: "Self-custodial wallet — only you can move your funds" },
+                        ].map(({ icon: Icon, text }) => (
+                            <li key={text} className="flex items-center gap-3">
+                                <span className="w-8 h-8 shrink-0 rounded-lg bg-white border border-border flex items-center justify-center">
+                                    <Icon size={16} />
+                                </span>
+                                {text}
+                            </li>
+                        ))}
+                    </ul>
+
+                    <button
+                        onClick={handleConnect}
+                        disabled={!ready}
+                        className="mt-10 w-full h-14 rounded-2xl bg-black text-white font-bold text-base inline-flex items-center justify-center gap-2 hover:bg-zinc-800 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        {ready ? (
+                            <>
+                                Continue <ArrowRight size={18} />
+                            </>
+                        ) : (
+                            <>
+                                <Loader2 size={18} className="animate-spin" /> Loading…
+                            </>
+                        )}
+                    </button>
+                    <p className="text-xs text-muted-foreground text-center mt-3">
+                        Sign in with email, Google or an existing wallet. No seed phrase needed.
                     </p>
                 </div>
-
-                <button
-                    onClick={handleConnect}
-                    disabled={!ready}
-                    className="px-8 py-4 bg-black text-white dark:bg-white dark:text-black rounded-xl font-black text-xl hover:scale-105 active:scale-95 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {ready ? 'CONNECT WALLET' : 'INITIALIZING...'}
-                </button>
             </div>
         );
     }

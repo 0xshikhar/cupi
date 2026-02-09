@@ -430,7 +430,7 @@ export default function ScanPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto space-y-6 pb-28 pt-2">
+    <div className="max-w-md mx-auto space-y-6 pb-4 pt-2">
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Top Header */}
@@ -488,7 +488,7 @@ export default function ScanPage() {
         <div className="space-y-6">
           {/* Viewfinder Card */}
           <div className="cupi-card overflow-hidden rounded-3xl border border-border/80 p-6 space-y-6 text-foreground text-center shadow-lg relative">
-            <div className="relative w-64 h-64 mx-auto rounded-3xl overflow-hidden bg-neutral-950 border border-white/10 flex items-center justify-center shadow-inner">
+            <div className="on-dark relative w-64 h-64 mx-auto rounded-3xl overflow-hidden bg-neutral-950 border border-white/10 flex items-center justify-center shadow-inner">
               {/* Always keep video mounted so videoRef is ready for stream assignment */}
               <video
                 ref={videoRef}

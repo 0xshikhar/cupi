@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { usePrivyWallet } from "@/modules/wallet/hooks/usePrivyWallet";
-import { useIsMobile } from "@/modules/core/hooks/use-mobile";
 import { useChatMessages } from "./hooks/use-chat-messages";
 import { useChatScroll } from "./hooks/use-chat-scroll";
 import { useActionsPopup } from "./hooks/use-actions-popup";
@@ -28,7 +27,6 @@ const AgentChatPage = () => {
     agentWalletAddress,
     refreshAgentWallet,
   } = usePrivyWallet();
-  const isMobile = useIsMobile();
 
   const [selectedAgent] = useState<string>("optimizer");
   const [isLoading, setIsLoading] = useState(false);
@@ -185,38 +183,42 @@ const AgentChatPage = () => {
     activeMode === "automation" ? setAutomationInput : setResearchInput;
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground">
+    <div className="flex flex-col h-full bg-white text-foreground">
       <WalletStatus
         walletAddress={walletAddress}
         agentWalletStatus={agentWalletStatus || "loading"}
         agentWalletAddress={agentWalletAddress}
       />
 
-      <div className="relative flex flex-col flex-1 overflow-hidden">
+      <div className="relative flex-1 min-h-0">
         <div
           ref={chatContainerRef}
-          className="flex-1 p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto"
-          style={{ paddingBottom: isMobile ? "120px" : "100px" }}
+          className="h-full overflow-y-auto overscroll-contain px-4 py-4 space-y-3"
+          aria-live="polite"
         >
           {messages.length === 0 && (
             <PromptSuggestions onPromptClick={handlePromptSuggestionClick} />
           )}
 
           {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              hasMounted={hasMounted}
-            />
+            <MessageBubble key={message.id} message={message} hasMounted={hasMounted} />
           ))}
-        </div>
-        <div ref={messagesEndRef} />
-      </div>
 
-      <ScrollToBottomButton
-        show={showScrollToBottom}
-        onClick={scrollToBottom}
-      />
+          {isLoading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground pl-9">
+              <span className="flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-black/40 animate-bounce [animation-delay:-0.2s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-black/40 animate-bounce [animation-delay:-0.1s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-black/40 animate-bounce" />
+              </span>
+              Thinking…
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <ScrollToBottomButton show={showScrollToBottom} onClick={scrollToBottom} />
+      </div>
 
       <ChatInput
         mode={activeMode}

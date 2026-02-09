@@ -115,7 +115,7 @@ export default function BankTransferModal({
                 </div>
               </div>
 
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-400 flex items-start gap-2">
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-600 flex items-start gap-2">
                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                 <span>
                   For institutional transfers above $10,000, Sumsub KYC verification is automatically requested on first disbursement.

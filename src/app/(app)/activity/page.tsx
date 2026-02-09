@@ -78,7 +78,7 @@ export default function ActivityPage() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-background min-h-screen">
+        <div className="flex flex-col h-full bg-background min-h-full">
             {/* Header */}
             <div className="flex flex-col gap-3 p-4 sticky top-0 bg-background/95 backdrop-blur z-10 border-b border-border">
                 <div className="flex items-center justify-between">
@@ -89,7 +89,7 @@ export default function ActivityPage() {
                         >
                             <ArrowLeft size={18} />
                         </button>
-                        <h1 className="text-xl font-bold">Activity Feed</h1>
+                        <h1 className="text-xl font-bold">Activity</h1>
                     </div>
                     <button 
                         onClick={() => refetch()}
@@ -136,7 +136,7 @@ export default function ActivityPage() {
                             activeTab === "links" ? "bg-primary text-black" : "bg-secondary/40 text-muted-foreground hover:text-foreground"
                         }`}
                     >
-                        Links & Blinks
+                        Links
                     </button>
                     <button
                         onClick={() => setActiveTab("rewards")}
@@ -150,11 +150,11 @@ export default function ActivityPage() {
             </div>
 
             {/* Activity List */}
-            <div className="flex-1 p-4 pb-24">
+            <div className="flex-1 p-4 pb-4">
                 {isLoading && activities.length === 0 ? (
                     <div className="flex flex-col gap-3">
                         {[1, 2, 3, 4, 5].map((i) => (
-                            <div key={i} className="h-20 bg-secondary/30 rounded-xl animate-pulse" />
+                            <div key={i} className="h-20 cupi-skeleton" />
                         ))}
                     </div>
                 ) : filteredActivities.length === 0 ? (

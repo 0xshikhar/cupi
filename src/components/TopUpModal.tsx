@@ -1,349 +1,337 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Copy, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { useSendTransaction, useWallets } from "@privy-io/react-auth";
-import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
-import { encodeFunctionData, parseUnits } from "viem";
-import { CHAIN_TOKENS, SUPPORTED_CHAINS, ERC20_ABI } from "@/lib/data";
+import React, { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
+import { createWalletClient, custom, encodeFunctionData, erc20Abi, parseUnits, type Address } from "viem";
+import { base, baseSepolia } from "viem/chains";
+import { useFundWallet, useWallets } from "@privy-io/react-auth";
+import { ArrowLeft, Check, ChevronRight, Copy, CreditCard, Droplets, ExternalLink, Loader2, QrCode, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
+import { CONTRACT_ADDRESSES, DEFAULT_CHAIN } from "@/config/chains";
+
 interface TopUpModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onSuccess?: (amount: string, token: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: (amount: string, token: string) => void;
 }
 
+type View = "menu" | "buy" | "receive" | "faucet" | "wallet";
+type Token = "USDC" | "ETH";
+
+const QUICK_AMOUNTS = ["10", "25", "50", "100"];
+const CHAIN = (DEFAULT_CHAIN.id as number) === base.id ? base : baseSepolia;
+const IS_TESTNET: boolean = DEFAULT_CHAIN.testnet;
+const USDC_ADDRESS = CONTRACT_ADDRESSES[DEFAULT_CHAIN.id].USDC as Address;
+
+const FAUCETS = [
+  { name: "Circle USDC faucet", token: "USDC", href: "https://faucet.circle.com", hint: "Pick “Base Sepolia”, paste your address" },
+  { name: "Coinbase ETH faucet", token: "ETH", href: "https://portal.cdp.coinbase.com/products/faucet", hint: "Gas for transfers on Base Sepolia" },
+];
+
+const slide = {
+  initial: { opacity: 0, x: 24 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -24 },
+  transition: { duration: 0.18 },
+};
+
 const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, onSuccess }) => {
-    const [selectedChain, setSelectedChain] = useState<string>("");
-    const [selectedToken, setSelectedToken] = useState<string>("");
-    const [amount, setAmount] = useState<string>("");
-    const [isDepositing, setIsDepositing] = useState<boolean>(false);
-    const [isSwitchingNetwork, setIsSwitchingNetwork] = useState<boolean>(false);
-    const [error, setError] = useState<string>("");
-    const [copied, setCopied] = useState<boolean>(false);
+  const { userWalletAddress, balances } = useAuthWallet();
+  const { wallets } = useWallets();
+  const { fundWallet } = useFundWallet();
 
-    const { sendTransaction } = useSendTransaction();
-    const { wallets } = useWallets();
-    const { basicWalletAddress } = useAuthWallet();
+  const [view, setView] = useState<View>("menu");
+  const [amount, setAmount] = useState("25");
+  const [token, setToken] = useState<Token>("USDC");
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-    // Reset form when modal closes
-    useEffect(() => {
-        if (!isOpen) {
-            setSelectedChain("");
-            setSelectedToken("");
-            setAmount("");
-            setError("");
-            setIsSwitchingNetwork(false);
-        }
-    }, [isOpen]);
+  // An external wallet (MetaMask, Phantom EVM, Coinbase…) that is not the embedded Privy wallet
+  const externalWallet = useMemo(
+    () => wallets.find((w) => w.walletClientType !== "privy" && w.address.toLowerCase() !== userWalletAddress?.toLowerCase()),
+    [wallets, userWalletAddress]
+  );
 
-    // Get available tokens for selected chain
-    const availableTokens = selectedChain ? CHAIN_TOKENS[selectedChain] || [] : [];
+  useEffect(() => {
+    if (!isOpen) {
+      setView("menu");
+      setBusy(false);
+    }
+  }, [isOpen]);
 
-    // Find selected token info
-    const selectedTokenInfo = availableTokens.find(
-        (token) => token.symbol === selectedToken
-    );
+  const copyAddress = async () => {
+    if (!userWalletAddress) return;
+    await navigator.clipboard.writeText(userWalletAddress);
+    setCopied(true);
+    toast.success("Address copied");
+    setTimeout(() => setCopied(false), 1500);
+  };
 
-    // Find selected chain info
-    const selectedChainInfo = SUPPORTED_CHAINS.find(
-        (chain) => chain.id === selectedChain
-    );
+  const handleBuy = async () => {
+    if (!userWalletAddress) return;
+    setBusy(true);
+    try {
+      await fundWallet(userWalletAddress, { chain: CHAIN, amount, asset: "USDC" });
+      onSuccess?.(amount, "USDC");
+    } catch (err) {
+      console.error("[TOP UP] On-ramp failed:", err);
+      toast.error(
+        IS_TESTNET
+          ? "Card on-ramps only settle on mainnet. Use the free testnet faucet instead."
+          : "Card purchase is unavailable right now. Try receiving from another wallet."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
-    // Format address for display
-    const formatAddress = (addr?: string, prefix: number = 6, suffix: number = 6) => {
-        if (!addr) return "";
-        if (addr.length <= prefix + suffix + 3) return addr;
-        return `${addr.slice(0, prefix)}…${addr.slice(-suffix)}`;
-    };
+  const handleWalletTransfer = async () => {
+    if (!externalWallet || !userWalletAddress) return;
+    const value = amount.trim();
+    if (!/^\d+(\.\d+)?$/.test(value) || Number(value) <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
 
-    const handleCopy = async () => {
-        if (!basicWalletAddress) return;
-        try {
-            await navigator.clipboard.writeText(basicWalletAddress);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-            toast.success("Address copied!");
-        } catch {
-            toast.error("Failed to copy address");
-        }
-    };
+    setBusy(true);
+    try {
+      await externalWallet.switchChain(CHAIN.id).catch(() => undefined);
+      const client = createWalletClient({
+        account: externalWallet.address as Address,
+        chain: CHAIN,
+        transport: custom(await externalWallet.getEthereumProvider()),
+      });
 
-    const handleDeposit = async () => {
-        if (!selectedChain || !selectedToken || !amount || !basicWalletAddress) {
-            setError("Please fill in all fields");
-            return;
-        }
+      const hash =
+        token === "ETH"
+          ? await client.sendTransaction({ to: userWalletAddress as Address, value: parseUnits(value, 18) })
+          : await client.sendTransaction({
+              to: USDC_ADDRESS,
+              data: encodeFunctionData({
+                abi: erc20Abi,
+                functionName: "transfer",
+                args: [userWalletAddress as Address, parseUnits(value, 6)],
+              }),
+            });
 
-        if (!selectedTokenInfo || !selectedChainInfo) {
-            setError("Invalid token or chain selected");
-            return;
-        }
+      toast.success(`Sent ${value} ${token} to your cUPI wallet`, { description: `${hash.slice(0, 10)}…` });
+      if (onSuccess) onSuccess(value, token);
+      else onClose();
+    } catch (err) {
+      console.error("[TOP UP] Wallet transfer failed:", err);
+      toast.error(err instanceof Error && /reject|denied/i.test(err.message) ? "Transfer cancelled" : "Transfer failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
-        const numAmount = parseFloat(amount);
-        if (isNaN(numAmount) || numAmount <= 0) {
-            setError("Please enter a valid amount");
-            return;
-        }
+  const methods: { id: View; title: string; subtitle: string; icon: React.ElementType; tint: string; tag?: string; hidden?: boolean }[] = [
+    { id: "buy", title: "Buy with card", subtitle: "Apple Pay, Google Pay or debit card", icon: CreditCard, tint: "bg-violet-100 text-violet-700", tag: "MoonPay · Coinbase" },
+    { id: "receive", title: "Receive crypto", subtitle: "From an exchange or any wallet", icon: QrCode, tint: "bg-sky-100 text-sky-700" },
+    { id: "faucet", title: "Free test money", subtitle: "Get testnet USDC + ETH in a minute", icon: Droplets, tint: "bg-emerald-100 text-emerald-700", tag: "Testnet", hidden: !IS_TESTNET },
+    { id: "wallet", title: "From my other wallet", subtitle: externalWallet ? `${externalWallet.address.slice(0, 6)}…${externalWallet.address.slice(-4)}` : "", icon: Wallet, tint: "bg-amber-100 text-amber-700", hidden: !externalWallet },
+  ];
 
-        if (!wallets || wallets.length === 0) {
-            setError("No connected wallet found. Please connect your wallet first.");
-            return;
-        }
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[400px] p-0 gap-0 overflow-hidden rounded-[2rem] sm:rounded-[2rem] border-4 border-black shadow-[8px_8px_0_0_#000] bg-white [&>button.absolute]:z-10 [&>button.absolute]:bg-white [&>button.absolute]:border-2 [&>button.absolute]:border-black [&>button.absolute]:rounded-full [&>button.absolute]:p-1 [&>button.absolute]:opacity-100">
+        {/* Playful header */}
+        <div className="relative bg-primary px-6 pt-7 pb-6 overflow-hidden border-b-4 border-black">
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(0,0,0,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.12) 1px, transparent 1px)",
+              backgroundSize: "18px 18px",
+            }}
+          />
+          {[
+            { label: "$", className: "right-14 top-6 w-12 h-12 text-xl", delay: 0 },
+            { label: "◎", className: "right-28 top-14 w-9 h-9 text-base", delay: 0.4 },
+            { label: "¢", className: "right-12 top-[5.2rem] w-8 h-8 text-sm", delay: 0.8 },
+          ].map((coin) => (
+            <motion.span
+              key={coin.label}
+              aria-hidden
+              className={`absolute ${coin.className} rounded-full bg-white border-2 border-black shadow-[2px_2px_0_0_#000] flex items-center justify-center font-black`}
+              animate={{ y: [0, -6, 0], rotate: [0, 8, 0] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: coin.delay }}
+            >
+              {coin.label}
+            </motion.span>
+          ))}
 
-        setIsDepositing(true);
-        setError("");
+          <div className="relative">
+            {view !== "menu" && (
+              <button
+                onClick={() => setView("menu")}
+                className="mb-3 inline-flex items-center gap-1 text-xs font-bold bg-white/70 hover:bg-white border-2 border-black rounded-full px-2.5 py-1 transition-colors"
+              >
+                <ArrowLeft size={12} /> Back
+              </button>
+            )}
+            <DialogTitle className="text-3xl font-black tracking-tighter text-black">Add money</DialogTitle>
+            <DialogDescription className="mt-1 pr-24 text-sm font-semibold text-black/70">
+              Balance {Number(balances.usdc || 0).toFixed(2)} USDC
+              <span className="block text-xs font-medium text-black/50">{Number(balances.eth || 0).toFixed(4)} ETH for gas</span>
+            </DialogDescription>
+          </div>
+        </div>
 
-        try {
-            const currentWallet = wallets[0];
+        <div className="p-5 min-h-[300px]">
+          <AnimatePresence mode="wait" initial={false}>
+            {view === "menu" && (
+              <motion.ul key="menu" {...slide} className="space-y-2.5">
+                {methods
+                  .filter((m) => !m.hidden)
+                  .map(({ id, title, subtitle, icon: Icon, tint, tag }) => (
+                    <li key={id}>
+                      <button
+                        onClick={() => setView(id)}
+                        className="w-full flex items-center gap-3 p-3 rounded-2xl border-2 border-black bg-white text-left shadow-[3px_3px_0_0_#000] outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+                      >
+                        <span className={`w-11 h-11 shrink-0 rounded-xl ${tint} flex items-center justify-center`}>
+                          <Icon size={20} />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="flex items-center gap-2">
+                            <span className="font-bold text-sm">{title}</span>
+                            {tag && <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-black text-white">{tag}</span>}
+                          </span>
+                          <span className="block text-xs text-muted-foreground truncate">{subtitle}</span>
+                        </span>
+                        <ChevronRight size={18} className="shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))}
+              </motion.ul>
+            )}
 
-            // Check if wallet is on the correct chain
-            if (currentWallet.chainId !== `eip155:${selectedChainInfo.chainId}`) {
-                console.log(`Switching from chain ${currentWallet.chainId} to ${selectedChainInfo.chainId}`);
-                setIsSwitchingNetwork(true);
-
-                try {
-                    await currentWallet.switchChain(selectedChainInfo.chainId);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    setIsSwitchingNetwork(false);
-                } catch (switchError: any) {
-                    console.error("Failed to switch network:", switchError);
-                    setError(`Please switch your wallet to ${selectedChainInfo.name} manually and try again.`);
-                    setIsDepositing(false);
-                    setIsSwitchingNetwork(false);
-                    return;
-                }
-            }
-
-            // Prepare transaction data
-            const transactionData: any = {
-                to: basicWalletAddress,
-            };
-
-            if (selectedTokenInfo.symbol === "ETH") {
-                // For native ETH, send as value
-                transactionData.value = parseUnits(amount, selectedTokenInfo.decimals);
-            } else {
-                // For ERC20 tokens, use transfer function
-                const amountInWei = parseUnits(amount, selectedTokenInfo.decimals);
-
-                transactionData.to = selectedTokenInfo.address;
-                transactionData.data = encodeFunctionData({
-                    abi: ERC20_ABI,
-                    functionName: "transfer",
-                    args: [basicWalletAddress as `0x${string}`, amountInWei],
-                });
-            }
-
-            // Send transaction through Privy
-            const txHash = await sendTransaction(
-                transactionData,
-                {
-                    address: wallets[0].address
-                }
-            );
-
-            if (txHash) {
-                console.log("Deposit successful! Transaction hash:", txHash);
-                toast.success(`Successfully deposited ${amount} ${selectedToken}!`);
-
-                if (onSuccess) {
-                    onSuccess(amount, selectedToken);
-                } else {
-                    onClose();
-                }
-            }
-        } catch (error: any) {
-            console.error("Deposit failed:", error);
-            setError(error.message || "Transaction failed. Please try again.");
-            toast.error("Deposit failed");
-        } finally {
-            setIsDepositing(false);
-            setIsSwitchingNetwork(false);
-        }
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="mx-4 w-[calc(100vw-2rem)] max-w-[500px] max-h-[90vh] overflow-y-auto sm:mx-auto sm:w-full">
-                <DialogHeader className="space-y-3">
-                    <DialogTitle className="text-xl font-semibold">Add Funds</DialogTitle>
-                    <DialogDescription className="text-sm leading-relaxed">
-                        Deposit tokens to your wallet for P2P payments.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-3 py-2">
-                    {/* Agent Wallet Address Display */}
-                    {basicWalletAddress && (
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Your Wallet Address</label>
-                            <div className="flex items-center gap-2 p-2 bg-muted/50 border rounded-lg">
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-mono text-muted-foreground whitespace-nowrap overflow-hidden">
-                                        {formatAddress(basicWalletAddress, 10, 10)}
-                                    </div>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    aria-label="Copy wallet address"
-                                    onClick={handleCopy}
-                                    className="h-8 px-2"
-                                >
-                                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Status Messages */}
-                    <div className="space-y-3">
-                        {(!wallets || wallets.length === 0) && (
-                            <div className="flex items-start gap-3 p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
-                                <div className="w-4 h-4 rounded-full bg-destructive/20 flex-shrink-0 mt-0.5"></div>
-                                <span>No wallet connected. Please connect your wallet to make deposits.</span>
-                            </div>
-                        )}
-
-                        {wallets && wallets.length > 0 && selectedChainInfo &&
-                            wallets[0].chainId !== `eip155:${selectedChainInfo.chainId}` && (
-                                <div className="flex items-start gap-3 p-2 text-sm text-orange-700 bg-orange-50 dark:text-orange-300 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-                                    <div className="w-4 h-4 rounded-full bg-orange-200 dark:bg-orange-800 flex-shrink-0 mt-0.5"></div>
-                                    <span className="text-xs">⚠️ You&apos;ll be prompted to switch to {selectedChainInfo.name} before depositing.</span>
-                                </div>
-                            )}
-                    </div>
-
-                    {/* Form Fields */}
-                    <div className="space-y-5">
-                        {/* Chain Selection */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Select Chain</label>
-                            <Select value={selectedChain} onValueChange={setSelectedChain}>
-                                <SelectTrigger className="h-11 border-input">
-                                    <SelectValue placeholder="Choose a blockchain network" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SUPPORTED_CHAINS.map((chain) => (
-                                        <SelectItem key={chain.id} value={chain.id}>
-                                            <span className="font-medium">{chain.name}</span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Token Selection */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Select Token</label>
-                            <Select
-                                value={selectedToken}
-                                onValueChange={setSelectedToken}
-                                disabled={!selectedChain}
-                            >
-                                <SelectTrigger className="h-11 border-input">
-                                    <SelectValue placeholder="Choose a token" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableTokens.map((token) => (
-                                        <SelectItem key={token.symbol} value={token.symbol}>
-                                            <div className="flex items-center justify-between w-full">
-                                                <span className="font-medium">{token.symbol}</span>
-                                                <span className="text-muted-foreground text-sm ml-2">
-                                                    {token.name}
-                                                </span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Amount Input */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Amount</label>
-                            <div className="space-y-2">
-                                <Input
-                                    type="number"
-                                    placeholder="0.0"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="h-11 text-base"
-                                    disabled={!selectedToken}
-                                    step="any"
-                                    min="0"
-                                />
-                                {selectedTokenInfo && (
-                                    <p className="text-xs text-muted-foreground">
-                                        Minimum: 0.000001 {selectedTokenInfo.symbol}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Error Message */}
-                    {error && (
-                        <div className="flex items-start gap-3 p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
-                            <div className="w-4 h-4 rounded-full bg-destructive/20 flex-shrink-0 mt-0.5"></div>
-                            <span>{error}</span>
-                        </div>
-                    )}
+            {view === "buy" && (
+              <motion.div key="buy" {...slide} className="space-y-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">How much?</p>
+                  <div className="flex items-baseline justify-center gap-1 py-2">
+                    <span className="text-3xl font-black text-muted-foreground">$</span>
+                    <input
+                      inputMode="decimal"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                      className="w-40 text-center text-5xl font-black tracking-tighter bg-transparent focus:outline-none"
+                      aria-label="Amount in USD"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {QUICK_AMOUNTS.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => setAmount(q)}
+                        className={`py-2 rounded-xl border-2 border-black text-sm font-bold transition-all ${amount === q ? "bg-black text-white" : "bg-white hover:bg-secondary"}`}
+                      >
+                        ${q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <button onClick={handleBuy} disabled={busy || !Number(amount)} className="w-full h-14 rounded-2xl bg-black text-white font-bold inline-flex items-center justify-center gap-2 hover:bg-zinc-800 disabled:opacity-60 transition-colors">
+                  {busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                  Buy ${amount || "0"} of USDC
+                </button>
+                <p className="text-[11px] text-center text-muted-foreground">
+                  Card payments are processed by MoonPay or Coinbase. USDC lands directly in your self-custodial wallet.
+                </p>
+              </motion.div>
+            )}
 
-                <DialogFooter className="gap-3 sm:gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={onClose}
-                        disabled={isDepositing}
-                        className="flex-1 sm:flex-none h-11"
+            {view === "receive" && (
+              <motion.div key="receive" {...slide} className="flex flex-col items-center text-center space-y-4">
+                <div className="p-3 rounded-2xl border-2 border-black shadow-[4px_4px_0_0_#000] bg-white">
+                  {userWalletAddress && <QRCodeSVG value={userWalletAddress} size={176} level="M" />}
+                </div>
+                <button onClick={copyAddress} className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-secondary hover:bg-zinc-200 transition-colors">
+                  <span className="font-mono text-xs truncate">{userWalletAddress}</span>
+                  {copied ? <Check size={16} className="shrink-0 text-emerald-600" /> : <Copy size={16} className="shrink-0" />}
+                </button>
+                <p className="text-xs font-semibold px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
+                  Only send USDC or ETH on <b>{DEFAULT_CHAIN.name}</b>. Other networks will be lost.
+                </p>
+              </motion.div>
+            )}
+
+            {view === "faucet" && (
+              <motion.div key="faucet" {...slide} className="space-y-3">
+                <ol className="space-y-3">
+                  <li className="flex items-center gap-3">
+                    <span className="w-7 h-7 shrink-0 rounded-full bg-black text-white text-xs font-black flex items-center justify-center">1</span>
+                    <button onClick={copyAddress} className="flex-1 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-secondary hover:bg-zinc-200 text-left transition-colors">
+                      <span className="text-sm font-semibold">Copy your address</span>
+                      {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                    </button>
+                  </li>
+                  {FAUCETS.map((f, i) => (
+                    <li key={f.name} className="flex items-center gap-3">
+                      <span className="w-7 h-7 shrink-0 rounded-full bg-black text-white text-xs font-black flex items-center justify-center">{i + 2}</span>
+                      <a
+                        href={f.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 border-black bg-white shadow-[2px_2px_0_0_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+                      >
+                        <span>
+                          <span className="block text-sm font-bold">{f.name}</span>
+                          <span className="block text-[11px] text-muted-foreground">{f.hint}</span>
+                        </span>
+                        <ExternalLink size={14} className="shrink-0" />
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-[11px] text-center text-muted-foreground pt-1">Your balance updates automatically once the faucet transfer confirms.</p>
+              </motion.div>
+            )}
+
+            {view === "wallet" && externalWallet && (
+              <motion.div key="wallet" {...slide} className="space-y-5">
+                <div className="flex rounded-xl bg-secondary p-1">
+                  {(["USDC", "ETH"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setToken(t)}
+                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${token === t ? "bg-white shadow-sm" : "text-muted-foreground"}`}
                     >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleDeposit}
-                        disabled={
-                            !selectedChain ||
-                            !selectedToken ||
-                            !amount ||
-                            !basicWalletAddress ||
-                            !wallets ||
-                            wallets.length === 0 ||
-                            isDepositing ||
-                            isSwitchingNetwork
-                        }
-                        className="flex-1 sm:flex-none h-11"
-                    >
-                        {isSwitchingNetwork ? "Switching Network..." :
-                            isDepositing ? "Processing..." :
-                                (wallets && wallets.length > 0 && selectedChainInfo &&
-                                    wallets[0].chainId !== `eip155:${selectedChainInfo.chainId}` ?
-                                    `Switch to ${selectedChainInfo.name?.split(' ')[0]} & Deposit` : "Deposit")}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-baseline justify-center gap-2">
+                  <input
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                    className="w-44 text-center text-5xl font-black tracking-tighter bg-transparent focus:outline-none"
+                    aria-label={`Amount in ${token}`}
+                  />
+                  <span className="text-lg font-bold text-muted-foreground">{token}</span>
+                </div>
+                <button onClick={handleWalletTransfer} disabled={busy} className="w-full h-14 rounded-2xl bg-black text-white font-bold inline-flex items-center justify-center gap-2 hover:bg-zinc-800 disabled:opacity-60 transition-colors">
+                  {busy ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
+                  Move {amount || "0"} {token} to cUPI
+                </button>
+                <p className="text-[11px] text-center text-muted-foreground">
+                  You&apos;ll confirm in {externalWallet.walletClientType} on {DEFAULT_CHAIN.name}.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 export default TopUpModal;

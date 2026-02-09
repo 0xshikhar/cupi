@@ -118,7 +118,7 @@ function SendContent() {
   };
 
   return (
-    <div className="flex flex-col h-full gap-6 max-w-lg mx-auto w-full pb-28 pt-1">
+    <div className="flex flex-col h-full gap-6 max-w-lg mx-auto w-full pb-4 pt-1">
       {/* Top Navigation & Mode Switcher */}
       <div className="flex items-center justify-between">
         <button
@@ -208,7 +208,6 @@ function SendContent() {
                     >
                       <div className="w-12 h-12 rounded-2xl bg-secondary/60 border border-border/80 group-hover:border-primary/60 group-hover:bg-primary/10 flex items-center justify-center font-black text-sm text-foreground transition-all relative">
                         {contact.username ? contact.username.charAt(0).toUpperCase() : "U"}
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute -bottom-0.5 -right-0.5 ring-2 ring-background" />
                       </div>
                       <span className="text-[11px] font-semibold text-foreground group-hover:text-primary max-w-[64px] truncate">
                         @{contact.username || "user"}
@@ -227,13 +226,14 @@ function SendContent() {
             </p>
 
             {/* Rail 1: Pay by Username (Primary Smart Account Flow) */}
-            <div
+            <button
+              type="button"
               onClick={() => {
                 setTargetRecipient(null);
                 setTargetAmount(null);
                 setIsPayModalOpen(true);
               }}
-              className="cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm group border-border/80"
+              className="w-full text-left cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm group border-border/80"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
@@ -247,17 +247,18 @@ function SendContent() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                    Multi-chain transfer on Base, Arbitrum, Solana & Polygon
+                    Send USDC or ETH to an @handle, phone or address
                   </p>
                 </div>
               </div>
               <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
+            </button>
 
             {/* Rail 2: Share via WhatsApp & Telegram Link */}
-            <div
+            <button
+              type="button"
               onClick={() => router.push("/send/link")}
-              className="cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm group border-border/80"
+              className="w-full text-left cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm group border-border/80"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-500 group-hover:scale-105 transition-transform">
@@ -276,12 +277,13 @@ function SendContent() {
                 </div>
               </div>
               <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
+            </button>
 
             {/* Rail 3: Scan QR Code */}
-            <div
+            <button
+              type="button"
               onClick={() => router.push("/scan")}
-              className="cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm group border-border/80"
+              className="w-full text-left cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-primary/50 transition-all shadow-sm group border-border/80"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-500 group-hover:scale-105 transition-transform">
@@ -290,7 +292,7 @@ function SendContent() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-sm text-foreground">Scan QR Code</h3>
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-600 border border-purple-500/30">
                       Camera & Image
                     </span>
                   </div>
@@ -300,12 +302,13 @@ function SendContent() {
                 </div>
               </div>
               <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
+            </button>
 
             {/* Rail 4: Solana Pay (USDC) */}
-            <div
+            <button
+              type="button"
               onClick={() => setIsSolanaModalOpen(true)}
-              className="cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-teal-500/50 transition-all shadow-sm group border-border/80"
+              className="w-full text-left cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-teal-500/50 transition-all shadow-sm group border-border/80"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-teal-400 group-hover:scale-105 transition-transform">
@@ -324,12 +327,13 @@ function SendContent() {
                 </div>
               </div>
               <ChevronRight size={18} className="text-muted-foreground group-hover:text-teal-400 transition-colors" />
-            </div>
+            </button>
 
             {/* Rail 5: Bank Off-Ramp via Bridge.xyz */}
-            <div
+            <button
+              type="button"
               onClick={() => setIsBankModalOpen(true)}
-              className="cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-blue-500/50 transition-all shadow-sm group border-border/80"
+              className="w-full text-left cupi-card p-5 flex items-center justify-between cursor-pointer hover:bg-secondary/40 hover:border-blue-500/50 transition-all shadow-sm group border-border/80"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-500 group-hover:scale-105 transition-transform">
@@ -338,8 +342,8 @@ function SendContent() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-sm text-foreground">Bank Wire / ACH Payout</h3>
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30">
-                      Bridge.xyz
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600 border border-blue-500/30">
+                      Bridge · sandbox
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground font-medium mt-0.5">
@@ -347,8 +351,8 @@ function SendContent() {
                   </p>
                 </div>
               </div>
-              <ChevronRight size={18} className="text-muted-foreground group-hover:text-blue-400 transition-colors" />
-            </div>
+              <ChevronRight size={18} className="text-muted-foreground group-hover:text-blue-600 transition-colors" />
+            </button>
           </div>
 
           {/* Security & Non-Custodial Footer */}
