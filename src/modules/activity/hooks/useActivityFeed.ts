@@ -27,8 +27,21 @@ export interface ActivityItem {
 
 export function useActivityFeed() {
     const { userWalletAddress, basicWalletAddress } = useAuthWallet();
-    const [activities, setActivities] = useState<ActivityItem[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [activities, setActivities] = useState<ActivityItem[]>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = localStorage.getItem('cupi_cached_activities');
+                if (cached) return JSON.parse(cached);
+            } catch {}
+        }
+        return [];
+    });
+    const [isLoading, setIsLoading] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return !localStorage.getItem('cupi_cached_activities');
+        }
+        return true;
+    });
 
     const fetchAllActivity = useCallback(async () => {
         if (!userWalletAddress || !basicWalletAddress) return;
@@ -202,6 +215,11 @@ export function useActivityFeed() {
             mergedActivities.sort((a, b) => b.timestamp - a.timestamp);
 
             setActivities(mergedActivities);
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('cupi_cached_activities', JSON.stringify(mergedActivities));
+                } catch {}
+            }
             console.log('[ACTIVITY HOOK] Merged', mergedActivities.length, 'total activities');
 
         } catch (error) {
