@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type ReconciliationEntity = "PAYMENT" | "TRANSACTION" | "MERCHANT_CHECKOUT";
 export type ReconciliationSource =
   | "ALCHEMY_WEBHOOK"
+  | "BRIDGE_WEBHOOK"
   | "CRON_SWEEP"
   | "RPC_POLLER"
   | "MERCHANT_API"
