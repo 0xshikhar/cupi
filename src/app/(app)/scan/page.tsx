@@ -19,6 +19,8 @@ import {
   Sparkles,
   Smartphone,
   ExternalLink,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import jsQR from "jsqr";
 import { QRCodeSVG } from "qrcode.react";
@@ -41,6 +43,7 @@ export default function ScanPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isScanning, setIsScanning] = useState(false);
+  const isScanningRef = useRef(false);
   const [cameraStarted, setCameraStarted] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,28 +74,149 @@ export default function ScanPage() {
     fetchProfile();
   }, [userWalletAddress]);
 
-  // Start camera
+  // Keep isScanningRef in sync
+  useEffect(() => {
+    isScanningRef.current = isScanning;
+  }, [isScanning]);
+
+  // Attach active stream to video element whenever stream changes
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.setAttribute("playsinline", "true");
+      videoRef.current
+        .play()
+        .then(() => {
+          setIsScanning(true);
+          isScanningRef.current = true;
+          requestAnimationFrame(tick);
+        })
+        .catch((err) => {
+          console.warn("[SCAN] Video play failed:", err);
+        });
+    }
+  }, [stream]);
+
+  // Camera permission state tracking
+  const [permissionState, setPermissionState] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
+  const permissionStatusRef = useRef<PermissionStatus | null>(null);
+
+  // Monitor browser permission changes (e.g. user toggles Camera switch in Chrome address bar)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
+
+    let isMounted = true;
+    navigator.permissions
+      .query({ name: "camera" as PermissionName })
+      .then((status) => {
+        if (!isMounted) return;
+        permissionStatusRef.current = status;
+        setPermissionState(status.state as any);
+
+        const handlePermissionChange = () => {
+          if (!isMounted) return;
+          setPermissionState(status.state as any);
+          if (status.state === "granted") {
+            setError(null);
+            // Automatically launch camera once permission is granted
+            startCamera();
+          }
+        };
+
+        status.addEventListener("change", handlePermissionChange);
+
+        // If permission is already granted on initial load, auto-start camera
+        if (status.state === "granted" && !cameraStarted && activeTab === "scan") {
+          startCamera();
+        }
+      })
+      .catch((err) => {
+        console.warn("[SCAN] Camera permission query not supported:", err);
+      });
+
+    return () => {
+      isMounted = false;
+      if (permissionStatusRef.current) {
+        permissionStatusRef.current.onchange = null;
+      }
+    };
+  }, [activeTab]);
+
+  // Start camera with resilient fallback and clear error diagnostics
   const startCamera = async () => {
     try {
       setError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+        setError("Camera access is not supported in this browser. Please use Chrome, Safari, or Brave.");
+        return;
+      }
+
+      let mediaStream: MediaStream | null = null;
+      const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      // On mobile devices, prefer environment rear camera
+      if (isMobile) {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } },
+          });
+        } catch {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+      } else {
+        // On desktop/MacBook, direct video: true accesses webcam/FaceTime camera without constraint conflicts
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (desktopErr) {
+          console.warn("[SCAN] Simple video constraint failed, attempting fallback:", desktopErr);
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          });
+        }
+      }
+
+      if (!mediaStream) {
+        throw new Error("No media stream returned by camera device.");
+      }
+
       setStream(mediaStream);
       setCameraStarted(true);
-      setIsScanning(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
-          requestAnimationFrame(tick);
-        };
+      setError(null);
+    } catch (err: any) {
+      console.warn("[SCAN] Camera access error:", err);
+
+      const msg = err?.message || "";
+      const isSystemDenied =
+        msg.toLowerCase().includes("system") ||
+        msg.toLowerCase().includes("permission denied by system");
+
+      const isPermissionAlreadyGranted = permissionStatusRef.current?.state === "granted";
+
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        if (isSystemDenied || isPermissionAlreadyGranted) {
+          setError(
+            "Camera is allowed in Chrome, but macOS is blocking Chrome from accessing the hardware.\n\n1. Open Mac System Settings → Privacy & Security → Camera\n2. Turn ON Google Chrome (or your browser)\n3. Reload this page."
+          );
+        } else {
+          setError(
+            "Camera permission was updated or blocked.\n\nIf you just toggled Camera to Allowed in your browser address bar, click 'Reload Page' below to apply changes to this tab."
+          );
+        }
+      } else if (err?.name === "NotReadableError") {
+        setError(
+          "Camera is currently locked by another application (FaceTime, Zoom, or another browser tab). Please close other camera apps and retry."
+        );
+      } else if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+        setError("No camera device was detected on your machine. You can upload a QR image below.");
+      } else if (err?.name === "OverconstrainedError") {
+        setError("Your camera hardware does not support the requested video settings. Please try uploading a photo instead.");
+      } else {
+        setError(msg || "Camera access unavailable. You can upload a QR image or enter an address below.");
       }
-    } catch (err) {
-      console.warn("Camera access denied or unavailable:", err);
-      setError("Camera access unavailable. You can upload a QR image or enter an address below.");
+
       setCameraStarted(false);
       setIsScanning(false);
+      isScanningRef.current = false;
     }
   };
 
@@ -101,8 +225,12 @@ export default function ScanPage() {
       stream.getTracks().forEach((track) => track.stop());
       setStream(null);
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setCameraStarted(false);
     setIsScanning(false);
+    isScanningRef.current = false;
     setTorchOn(false);
   };
 
@@ -135,11 +263,11 @@ export default function ScanPage() {
 
   // Continuous scanning loop
   const tick = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!isScanningRef.current || !videoRef.current || !canvasRef.current) return;
 
     if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
       const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
+      const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
 
       canvas.height = videoRef.current.videoHeight;
@@ -153,10 +281,11 @@ export default function ScanPage() {
 
       if (code && code.data) {
         handleScan(code.data);
-      } else if (isScanning) {
-        requestAnimationFrame(tick);
+        return;
       }
-    } else {
+    }
+
+    if (isScanningRef.current) {
       requestAnimationFrame(tick);
     }
   };
@@ -170,7 +299,7 @@ export default function ScanPage() {
     if (data.includes("/claim/")) {
       try {
         const url = new URL(data);
-        router.push(url.pathname + url.hash);
+        router.push(url.pathname + url.search + url.hash);
         return;
       } catch {
         if (data.startsWith("/claim/")) {
@@ -358,29 +487,32 @@ export default function ScanPage() {
       {activeTab === "scan" && (
         <div className="space-y-6">
           {/* Viewfinder Card */}
-          <div className="cupi-card overflow-hidden rounded-3xl border border-border/80 bg-neutral-950 p-6 space-y-6 text-white text-center shadow-lg relative">
-            <div className="relative w-64 h-64 mx-auto rounded-3xl overflow-hidden bg-neutral-900 border border-white/10 flex items-center justify-center shadow-inner">
+          <div className="cupi-card overflow-hidden rounded-3xl border border-border/80 p-6 space-y-6 text-foreground text-center shadow-lg relative">
+            <div className="relative w-64 h-64 mx-auto rounded-3xl overflow-hidden bg-neutral-950 border border-white/10 flex items-center justify-center shadow-inner">
+              {/* Always keep video mounted so videoRef is ready for stream assignment */}
+              <video
+                ref={videoRef}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                  cameraStarted ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
+                }`}
+                playsInline
+                muted
+                autoPlay
+              />
+
               {cameraStarted ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    playsInline
-                    muted
-                  />
-                  {/* Active Laser Scanning Line */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary shadow-[0_0_15px_#00FF95] animate-scan-line" />
-                  </div>
-                </>
+                /* Active Laser Scanning Line */
+                <div className="absolute inset-0 pointer-events-none z-20">
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary shadow-[0_0_15px_#00FF95] animate-scan-line" />
+                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center p-6 space-y-3">
+                <div className="flex flex-col items-center justify-center p-6 space-y-3 z-10">
                   <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
                     <Camera size={30} className="text-primary" />
                   </div>
                   <button
                     onClick={startCamera}
-                    className="btn-primary py-2.5 px-5 text-xs font-black tracking-wide rounded-xl shadow-md"
+                    className="btn-primary py-2.5 px-5 text-xs font-black tracking-wide rounded-xl shadow-md active:scale-95 transition-all text-black"
                   >
                     Start Camera
                   </button>
@@ -391,16 +523,53 @@ export default function ScanPage() {
               )}
 
               {/* Viewfinder Corner Brackets */}
-              <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-primary rounded-tl-lg pointer-events-none" />
-              <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-primary rounded-tr-lg pointer-events-none" />
-              <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-primary rounded-bl-lg pointer-events-none" />
-              <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-primary rounded-br-lg pointer-events-none" />
+              <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-primary rounded-tl-lg pointer-events-none z-30" />
+              <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-primary rounded-tr-lg pointer-events-none z-30" />
+              <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-primary rounded-bl-lg pointer-events-none z-30" />
+              <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-primary rounded-br-lg pointer-events-none z-30" />
             </div>
 
             {error && (
-              <p className="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
-                {error}
-              </p>
+              <div className="p-4 rounded-2xl border border-rose-500/40 bg-rose-50 dark:bg-rose-950/50 text-left space-y-3 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-xs text-rose-800 dark:text-rose-200">
+                    <AlertCircle size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
+                    <span>Camera Permission Notice</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setError(null)}
+                    className="text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 font-medium"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-900 dark:text-rose-100 whitespace-pre-line font-medium">
+                  {error}
+                </p>
+                <div className="p-2.5 rounded-xl bg-white/70 dark:bg-black/30 border border-rose-200 dark:border-rose-900/60 text-[11px] text-slate-700 dark:text-slate-300 space-y-1">
+                  <p className="font-bold text-slate-900 dark:text-white">Why is there no prompt?</p>
+                  <p>Chrome remembers previous permission for localhost. In the address bar popup, click <strong>Reset permissions</strong>, then click <strong>Reload Page</strong> to see the native prompt.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="py-2 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                  >
+                    <RefreshCw size={13} />
+                    Reload Page to Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="py-2 px-3.5 rounded-xl bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-slate-900 dark:text-white font-semibold text-xs border border-border flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <Camera size={13} />
+                    Retry Camera
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* In-Viewfinder Camera Controls */}

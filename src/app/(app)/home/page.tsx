@@ -24,8 +24,6 @@ export default function DashboardPage() {
   const {
     userWalletAddress,
     basicWalletAddress,
-    isLoading,
-    isCreatingWallet,
     error
   } = useAuthWallet();
 
@@ -33,10 +31,30 @@ export default function DashboardPage() {
   const [isRewardsOpen, setIsRewardsOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [balance, setBalance] = useState<string>("0.00");
-  const [isLoadingBalance, setIsLoadingBalance] = useState(true);
-  const [username, setUsername] = useState<string | null>(null);
-  const [isLoadingUsername, setIsLoadingUsername] = useState(true);
+  const [balance, setBalance] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("cupi_cached_balance") || "0.00";
+    }
+    return "0.00";
+  });
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return !localStorage.getItem("cupi_cached_balance");
+    }
+    return true;
+  });
+  const [username, setUsername] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("cupi_cached_username") || null;
+    }
+    return null;
+  });
+  const [isLoadingUsername, setIsLoadingUsername] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return !localStorage.getItem("cupi_cached_username");
+    }
+    return true;
+  });
   const [currencyCode, setCurrencyCode] = useState<string>("USD");
 
   // Multi-currency sync
@@ -72,6 +90,9 @@ export default function DashboardPage() {
           const data = await response.json();
           if (response.ok && data.user) {
             setUsername(data.user.username);
+            if (typeof window !== "undefined" && data.user.username) {
+              localStorage.setItem("cupi_cached_username", data.user.username);
+            }
           }
         } catch (error) {
           console.error('[HOME] Error fetching username:', error);
@@ -88,27 +109,26 @@ export default function DashboardPage() {
     const fetchBalance = async () => {
       if (basicWalletAddress) {
         try {
-          setIsLoadingBalance(true);
           console.log('[HOME] Fetching balance for basic wallet:', basicWalletAddress);
           const response = await fetch(`/api/wallet-balance?address=${basicWalletAddress}`);
           const data = await response.json();
 
           if (response.ok && data.totalUsd) {
             setBalance(data.totalUsd);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("cupi_cached_balance", data.totalUsd);
+            }
             console.log('[HOME] Balance fetched:', data);
           } else {
             console.error('[HOME] Failed to fetch balance:', data.error);
-            setBalance("0.00");
           }
         } catch (error) {
           console.error('[HOME] Error fetching balance:', error);
-          setBalance("0.00");
         } finally {
           setIsLoadingBalance(false);
         }
       } else {
         console.log('[HOME] Basic wallet address not available yet');
-        setBalance("0.00");
         setIsLoadingBalance(false);
       }
     };
@@ -127,6 +147,9 @@ export default function DashboardPage() {
         .then(data => {
           if (data.totalUsd) {
             setBalance(data.totalUsd);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("cupi_cached_balance", data.totalUsd);
+            }
             console.log('[HOME] Balance refreshed:', data);
           }
         })
@@ -148,23 +171,6 @@ export default function DashboardPage() {
     if (type === 'PAYMENT_LINK_CREATED' || type === 'PAYMENT_LINK_CLAIMED') return <LinkIcon size={20} />;
     return <Sparkles size={20} />;
   };
-
-  // Show loading state while wallet is being set up
-  if (isLoading || isCreatingWallet) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <div className="text-center">
-          <h3 className="font-bold text-lg mb-1">
-            {isCreatingWallet ? "Setting up your account..." : "Getting ready..."}
-          </h3>
-          <p className="text-muted-foreground text-sm">
-            This will only take a moment
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   // Show error state if wallet creation failed
   if (error) {
@@ -194,8 +200,8 @@ export default function DashboardPage() {
               {username ? username.charAt(0).toUpperCase() : (userWalletAddress ? userWalletAddress.slice(2, 4).toUpperCase() : 'U')}
             </div>
             <span className="font-bold text-sm tracking-wide">
-              {isLoadingUsername ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+              {isLoadingUsername && !username ? (
+                <span className="inline-block w-20 h-4 bg-muted-foreground/20 animate-pulse rounded" />
               ) : (
                 username ? `@${username}` : 'Set up your profile'
               )}
@@ -232,8 +238,8 @@ export default function DashboardPage() {
           </span>
         </span>
         <div className="flex items-center justify-center gap-2">
-          {isLoadingBalance ? (
-            <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+          {isLoadingBalance && balance === "0.00" ? (
+            <div className="h-14 w-40 bg-secondary/50 animate-pulse rounded-2xl my-1" />
           ) : (
             <span className="text-6xl font-black tracking-tighter tabular-nums">
               {CURRENCY_CONFIG[currencyCode]?.symbol || "$"}
@@ -313,7 +319,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {isLoadingFeed ? (
+        {isLoadingFeed && recentActivity.length === 0 ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-16 bg-secondary/30 rounded-xl animate-pulse" />

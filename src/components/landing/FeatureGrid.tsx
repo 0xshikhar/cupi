@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Shield, RefreshCcw, Landmark, Users, CreditCard, Bot, Link as LinkIcon, QrCode, Globe } from 'lucide-react';
+import { Zap, Shield, RefreshCcw, Landmark, Users, CreditCard, Bot, Store, Link as LinkIcon, QrCode, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FeatureCardProps {
@@ -66,10 +66,10 @@ export function FeatureGrid() {
             icon={<LinkIcon size={28} />}
           />
           <FeatureCard
-            title="Autonomous AI Guardrails"
-            description="ERC-7715 scoped session keys with strict $50 daily spend guardrails and verified DeFi protocol whitelists."
-            badge="ERC-7715"
-            icon={<Bot size={28} />}
+            title="Merchant Checkout & Webhooks"
+            description="Stripe-grade merchant checkout sessions, HMAC-SHA256 signed webhook delivery with exponential backoff, and idempotent reconciliation."
+            badge="Merchant API"
+            icon={<Store size={28} />}
           />
           <FeatureCard
             title="Self-Custodial Virtual Cards"

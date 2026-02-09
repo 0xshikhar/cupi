@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Orbitron } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -51,6 +52,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         <Providers>
           {children}
+          <Toaster richColors position="top-center" closeButton />
         </Providers>
       </body>
     </html>
