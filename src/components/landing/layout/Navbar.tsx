@@ -1,19 +1,14 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 
 export function Navbar() {
-  const { login, authenticated } = usePrivy();
   const router = useRouter();
 
   const handleAppAccess = () => {
-    if (authenticated) {
-      router.push('/home');
-    } else {
-      login();
-    }
+    // /get-started handles login and forwards signed-in users to /home, keeping the auth SDK off the landing bundle
+    router.push('/get-started');
   };
 
   return (
@@ -35,7 +30,7 @@ export function Navbar() {
           onClick={handleAppAccess}
           className="bg-brand-green text-black hover:bg-brand-green-dark border-2 border-black rounded-full font-black px-8 h-12 shadow-sticker-hover active:translate-y-1 transition-all"
         >
-          {authenticated ? "OPEN DASHBOARD" : "LAUNCH APP"}
+          LAUNCH APP
         </Button>
       </div>
     </nav>

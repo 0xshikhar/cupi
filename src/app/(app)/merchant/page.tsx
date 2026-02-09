@@ -181,7 +181,8 @@ export default function MerchantPortalPage() {
           orderId: orderId,
           amount: orderAmount,
           currency: "USDC",
-          network: "solana",
+          // Settle on the rail the merchant's settlement address belongs to
+          network: merchant.settlementAddress?.startsWith("0x") ? "base" : "solana",
           description: `Test Checkout Session for Order ${orderId}`,
           callbackUrl: merchant.webhookUrl || "https://httpbin.org/post",
         }),
@@ -427,7 +428,7 @@ export default function MerchantPortalPage() {
 
         {sessions.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground text-sm border border-dashed border-border rounded-xl">
-            No checkout sessions created yet. Click "New Test Checkout" above to test the flow.
+            No checkout sessions created yet. Click &ldquo;New Test Checkout&rdquo; above to test the flow.
           </div>
         ) : (
           <div className="overflow-x-auto">

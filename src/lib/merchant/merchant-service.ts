@@ -4,9 +4,21 @@ import { generateApiKey, generateWebhookSecret } from "./auth";
 import { dispatchWebhook } from "./webhook";
 import {
   CreateCheckoutSessionInput,
+  CheckoutPaymentInstructions,
   CheckoutSessionDTO,
   CheckoutSessionStatus,
 } from "./types";
+import { CONTRACT_ADDRESSES, DEFAULT_CHAIN } from "@/config/chains";
+import { recordStatusTransition } from "@/lib/reconciliation/audit";
+import {
+  deriveSolanaPayReference,
+  getSolanaCluster,
+  getSolanaUsdcMint,
+  isEvmAddress,
+  isSolanaAddress,
+  verifyEvmUsdcTransfer,
+  verifySolanaUsdcTransfer,
+} from "@/lib/payments/onchain-verify";
 
 /**
  * Onboard a new institutional merchant, creating their secret API key and webhook secret.
@@ -88,12 +100,14 @@ export async function createCheckoutSession(
   });
 
   if (!merchant) {
-    throw new Error(`Merchant not found with id: ${input.merchantId}`);
+    throw new CheckoutError(`Merchant not found with id: ${input.merchantId}`, 404);
   }
 
   if (merchant.status !== "ACTIVE") {
-    throw new Error("Merchant account is suspended or inactive");
+    throw new CheckoutError("Merchant account is suspended or inactive", 403);
   }
+
+  assertSettlementSupportsNetwork(merchant.settlementAddress, input.network || "solana");
 
   const sessionId = `cs_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
   const checkoutUrl = `${origin}/pay/merchant-${sessionId}`;
@@ -132,46 +146,118 @@ export async function createCheckoutSession(
   return toCheckoutSessionDTO(session);
 }
 
+export class CheckoutError extends Error {
+  constructor(message: string, public readonly status: number = 400) {
+    super(message);
+    this.name = "CheckoutError";
+  }
+}
+
+function assertSettlementSupportsNetwork(settlementAddress: string | null, network: string) {
+  if (network === "solana" && !isSolanaAddress(settlementAddress)) {
+    throw new CheckoutError("Merchant needs a Solana settlement address to accept Solana checkouts", 422);
+  }
+  if (network === "base" && !isEvmAddress(settlementAddress)) {
+    throw new CheckoutError("Merchant needs an EVM settlement address to accept Base checkouts", 422);
+  }
+  if (network !== "solana" && network !== "base") {
+    throw new CheckoutError(`Network '${network}' is not supported for checkout yet`, 422);
+  }
+}
+
 /**
- * Retrieve a checkout session by id, automatically checking for expiration.
+ * Builds payer-facing instructions so clients never hardcode recipients, mints or references.
+ */
+function buildPaymentInstructions(
+  session: { id: string; amount: string; network: string; description: string | null },
+  merchant: { name: string; settlementAddress: string | null }
+): CheckoutPaymentInstructions | undefined {
+  const recipient = merchant.settlementAddress;
+  if (!recipient) return undefined;
+
+  if (session.network === "solana") {
+    const reference = deriveSolanaPayReference(session.id);
+    const url = new URL(`solana:${recipient}`);
+    url.searchParams.set("amount", session.amount);
+    url.searchParams.set("spl-token", getSolanaUsdcMint());
+    url.searchParams.set("reference", reference);
+    url.searchParams.set("label", merchant.name);
+    if (session.description) url.searchParams.set("message", session.description);
+
+    return {
+      network: "solana",
+      cluster: getSolanaCluster(),
+      recipient,
+      token: "USDC",
+      tokenAddress: getSolanaUsdcMint(),
+      amount: session.amount,
+      reference,
+      solanaPayUrl: url.toString(),
+    };
+  }
+
+  return {
+    network: "base",
+    chainId: DEFAULT_CHAIN.id,
+    recipient,
+    token: "USDC",
+    tokenAddress: CONTRACT_ADDRESSES[DEFAULT_CHAIN.id].USDC,
+    amount: session.amount,
+  };
+}
+
+async function expireIfStale<T extends { id: string; status: string; expiresAt: Date; merchantId: string; callbackUrl: string }>(
+  session: T,
+  webhookSecret: string
+) {
+  if (session.status !== "PENDING" || session.expiresAt.getTime() > Date.now()) return null;
+
+  const { count } = await prisma.checkoutSession.updateMany({
+    where: { id: session.id, status: "PENDING" },
+    data: { status: "EXPIRED" },
+  });
+  const updated = await prisma.checkoutSession.findUniqueOrThrow({ where: { id: session.id } });
+
+  if (count === 1) {
+    dispatchWebhook({
+      merchantId: session.merchantId,
+      sessionId: session.id,
+      event: "checkout.session.expired",
+      callbackUrl: session.callbackUrl,
+      secret: webhookSecret,
+      data: toCheckoutSessionDTO(updated),
+    }).catch((err) => console.error("[MERCHANT SERVICE] Webhook dispatch expired error:", err));
+  }
+
+  return updated;
+}
+
+/**
+ * Retrieve a checkout session by id (payer-facing), automatically checking for expiration.
  */
 export async function getCheckoutSession(sessionId: string): Promise<CheckoutSessionDTO | null> {
   const session = await prisma.checkoutSession.findUnique({
     where: { id: sessionId },
-    include: {
-      merchant: true,
-    },
+    include: { merchant: true },
   });
 
   if (!session) {
     return null;
   }
 
-  // Check if session has expired while in PENDING state
-  if (session.status === "PENDING" && session.expiresAt.getTime() <= Date.now()) {
-    const updated = await prisma.checkoutSession.update({
-      where: { id: sessionId },
-      data: { status: "EXPIRED" },
-    });
+  const current = (await expireIfStale(session, session.merchant.webhookSecret)) ?? session;
 
-    // Notify merchant of expiration
-    dispatchWebhook({
-      merchantId: session.merchantId,
-      sessionId: session.id,
-      event: "checkout.session.expired",
-      callbackUrl: session.callbackUrl,
-      secret: session.merchant.webhookSecret,
-      data: toCheckoutSessionDTO(updated),
-    }).catch((err) => console.error("[MERCHANT SERVICE] Webhook dispatch expired error:", err));
-
-    return toCheckoutSessionDTO(updated);
-  }
-
-  return toCheckoutSessionDTO(session);
+  return {
+    ...toCheckoutSessionDTO(current),
+    merchantName: session.merchant.name,
+    paymentInstructions: buildPaymentInstructions(current, session.merchant),
+  };
 }
 
 /**
- * Mark a checkout session as PAID atomically when on-chain transaction is verified.
+ * Mark a checkout session as PAID. Callers MUST have verified the transfer on-chain first.
+ * The status guard makes the PENDING -> PAID transition atomic, so concurrent confirmations
+ * (client poll, cron sweep, webhook) settle exactly once and dispatch exactly one webhook.
  */
 export async function markCheckoutSessionPaid({
   sessionId,
@@ -188,20 +274,11 @@ export async function markCheckoutSessionPaid({
   });
 
   if (!session) {
-    throw new Error(`Checkout session ${sessionId} not found`);
+    throw new CheckoutError(`Checkout session ${sessionId} not found`, 404);
   }
 
-  // If already paid, return idempotent state
-  if (session.status === "PAID") {
-    return toCheckoutSessionDTO(session);
-  }
-
-  if (session.status === "EXPIRED") {
-    throw new Error("Cannot pay an expired checkout session");
-  }
-
-  const updated = await prisma.checkoutSession.update({
-    where: { id: sessionId },
+  const { count } = await prisma.checkoutSession.updateMany({
+    where: { id: sessionId, status: "PENDING" },
     data: {
       status: "PAID",
       txHash,
@@ -210,7 +287,13 @@ export async function markCheckoutSessionPaid({
     },
   });
 
-  // Dispatch webhook event checkout.session.completed
+  const updated = await prisma.checkoutSession.findUniqueOrThrow({ where: { id: sessionId } });
+
+  if (count === 0) {
+    if (updated.status === "PAID") return toCheckoutSessionDTO(updated);
+    throw new CheckoutError(`Cannot pay a checkout session with status '${updated.status}'`, 409);
+  }
+
   dispatchWebhook({
     merchantId: session.merchantId,
     sessionId: session.id,
@@ -221,6 +304,97 @@ export async function markCheckoutSessionPaid({
   }).catch((err) => console.error("[MERCHANT SERVICE] Webhook dispatch completed error:", err));
 
   return toCheckoutSessionDTO(updated);
+}
+
+/**
+ * Verifies a checkout payment against the chain and settles it.
+ * - Solana: discovers the transfer via the session's Solana Pay reference (txHash optional).
+ * - Base: decodes USDC Transfer logs from the submitted txHash.
+ * Returns the session still PENDING when the transfer isn't on-chain yet, so clients can poll.
+ */
+export async function confirmCheckoutPayment({
+  sessionId,
+  txHash,
+  source = "MERCHANT_API",
+}: {
+  sessionId: string;
+  txHash?: string;
+  source?: "MERCHANT_API" | "CRON_SWEEP";
+}): Promise<{ session: CheckoutSessionDTO; settled: boolean; reason?: string }> {
+  const session = await prisma.checkoutSession.findUnique({
+    where: { id: sessionId },
+    include: { merchant: true },
+  });
+
+  if (!session) throw new CheckoutError(`Checkout session ${sessionId} not found`, 404);
+  if (session.status === "PAID") return { session: toCheckoutSessionDTO(session), settled: true };
+  if (session.status !== "PENDING") {
+    throw new CheckoutError(`Cannot pay a checkout session with status '${session.status}'`, 409);
+  }
+
+  const recipient = session.merchant.settlementAddress;
+  const candidateHash = txHash || session.txHash || undefined;
+
+  const verification =
+    session.network === "solana"
+      ? isSolanaAddress(recipient)
+        ? await verifySolanaUsdcTransfer({
+            reference: deriveSolanaPayReference(session.id),
+            recipient,
+            amount: session.amount,
+            signature: candidateHash,
+          })
+        : { valid: false, reason: "Merchant has no Solana settlement address" }
+      : isEvmAddress(recipient) && candidateHash
+        ? await verifyEvmUsdcTransfer({
+            txHash: candidateHash,
+            recipient,
+            amount: session.amount,
+            waitMs: source === "MERCHANT_API" ? 15_000 : undefined,
+          })
+        : { valid: false, pending: !candidateHash, reason: candidateHash ? "Merchant has no EVM settlement address" : "Awaiting transaction hash" };
+
+  if (!verification.valid || !verification.txHash) {
+    // Funds that landed on-chain always win over the TTL; only expire when nothing valid was found.
+    const expired = await expireIfStale(session, session.merchant.webhookSecret);
+    if (expired) return { session: toCheckoutSessionDTO(expired), settled: false, reason: "Session expired" };
+
+    if (!verification.pending) {
+      throw new CheckoutError(`Payment verification failed: ${verification.reason}`, 422);
+    }
+    if (txHash && txHash !== session.txHash) {
+      await prisma.checkoutSession.updateMany({
+        where: { id: session.id, status: "PENDING" },
+        data: { txHash },
+      });
+    }
+    return { session: toCheckoutSessionDTO({ ...session, txHash: candidateHash ?? null }), settled: false, reason: verification.reason };
+  }
+
+  const reused = await prisma.checkoutSession.findFirst({
+    where: { txHash: verification.txHash, status: "PAID", NOT: { id: session.id } },
+    select: { id: true },
+  });
+  if (reused) throw new CheckoutError("Transaction already settled another checkout session", 409);
+
+  const paid = await markCheckoutSessionPaid({
+    sessionId: session.id,
+    txHash: verification.txHash,
+    payerAddress: verification.payer,
+  });
+
+  await recordStatusTransition({
+    entityType: "MERCHANT_CHECKOUT",
+    entityId: session.id,
+    txHash: verification.txHash,
+    previousStatus: "PENDING",
+    newStatus: "PAID",
+    source,
+    reason: `On-chain ${session.network} USDC transfer verified to settlement address`,
+    metadata: { network: session.network, amount: session.amount, payer: verification.payer },
+  });
+
+  return { session: paid, settled: true };
 }
 
 /**

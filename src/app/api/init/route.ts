@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { startupService } from '@/lib/services/startup';
 
+export const dynamic = 'force-dynamic';
+
 let isInitialized = false;
 
 export async function GET(request: NextRequest) {

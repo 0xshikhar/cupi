@@ -7,6 +7,7 @@ import {
   verifyHmacSignature,
 } from "@/lib/merchant/auth";
 import {
+  CheckoutError,
   createCheckoutSession,
   getCheckoutSession,
 } from "@/lib/merchant/merchant-service";
@@ -149,7 +150,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Failed to create checkout session" },
-        { status: 500 }
+        { status: error instanceof CheckoutError ? error.status : 500 }
       );
     }
   });

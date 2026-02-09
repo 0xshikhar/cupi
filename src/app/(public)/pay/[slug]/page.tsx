@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
+import type { CheckoutPaymentInstructions } from "@/lib/merchant/types";
 
 type PaymentLinkDetail = {
   id: string;
@@ -54,7 +55,11 @@ type MerchantSessionDetail = {
   txHash?: string | null;
   payerAddress?: string | null;
   expiresAt: string;
+  merchantName?: string;
+  paymentInstructions?: CheckoutPaymentInstructions;
 };
+
+const CONFIRM_POLL_MS = 4000;
 
 type PaymentRequestDetail = {
   id: string;
@@ -150,6 +155,52 @@ export default function PayInvoicePage() {
     }
   }, [params?.slug, isMerchantCheckout, isPaymentRequest]);
 
+  const instructions = merchantSession?.paymentInstructions;
+  const isSolanaCheckout = isMerchantCheckout && instructions?.network === "solana";
+
+  useEffect(() => {
+    if (isSolanaCheckout) setPayMethod("QR");
+  }, [isSolanaCheckout]);
+
+  /** Asks the server to verify the transfer on-chain. Returns true once the session is PAID. */
+  const confirmMerchantPayment = useCallback(
+    async (sessionId: string, submittedTxHash?: string) => {
+      const response = await fetch(`/api/merchant/checkout/${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(submittedTxHash ? { txHash: submittedTxHash } : {}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to verify checkout payment");
+
+      setMerchantSession((current) => (current ? { ...current, ...data.session } : data.session));
+      if (data.session.txHash) setTxHash(data.session.txHash);
+
+      if (data.session.status === "PAID") {
+        toast.success("Payment verified on-chain");
+        if (data.session.successUrl) {
+          setTimeout(() => {
+            window.location.href = data.session.successUrl;
+          }, 2000);
+        }
+        return true;
+      }
+      return false;
+    },
+    []
+  );
+
+  // Solana Pay: the payer signs in their own wallet, so poll until the reference shows up on-chain.
+  const merchantSessionId = merchantSession?.id;
+  const merchantStatus = merchantSession?.status;
+  useEffect(() => {
+    if (!isSolanaCheckout || !merchantSessionId || merchantStatus !== "PENDING") return;
+    const timer = setInterval(() => {
+      confirmMerchantPayment(merchantSessionId).catch(() => undefined);
+    }, CONFIRM_POLL_MS);
+    return () => clearInterval(timer);
+  }, [isSolanaCheckout, merchantSessionId, merchantStatus, confirmMerchantPayment]);
+
   const handlePay = async () => {
     if (!userWalletAddress) {
       toast.error("Please connect your wallet first.");
@@ -159,38 +210,25 @@ export default function PayInvoicePage() {
     setPaying(true);
     try {
       if (isMerchantCheckout && merchantSession) {
-        toast.info("Submitting merchant payment...");
-        const recipient = "0x0000000000000000000000000000000000000000";
+        if (instructions?.network !== "base") {
+          throw new Error("This checkout settles on Solana. Scan the QR code with a Solana wallet.");
+        }
+
+        toast.info(`Paying ${merchantSession.merchantName || "merchant"}...`);
         const executedTxHash = await sendToken({
-          to: recipient,
-          amount: merchantSession.amount,
-          token: (merchantSession.currency as "USDC" | "ETH") || "USDC",
+          to: instructions.recipient,
+          amount: instructions.amount,
+          token: "USDC",
           executionPreference: "gasless-preferred",
         });
-
-        const response = await fetch(`/api/merchant/checkout/${merchantSession.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            txHash: executedTxHash,
-            payerAddress: userWalletAddress,
-          }),
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to finalize checkout status");
-        }
-
         setTxHash(executedTxHash);
-        setMerchantSession(data.session);
-        toast.success("Merchant payment confirmed!");
 
-        if (data.session.successUrl) {
-          setTimeout(() => {
-            window.location.href = data.session.successUrl;
-          }, 2000);
+        let settled = await confirmMerchantPayment(merchantSession.id, executedTxHash);
+        for (let attempt = 0; !settled && attempt < 10; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, CONFIRM_POLL_MS));
+          settled = await confirmMerchantPayment(merchantSession.id, executedTxHash);
         }
+        if (!settled) toast.info("Transaction submitted. Confirmation is taking longer than usual.");
       } else if (isPaymentRequest && paymentRequest) {
         toast.info("Sending payment to requester...");
         const executedTxHash = await sendToken({
@@ -377,9 +415,12 @@ export default function PayInvoicePage() {
           <div className="rounded-xl border border-border bg-secondary/20 p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Recipient</p>
             {isMerchantCheckout ? (
-              <div className="mt-1 flex items-center gap-1.5 font-semibold">
-                <Store size={16} className="text-primary" />
-                <span>Order #{merchantSession?.orderId}</span>
+              <div>
+                <div className="mt-1 flex items-center gap-1.5 font-semibold">
+                  <Store size={16} className="text-primary" />
+                  <span>{merchantSession?.merchantName || "Merchant"}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Order #{merchantSession?.orderId}</p>
               </div>
             ) : isPaymentRequest ? (
               <div>
@@ -458,7 +499,7 @@ export default function PayInvoicePage() {
         </div>
 
         {/* Payment Method Selector (1-Tap Web3 Wallet vs Scan QR Code) */}
-        {!isSettledOrExpired && (
+        {!isSettledOrExpired && !isSolanaCheckout && (
           <div className="flex rounded-xl bg-secondary/40 p-1 border border-border">
             <button
               type="button"
@@ -489,15 +530,37 @@ export default function PayInvoicePage() {
         {payMethod === "QR" && !isSettledOrExpired ? (
           <div className="flex flex-col items-center justify-center p-6 rounded-2xl border border-border bg-secondary/10 space-y-4 text-center">
             <div className="p-3 bg-white rounded-2xl shadow-md border border-neutral-200">
-              <QRCodeSVG value={currentUrl} size={180} level="M" />
+              <QRCodeSVG
+                value={isSolanaCheckout && instructions?.network === "solana" ? instructions.solanaPayUrl : currentUrl}
+                size={200}
+                level="M"
+              />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold">Scan with Phantom, Solflare, or Camera</p>
+              <p className="text-sm font-semibold">
+                {isSolanaCheckout ? "Scan with Phantom, Solflare or Backpack" : "Scan with Phantom, Solflare, or Camera"}
+              </p>
               <p className="text-xs text-muted-foreground max-w-xs">
-                Scan this interactive payment URI with your mobile wallet to settle {amount} {currency} instantly.
+                {isSolanaCheckout
+                  ? `Solana Pay request for ${amount} USDC. This page confirms automatically once the transfer lands on-chain.`
+                  : `Scan this interactive payment URI with your mobile wallet to settle ${amount} ${currency} instantly.`}
               </p>
             </div>
-            {networkName?.toLowerCase() === "solana" && (
+            {isSolanaCheckout && instructions?.network === "solana" ? (
+              <div className="flex flex-col items-center gap-2">
+                <a
+                  href={instructions.solanaPayUrl}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                >
+                  <Smartphone size={14} />
+                  Open in Solana wallet <ExternalLink size={12} />
+                </a>
+                <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Waiting for payment on Solana {instructions.cluster === "devnet" ? "devnet" : ""}
+                </p>
+              </div>
+            ) : networkName?.toLowerCase() === "solana" && (
               <a
                 href={phantomDeepLink}
                 target="_blank"
@@ -527,8 +590,8 @@ export default function PayInvoicePage() {
         {txHash && (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 space-y-1">
             <p className="text-xs uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-              <CheckCircle2 size={14} />
-              Transaction Broadcasted & Reconciled
+              {isMerchantCheckout && !isPaid ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              {isMerchantCheckout && !isPaid ? "Submitted · awaiting on-chain confirmation" : "Verified on-chain"}
             </p>
             <p className="font-mono text-xs break-all text-foreground mt-1">{txHash}</p>
             {isMerchantCheckout && merchantSession?.successUrl && (

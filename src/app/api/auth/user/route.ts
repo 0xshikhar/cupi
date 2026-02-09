@@ -45,13 +45,6 @@ export const POST = async (request: Request) => {
               message: "Your account has been successfully created.",
               type: "ACCOUNT_CREATION",
               status: "unread"
-            },
-            {
-              title: "Cashback Reward",
-              message: "You earned a reward for joining!",
-              type: "REWARD",
-              amount: "+$0.01",
-              status: "unread"
             }
           ]
         }

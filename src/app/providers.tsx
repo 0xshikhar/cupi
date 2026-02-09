@@ -1,33 +1,21 @@
 'use client';
 
-import { PrivyProvider } from '@privy-io/react-auth';
 import React from 'react';
-import { TRPCReactProvider } from '@/trpc/react';
-import { type AppRouter } from '@/server/api/root';
+import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
+
+// The Privy SDK (embedded wallets, WalletConnect, Solana adapters) is ~2.4 MB of JS.
+// Load it only on routes that need a wallet so the marketing page stays lightweight.
+const WalletProviders = dynamic(() => import('./wallet-providers'));
+
+const WALLET_FREE_ROUTES = new Set(['/']);
 
 export default function Providers({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
 
-  return (
-    <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
-      config={{
-        appearance: {
-          theme: 'dark',
-          accentColor: '#8257e6',
-          logo: '/logo.png',
-          showWalletLoginFirst: true,
-        },
-        embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
-        },
-        loginMethods: ['wallet', 'email', 'google', 'discord'],
-        // Removing supportedChains as it's causing TypeScript errors
-        // Will rely on Privy's default chain support
-      }}
-    >
-      <TRPCReactProvider>
-        {children}
-      </TRPCReactProvider>
-    </PrivyProvider>
-  );
+  if (pathname && WALLET_FREE_ROUTES.has(pathname)) {
+    return <>{children}</>;
+  }
+
+  return <WalletProviders>{children}</WalletProviders>;
 }

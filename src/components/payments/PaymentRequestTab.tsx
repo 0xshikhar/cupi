@@ -451,7 +451,7 @@ export default function PaymentRequestTab() {
 
                     {item.description && (
                       <p className="text-xs text-muted-foreground bg-secondary/30 p-2 rounded-lg">
-                        "{item.description}"
+                        &ldquo;{item.description}&rdquo;
                       </p>
                     )}
 

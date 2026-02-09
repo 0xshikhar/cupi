@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCheckoutSession, markCheckoutSessionPaid } from "@/lib/merchant/merchant-service";
+import { CheckoutError, confirmCheckoutPayment, getCheckoutSession } from "@/lib/merchant/merchant-service";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -36,37 +36,36 @@ export async function GET(
   }
 }
 
-const paySessionSchema = z.object({
-  txHash: z.string().min(1, "txHash is required"),
-  payerAddress: z.string().optional(),
+const confirmSessionSchema = z.object({
+  txHash: z.string().min(1).optional(),
 });
 
 /**
  * POST /api/merchant/checkout/[sessionId]
- * Settles or confirms payment for a checkout session with transaction hash.
- * Atomically updates status from PENDING to PAID and triggers signed webhook notification.
+ * Confirms payment for a checkout session. The transfer is verified on-chain
+ * (Solana Pay reference lookup or Base USDC Transfer log decoding) before the session
+ * moves PENDING -> PAID and the signed `checkout.session.completed` webhook is sent.
+ * Responds 202 while the transfer is not yet visible on-chain so clients can poll.
  */
 export async function POST(
   request: Request,
   { params }: { params: { sessionId: string } }
 ) {
   try {
-    const { sessionId } = params;
-    const body = await request.json();
-    const input = paySessionSchema.parse(body);
+    const body = await request.json().catch(() => ({}));
+    const input = confirmSessionSchema.parse(body);
 
-    const updatedSession = await markCheckoutSessionPaid({
-      sessionId,
+    const result = await confirmCheckoutPayment({
+      sessionId: params.sessionId,
       txHash: input.txHash,
-      payerAddress: input.payerAddress,
     });
 
-    return NextResponse.json({
-      success: true,
-      session: updatedSession,
-    });
+    return NextResponse.json(
+      { success: result.settled, session: result.session, reason: result.reason },
+      { status: result.settled ? 200 : 202 }
+    );
   } catch (error) {
-    console.error("[MERCHANT CHECKOUT] Settle error:", error);
+    console.error("[MERCHANT CHECKOUT] Confirm error:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
@@ -77,8 +76,8 @@ export async function POST(
       );
     }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to settle checkout session" },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : "Failed to confirm checkout session" },
+      { status: error instanceof CheckoutError ? error.status : 500 }
     );
   }
 }

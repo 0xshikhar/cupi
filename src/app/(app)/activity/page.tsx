@@ -151,7 +151,7 @@ export default function ActivityPage() {
 
             {/* Activity List */}
             <div className="flex-1 p-4 pb-24">
-                {isLoading ? (
+                {isLoading && activities.length === 0 ? (
                     <div className="flex flex-col gap-3">
                         {[1, 2, 3, 4, 5].map((i) => (
                             <div key={i} className="h-20 bg-secondary/30 rounded-xl animate-pulse" />
@@ -162,12 +162,24 @@ export default function ActivityPage() {
                         <div className="p-4 bg-secondary/30 rounded-full">
                             <Sparkles size={28} className="text-muted-foreground" />
                         </div>
-                        <div className="max-w-xs">
-                            <h3 className="font-bold text-base mb-1">No matching activity</h3>
-                            <p className="text-muted-foreground text-xs">
-                                Try changing your search query or switching filter tabs
-                            </p>
-                        </div>
+                        {activities.length === 0 ? (
+                            <div className="max-w-xs">
+                                <h3 className="font-bold text-base mb-1">No activity yet</h3>
+                                <p className="text-muted-foreground text-xs mb-4">
+                                    Payments, payment links and requests you send or receive will appear here.
+                                </p>
+                                <button onClick={() => router.push("/send")} className="btn-primary text-sm px-4 py-2">
+                                    Send your first payment
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="max-w-xs">
+                                <h3 className="font-bold text-base mb-1">No matching activity</h3>
+                                <p className="text-muted-foreground text-xs">
+                                    Try changing your search query or switching filter tabs
+                                </p>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2.5">

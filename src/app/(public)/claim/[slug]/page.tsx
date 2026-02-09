@@ -74,11 +74,18 @@ export default function ClaimPaymentLinkPage() {
 
     let key: string | null = null;
 
-    // 1. Check searchParams (?key=0x...)
+    // 1. Legacy links carried ?key=0x... — accept it, then strip it from the address bar and history
     const searchParams = new URLSearchParams(window.location.search);
     const queryKey = searchParams.get("key");
     if (queryKey) {
       key = queryKey;
+      searchParams.delete("key");
+      const query = searchParams.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${query ? `?${query}` : ""}#key=${queryKey}`
+      );
     }
 
     // 2. Check location hash (#key=0x... or #0x...)

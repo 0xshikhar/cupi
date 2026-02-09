@@ -4,18 +4,13 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Zap, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { usePrivy } from '@privy-io/react-auth';
 
 export function HeroSection() {
   const router = useRouter();
-  const { authenticated, login } = usePrivy();
 
   const handleLaunch = () => {
-    if (authenticated) {
-      router.push('/home');
-    } else {
-      login();
-    }
+    // /get-started handles login and forwards signed-in users to /home, keeping the auth SDK off the landing bundle
+    router.push('/get-started');
   };
 
   return (
@@ -53,7 +48,7 @@ export function HeroSection() {
               onClick={handleLaunch}
               className="bg-brand-green text-black hover:bg-brand-green-dark rounded-2xl h-16 sm:h-18 px-8 sm:px-12 text-xl sm:text-2xl font-black border-4 border-black shadow-sticker active:translate-y-1 active:shadow-sticker-hover transition-all"
             >
-              {authenticated ? "OPEN DASHBOARD" : "LAUNCH APP"}
+              LAUNCH APP
               <ArrowRight className="ml-2 w-6 h-6" />
             </Button>
             <a

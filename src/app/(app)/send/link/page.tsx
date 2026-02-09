@@ -144,10 +144,10 @@ export default function PaymentLinkCreatePage() {
         throw new Error(data.error || "Failed to create payment link");
       }
 
-      // 2. Attach ephemeral private key in both query parameter (?key=...) and hash fragment (#key=...)
-      // Chat messengers (WhatsApp, Telegram) often strip or encode hash fragments (%23) when redirecting through click-gateways.
-      // Providing ?key= ensures 100% reliable 1-click opening across all chat apps while preserving zero-knowledge escrow security.
-      const fullClaimUrl = `${window.location.origin}/claim/${data.link.slug}?key=${keyPair.claimPrivateKey}#key=${keyPair.claimPrivateKey}`;
+      // 2. Attach the ephemeral private key ONLY in the URL fragment (#key=...).
+      // Browsers never send fragments to the server, so the key stays out of access logs, analytics and Referer headers.
+      // Messenger click-gateways that encode the fragment as %23 are handled client-side on the claim page.
+      const fullClaimUrl = `${window.location.origin}/claim/${data.link.slug}#key=${keyPair.claimPrivateKey}`;
 
       const linkWithHash: CreatedLink = {
         ...data.link,

@@ -4,21 +4,16 @@ import { motion } from 'framer-motion';
 import { Smartphone, CheckCircle2, QrCode, ArrowRight, Zap, Link as LinkIcon, CreditCard, Shield, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 
 export function ProductShowcase() {
   const [selectedRail, setSelectedRail] = useState<'solana' | 'escrow' | 'cards'>('solana');
   const [amount, setAmount] = useState('25');
-  const { login, authenticated } = usePrivy();
   const router = useRouter();
 
   const handleAppAccess = () => {
-    if (authenticated) {
-      router.push('/home');
-    } else {
-      login();
-    }
+    // /get-started handles login and forwards signed-in users to /home, keeping the auth SDK off the landing bundle
+    router.push('/get-started');
   };
 
   return (

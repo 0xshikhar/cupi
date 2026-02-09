@@ -2,19 +2,14 @@
 import React from 'react';
 import { ShieldCheck, Bot, CreditCard, Globe, Zap, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 
 export function ProductFeatures() {
-  const { login, authenticated } = usePrivy();
   const router = useRouter();
 
   const handleAppAccess = () => {
-    if (authenticated) {
-      router.push('/home');
-    } else {
-      login();
-    }
+    // /get-started handles login and forwards signed-in users to /home, keeping the auth SDK off the landing bundle
+    router.push('/get-started');
   };
 
   return (
@@ -40,7 +35,7 @@ export function ProductFeatures() {
               onClick={handleAppAccess}
               className="bg-black text-white hover:bg-zinc-800 rounded-2xl px-10 h-16 font-black text-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,255,149,1)] active:translate-y-0.5 transition-all"
             >
-              {authenticated ? "OPEN DASHBOARD" : "LAUNCH APP"}
+              LAUNCH APP
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </div>

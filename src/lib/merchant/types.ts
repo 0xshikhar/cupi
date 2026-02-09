@@ -40,7 +40,30 @@ export interface CheckoutSessionDTO {
   paidAt: string | null;
   expiresAt: string;
   createdAt: string;
+  /** Payer-facing fields, only populated on the public session lookup. */
+  merchantName?: string;
+  paymentInstructions?: CheckoutPaymentInstructions;
 }
+
+export type CheckoutPaymentInstructions =
+  | {
+      network: "solana";
+      cluster: "mainnet-beta" | "devnet";
+      recipient: string;
+      token: "USDC";
+      tokenAddress: string;
+      amount: string;
+      reference: string;
+      solanaPayUrl: string;
+    }
+  | {
+      network: "base";
+      chainId: number;
+      recipient: string;
+      token: "USDC";
+      tokenAddress: string;
+      amount: string;
+    };
 
 export type WebhookEvent =
   | "checkout.session.created"

@@ -25,30 +25,31 @@ export interface ActivityItem {
     notificationType?: string;
 }
 
+// Cache is scoped per wallet so a shared device never shows another account's history.
+const cacheKey = (address: string) => `cupi_cached_activities:${address.toLowerCase()}`;
+
 export function useActivityFeed() {
     const { userWalletAddress, basicWalletAddress } = useAuthWallet();
-    const [activities, setActivities] = useState<ActivityItem[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const cached = localStorage.getItem('cupi_cached_activities');
-                if (cached) return JSON.parse(cached);
-            } catch {}
-        }
-        return [];
-    });
-    const [isLoading, setIsLoading] = useState<boolean>(() => {
-        if (typeof window !== 'undefined') {
-            return !localStorage.getItem('cupi_cached_activities');
-        }
-        return true;
-    });
+    const [activities, setActivities] = useState<ActivityItem[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+
+    // Hydrate instantly from this wallet's cache while fresh data loads
+    useEffect(() => {
+        if (!userWalletAddress) return;
+        try {
+            localStorage.removeItem('cupi_cached_activities');
+            const cached = localStorage.getItem(cacheKey(userWalletAddress));
+            if (cached) {
+                setActivities(JSON.parse(cached));
+                setIsLoading(false);
+            }
+        } catch {}
+    }, [userWalletAddress]);
 
     const fetchAllActivity = useCallback(async () => {
         if (!userWalletAddress || !basicWalletAddress) return;
 
         try {
-            setIsLoading(true);
-            console.log('[ACTIVITY HOOK] Fetching all activity...');
 
             // 1. Fetch System Notifications (Linked to User)
             const notificationsPromise = getUserNotifications(userWalletAddress);
@@ -163,63 +164,13 @@ export function useActivityFeed() {
                 });
             }
 
-            // If user is brand new or has minimal items, populate standard onboarding milestones
-            if (mergedActivities.length < 3) {
-                const now = Date.now();
-                const defaultMilestones: ActivityItem[] = [
-                    {
-                        id: 'milestone-cashback',
-                        type: 'NOTIFICATION',
-                        source: 'SYSTEM',
-                        title: 'Cashback Reward',
-                        subtitle: 'Earned +$0.01 bonus for non-custodial account setup',
-                        timestamp: now - 3600000,
-                        amount: '0.01',
-                        currency: 'USDC',
-                        isIncoming: true,
-                        status: 'success',
-                        notificationType: 'REWARD'
-                    },
-                    {
-                        id: 'milestone-solana',
-                        type: 'NOTIFICATION',
-                        source: 'SYSTEM',
-                        title: 'Solana Pay (SPL) Activated',
-                        subtitle: 'USDC Associated Token Account configured for sub-cent transfers',
-                        timestamp: now - 7200000,
-                        status: 'success',
-                        notificationType: 'WELCOME',
-                        chainName: 'Solana'
-                    },
-                    {
-                        id: 'milestone-smart-account',
-                        type: 'NOTIFICATION',
-                        source: 'SYSTEM',
-                        title: 'Gasless Smart Account Active',
-                        subtitle: 'ERC-4337 Paymaster connected on Base Sepolia',
-                        timestamp: now - 10800000,
-                        status: 'success',
-                        notificationType: 'ACCOUNT_CREATION',
-                        chainName: 'Base Sepolia'
-                    }
-                ];
-
-                defaultMilestones.forEach(m => {
-                    if (!mergedActivities.some(a => a.title === m.title)) {
-                        mergedActivities.push(m);
-                    }
-                });
-            }
-
             // Sort by timestamp descending (newest first)
             mergedActivities.sort((a, b) => b.timestamp - a.timestamp);
 
             setActivities(mergedActivities);
-            if (typeof window !== 'undefined') {
-                try {
-                    localStorage.setItem('cupi_cached_activities', JSON.stringify(mergedActivities));
-                } catch {}
-            }
+            try {
+                localStorage.setItem(cacheKey(userWalletAddress), JSON.stringify(mergedActivities));
+            } catch {}
             console.log('[ACTIVITY HOOK] Merged', mergedActivities.length, 'total activities');
 
         } catch (error) {

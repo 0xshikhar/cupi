@@ -5,9 +5,7 @@ import { Connection } from "@solana/web3.js";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CHAIN } from "@/config/chains";
 import { recordStatusTransition } from "@/lib/reconciliation/audit";
-import { markCheckoutSessionPaid } from "@/lib/merchant/merchant-service";
-import { dispatchWebhook } from "@/lib/merchant/webhook";
-import { toCheckoutSessionDTO } from "@/lib/merchant/merchant-service";
+import { confirmCheckoutPayment } from "@/lib/merchant/merchant-service";
 
 export interface ReconciliationReport {
   scannedTransactions: number;
@@ -276,60 +274,24 @@ export async function runTransactionReconciliation(): Promise<ReconciliationRepo
 
     for (const session of pendingMerchantSessions) {
       try {
-        const isExpired = session.expiresAt.getTime() <= Date.now();
+        // On-chain verification first: a payment that landed just before expiry still settles.
+        // Solana sessions are discovered via their deterministic Solana Pay reference even if
+        // the payer's client never reported a signature.
+        const result = await confirmCheckoutPayment({
+          sessionId: session.id,
+          source: "CRON_SWEEP",
+        }).catch((err: unknown) => {
+          report.errors.push(`Merchant session ${session.id}: ${err instanceof Error ? err.message : String(err)}`);
+          return null;
+        });
 
-        // If session has an unconfirmed txHash, check on-chain status
-        if (session.txHash) {
-          let confirmedOnChain = false;
-
-          if (session.txHash.startsWith("0x")) {
-            const client = getPublicClientForChain(8453); // Default to Base
-            const receipt = await client.getTransactionReceipt({
-              hash: session.txHash as `0x${string}`,
-            }).catch(() => null);
-            if (receipt && receipt.status === "success") {
-              confirmedOnChain = true;
-            }
-          } else {
-            // Solana
-            const solConnection = getSolanaConnection();
-            const statusResponse = await solConnection.getSignatureStatus(session.txHash);
-            if (statusResponse?.value?.confirmationStatus === "confirmed" || statusResponse?.value?.confirmationStatus === "finalized") {
-              if (!statusResponse.value.err) {
-                confirmedOnChain = true;
-              }
-            }
-          }
-
-          if (confirmedOnChain) {
-            await markCheckoutSessionPaid({
-              sessionId: session.id,
-              txHash: session.txHash,
-              payerAddress: session.payerAddress || undefined,
-            });
-
-            await recordStatusTransition({
-              entityType: "MERCHANT_CHECKOUT",
-              entityId: session.id,
-              txHash: session.txHash,
-              previousStatus: "PENDING",
-              newStatus: "PAID",
-              source: "CRON_SWEEP",
-              reason: "Reconciliation sweep verified on-chain confirmation and dispatched webhook",
-            });
-            report.auditLogsCreated++;
-            report.confirmed++;
-            continue;
-          }
+        if (result?.settled) {
+          report.auditLogsCreated++;
+          report.confirmed++;
+          continue;
         }
 
-        // If session has expired without payment
-        if (isExpired) {
-          const expiredSession = await prisma.checkoutSession.update({
-            where: { id: session.id },
-            data: { status: "EXPIRED" },
-          });
-
+        if (result?.session.status === "EXPIRED") {
           await recordStatusTransition({
             entityType: "MERCHANT_CHECKOUT",
             entityId: session.id,
@@ -337,19 +299,9 @@ export async function runTransactionReconciliation(): Promise<ReconciliationRepo
             previousStatus: "PENDING",
             newStatus: "EXPIRED",
             source: "CRON_SWEEP",
-            reason: "Session exceeded 30-minute TTL without settlement",
+            reason: "Session exceeded TTL without a verified on-chain settlement",
           });
           report.auditLogsCreated++;
-
-          dispatchWebhook({
-            merchantId: session.merchantId,
-            sessionId: session.id,
-            event: "checkout.session.expired",
-            callbackUrl: session.callbackUrl,
-            secret: session.merchant.webhookSecret,
-            data: toCheckoutSessionDTO(expiredSession),
-          }).catch((err) => console.error("[CRON RECONCILE] Failed to dispatch expiration webhook:", err));
-
           report.expired++;
         } else {
           report.stillPending++;

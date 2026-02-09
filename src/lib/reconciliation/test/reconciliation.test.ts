@@ -19,23 +19,36 @@ jest.mock("@/lib/prisma", () => ({
     },
     checkoutSession: {
       findMany: jest.fn().mockResolvedValue([]),
-      update: jest.fn().mockImplementation(({ where, data }) =>
+      findUnique: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn().mockImplementation(({ where }) =>
         Promise.resolve({
           id: where.id,
           merchantId: "m_1",
           orderId: "ord_1",
           amount: "10.00",
           currency: "USDC",
-          network: "solana",
-          status: data.status,
+          network: "base",
+          description: null,
+          status: "EXPIRED",
           checkoutUrl: "https://cupi.network/pay/merchant-cs_1",
           callbackUrl: "https://merchant.com/webhook",
+          successUrl: null,
+          cancelUrl: null,
+          txHash: null,
+          payerAddress: null,
+          paidAt: null,
           expiresAt: new Date(),
           createdAt: new Date(),
         })
       ),
     },
   },
+}));
+
+jest.mock("@/lib/merchant/webhook", () => ({
+  dispatchWebhook: jest.fn().mockResolvedValue({ success: true, attempts: 1 }),
 }));
 
 import { recordStatusTransition, recordWebhookReceipt } from "../audit";
@@ -137,26 +150,34 @@ describe("Payment Reconciliation Hardening & Audit Logging", () => {
       expect(report.errors).toEqual([]);
     });
 
-    it("should expire merchant sessions that exceeded their TTL", async () => {
-      const pastExpiry = new Date(Date.now() - 3600000); // 1 hour ago
+    it("should expire unpaid merchant sessions that exceeded their TTL", async () => {
+      const expiredSession = {
+        id: "cs_expired_1",
+        merchantId: "m_1",
+        amount: "10.00",
+        network: "base",
+        status: "PENDING",
+        txHash: null,
+        callbackUrl: "https://merchant.com/webhook",
+        expiresAt: new Date(Date.now() - 3600000), // 1 hour ago
+        merchant: {
+          id: "m_1",
+          webhookSecret: "whsec_test",
+          settlementAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        },
+      };
       (prisma.transaction.findMany as jest.Mock).mockResolvedValueOnce([]);
       (prisma.payment.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (prisma.checkoutSession.findMany as jest.Mock).mockResolvedValueOnce([
-        {
-          id: "cs_expired_1",
-          merchantId: "m_1",
-          callbackUrl: "https://merchant.com/webhook",
-          expiresAt: pastExpiry,
-          merchant: { id: "m_1", webhookSecret: "whsec_test" },
-        },
-      ]);
+      (prisma.checkoutSession.findMany as jest.Mock).mockResolvedValueOnce([expiredSession]);
+      (prisma.checkoutSession.findUnique as jest.Mock).mockResolvedValueOnce(expiredSession);
 
       const report = await runTransactionReconciliation();
 
       expect(report.scannedMerchantSessions).toBe(1);
       expect(report.expired).toBe(1);
-      expect(prisma.checkoutSession.update).toHaveBeenCalledWith({
-        where: { id: "cs_expired_1" },
+      expect(report.confirmed).toBe(0);
+      expect(prisma.checkoutSession.updateMany).toHaveBeenCalledWith({
+        where: { id: "cs_expired_1", status: "PENDING" },
         data: { status: "EXPIRED" },
       });
     });
