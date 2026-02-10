@@ -4,6 +4,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useUnifiedWallet } from "@/modules/wallet/hooks/useUnifiedWallet";
 import Image from "next/image";
 import TopUpModal from "./TopUpModal";
+import { LogoMark } from "@/components/Logo";
 import { HeaderProps } from "@/lib/types";
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
@@ -28,12 +29,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
                 {/* Mobile logo - only show on mobile when sidebar is closed */}
                 <div className="lg:hidden flex items-center space-x-2">
-                    <span className="text-lg font-black font-display tracking-tight">
-                        <span className="text-[var(--color-text-primary)] ml-0.5">c</span>
-                        <span className="gradient-glow-text">
-                            UPI
-                        </span>
-                    </span>
+                    <LogoMark size={28} borderless />
+                    <span className="text-lg font-black font-display tracking-tight">cUPI</span>
                 </div>
             </div>
 

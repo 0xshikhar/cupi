@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
+import { LogoMark } from '@/components/Logo';
 
 type DocSection =
   | "overview"
@@ -80,9 +81,7 @@ export default function DocsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-brand-green border-2 border-black rounded-lg flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <span className="font-black text-black text-sm">c</span>
-              </div>
+              <LogoMark size={32} />
               <span className="text-xl font-black tracking-tighter">cUPI</span>
             </Link>
             <div className="hidden sm:flex items-center gap-2 text-xs font-bold px-2.5 py-1 rounded-full bg-secondary/80 border border-border">

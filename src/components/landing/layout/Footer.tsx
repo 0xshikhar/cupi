@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Twitter, Instagram, Github, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
+import { LogoMark } from '@/components/Logo';
 
 export function Footer() {
   return (
@@ -11,9 +12,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           <div className="space-y-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
-                <span className="font-black text-black text-xs">c</span>
-              </div>
+              <LogoMark size={32} />
               <span className="text-2xl font-black">cUPI</span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed max-w-xs font-medium">

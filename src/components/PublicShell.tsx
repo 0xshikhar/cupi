@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { Lock, ShieldCheck } from "lucide-react";
+import { LogoMark } from "@/components/Logo";
 
 /**
  * Branded frame for payer-facing pages (checkout, payment requests, claim links).
@@ -13,9 +14,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
       <header className="w-full border-b border-border bg-white/80 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-lg mx-auto flex items-center justify-between px-4 h-14">
           <Link href="/" className="flex items-center gap-2" aria-label="cUPI home">
-            <span className="w-8 h-8 rounded-lg bg-primary border border-black/10 flex items-center justify-center font-black text-black">
-              c
-            </span>
+            <LogoMark size={32} />
             <span className="text-lg font-black tracking-tight">cUPI</span>
           </Link>
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">

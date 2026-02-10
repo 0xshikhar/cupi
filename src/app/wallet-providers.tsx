@@ -14,7 +14,7 @@ export default function WalletProviders({ children }: { children: React.ReactNod
         appearance: {
           theme: 'dark',
           accentColor: '#8257e6',
-          logo: '/logo.png',
+          logo: '/icon.svg',
           showWalletLoginFirst: true,
         },
         embeddedWallets: {

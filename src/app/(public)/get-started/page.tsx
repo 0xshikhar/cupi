@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
 import Link from 'next/link';
+import { LogoMark } from '@/components/Logo';
 import { ArrowRight, AtSign, Loader2, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useAuthWallet } from '@/modules/wallet/hooks/useAuthWallet';
 
@@ -58,7 +59,7 @@ export default function GetStartedPage() {
             <div className="min-h-screen flex flex-col justify-center app-canvas sm:p-6">
                 <div className="flex-1 sm:flex-none flex flex-col justify-center w-full max-w-sm sm:max-w-md mx-auto px-5 py-10 sm:p-10 sm:my-auto sm:bg-white sm:border-4 sm:border-black sm:rounded-[2rem] sm:shadow-[10px_10px_0_0_#000] animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <Link href="/" className="inline-flex items-center gap-2 mb-10" aria-label="cUPI home">
-                        <span className="w-10 h-10 rounded-xl bg-primary border border-black/10 flex items-center justify-center font-black text-black text-lg">c</span>
+                        <LogoMark size={40} />
                         <span className="text-xl font-black tracking-tight">cUPI</span>
                     </Link>
 

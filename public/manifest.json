@@ -4,18 +4,18 @@
   "description": "Advanced financial analytics platform for modern investors",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0613",
-  "theme_color": "#8257e6",
+  "background_color": "#00FF95",
+  "theme_color": "#00FF95",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/icon.svg",
       "sizes": "any",
-      "type": "image/png"
+      "type": "image/svg+xml"
     },
     {
-      "src": "/logo.png",
+      "src": "/icon.svg",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ]
 }

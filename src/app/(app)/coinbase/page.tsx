@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAgent } from "@/modules/agent/hooks/useAgent";
 import ReactMarkdown from "react-markdown";
-import Image from "next/image";
+import { LogoMark } from "@/components/Logo";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
 
 /**
@@ -76,12 +76,7 @@ export default function Home() {
           {/* Thinking Indicator */}
           {isThinking && (
             <div className="text-right mr-2 text-gray-500 italic flex items-center justify-end gap-2">
-              <Image
-                src="/logo.png"
-                alt="Thinking"
-                width={16}
-                height={16}
-              />
+              <LogoMark size={16} borderless />
               Thinking...
             </div>
           )}

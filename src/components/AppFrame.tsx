@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { AtSign, MessageCircle, ShieldCheck, Zap } from "lucide-react";
+import { LogoMark } from "@/components/Logo";
 
 /**
  * Device-style shell for the app.
@@ -47,48 +47,18 @@ function BrandPanel() {
   useEffect(() => setUrl(window.location.href), []);
 
   return (
-    <aside className="hidden xl:flex flex-col max-w-sm gap-8">
-      <Link href="/" className="inline-flex items-center gap-3">
-        <span className="w-12 h-12 rounded-2xl bg-primary border-2 border-black shadow-[3px_3px_0_0_#000] flex items-center justify-center font-black text-xl">
-          c
-        </span>
-        <span className="text-3xl font-black tracking-tighter">cUPI</span>
+    <aside className="hidden xl:flex flex-col max-w-xs justify-between py-6">
+      <Link href="/" className="inline-flex items-center gap-2.5 w-fit">
+        <LogoMark size={36} />
+        <span className="text-xl font-black tracking-tighter">cUPI</span>
       </Link>
-
-      <div>
-        <h2 className="text-5xl font-black tracking-tighter leading-[0.95]">
-          Send money
-          <br />
-          like a <span className="bg-black text-primary px-2">message.</span>
-        </h2>
-        <p className="mt-4 text-base font-medium text-black/70">
-          Self-custodial USDC payments on Solana &amp; Base — by @handle, phone, QR or a link in chat.
-        </p>
-      </div>
-
-      <ul className="flex flex-wrap gap-2">
-        {[
-          { icon: AtSign, label: "@handles & phone" },
-          { icon: MessageCircle, label: "WhatsApp links" },
-          { icon: Zap, label: "Solana Pay" },
-          { icon: ShieldCheck, label: "Self-custody" },
-        ].map(({ icon: Icon, label }) => (
-          <li
-            key={label}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border-2 border-black text-xs font-bold shadow-[2px_2px_0_0_#000]"
-          >
-            <Icon size={14} />
-            {label}
-          </li>
-        ))}
-      </ul>
 
       {url && (
         <div className="flex items-center gap-4 p-4 rounded-2xl bg-white border-2 border-black shadow-[4px_4px_0_0_#000] w-fit">
           <QRCodeSVG value={url} size={84} level="M" />
           <div>
-            <p className="font-black text-sm">Try it on your phone</p>
-            <p className="text-xs text-black/60 mt-1 max-w-[150px]">Scan to open this screen in your mobile browser.</p>
+            <p className="font-black text-sm">Open on your phone</p>
+            <p className="text-xs text-black/60 mt-1 max-w-[150px]">Scan to use this screen in your mobile browser.</p>
           </div>
         </div>
       )}
