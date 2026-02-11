@@ -18,15 +18,15 @@ export function FAQ() {
     },
     {
       q: "WHICH CHAINS AND TOKENS DO YOU SUPPORT?",
-      a: "We currently support Solana (Solana Pay USDC), Base (Mainnet & Sepolia USDC/ETH), Arbitrum One, and Ethereum. We sponsor gas for recipients on EVM so they never get stuck without gas tokens."
+      a: "We currently support Solana (Solana Pay USDC) and Base (Mainnet & Sepolia USDC/ETH). Claiming a payment link is gasless on Base via ERC-4337, so recipients never need gas tokens."
     },
     {
       q: "HOW DOES THE AUTONOMOUS AI AGENT AND SESSION KEYS WORK?",
-      a: "You can deploy an autonomous agent that executes DeFi operations (swaps on Uniswap, yields on Moonwell) within strict, non-custodial ERC-7715 session keys. An enforced $50 daily spend guardrail and verified contract whitelist ensures your funds are always safe."
+      a: "An experimental assistant (beta) can run scoped actions like balance checks, transfers and approved DeFi calls on Base inside non-custodial ERC-7715 session keys. A daily spend cap and a contract whitelist bound what it can do."
     },
     {
       q: "CAN I USE cUPI FOR GLOBAL BANK SETTLEMENT?",
-      a: "Yes! cUPI supports direct ACH and SEPA bank liquidation via Bridge.xyz, enabling instant stablecoin-to-fiat payouts to international bank accounts, alongside localized gateway integrations."
+      a: "cUPI ships a Bridge.xyz adapter for ACH/SEPA stablecoin-to-fiat settlement. It currently runs in sandbox mode; production settlement requires provider KYB approval."
     },
     {
       q: "HOW DO cUPI VIRTUAL CARDS WORK?",

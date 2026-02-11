@@ -4,31 +4,20 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Liveness + DB connectivity probe. Kept cheap on purpose: one SELECT 1.
+ * Business counts are intentionally not exposed (they leak info and make every
+ * health poll run N table counts against the remote DB).
+ */
 export async function GET() {
   try {
-    const dbCheck = await prisma.$queryRaw`SELECT 1`;
-    const [users, payments, paymentLinks, agents, notifications] =
-      await Promise.all([
-        prisma.user.count(),
-        prisma.payment.count(),
-        prisma.paymentLink.count(),
-        prisma.agent.count(),
-        prisma.notification.count(),
-      ]);
+    await prisma.$queryRaw`SELECT 1`;
 
     return NextResponse.json({
       status: "ok",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       database: "ok",
-      dbCheck: Array.isArray(dbCheck) ? dbCheck.length : 1,
-      counts: {
-        users,
-        payments,
-        paymentLinks,
-        agents,
-        notifications,
-      },
       uptimeSeconds: Math.round(process.uptime()),
     });
   } catch (error) {
@@ -37,9 +26,8 @@ export async function GET() {
       {
         status: "degraded",
         timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Health check failed",
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

@@ -1,5 +1,5 @@
 import { createPublicClient, http } from "viem";
-import { baseSepolia, base, arbitrum } from "viem/chains";
+import { baseSepolia, base } from "viem/chains";
 import { PaymentStatus } from "@prisma/client";
 import { Connection } from "@solana/web3.js";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +22,6 @@ export interface ReconciliationReport {
 
 const CHAIN_MAP: Record<number, any> = {
   8453: base,
-  42161: arbitrum,
   84532: baseSepolia,
 };
 

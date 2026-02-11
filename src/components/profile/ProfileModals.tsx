@@ -72,7 +72,7 @@ export function PaymentMethodsModal({
           {/* Active EVM Smart Account */}
           <div className="p-4 bg-secondary/30 border border-border rounded-xl space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">EVM Smart Account (Base / Arbitrum)</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">EVM Smart Account (Base)</span>
               <span className="text-[10px] bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-0.5 rounded-full font-bold">ACTIVE</span>
             </div>
             <div className="flex items-center justify-between font-mono text-xs bg-background p-2.5 rounded-lg border border-border">

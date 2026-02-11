@@ -6,7 +6,7 @@ export type CheckoutSessionStatus =
   | "REFUNDED";
 
 export type SupportedCurrency = "USDC" | "EURC" | "SOL";
-export type SupportedNetwork = "solana" | "base" | "arbitrum";
+export type SupportedNetwork = "solana" | "base";
 
 export interface CreateCheckoutSessionInput {
   merchantId: string;

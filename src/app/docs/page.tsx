@@ -187,8 +187,8 @@ export default function DocsPage() {
                   </h1>
                   <p className="text-muted-foreground text-sm sm:text-base mt-2 leading-relaxed">
                     cUPI delivers UPI-style consumer velocity to stablecoin settlement without sacrificing self-custody.
-                    Engineered for institutional scale across <strong>Solana Sealevel</strong> and <strong>EVM Layer 2s</strong> (Base, Arbitrum),
-                    benchmarked at 100k requests/minute ingress with PostgreSQL row-level idempotency locks (&lt;15ms).
+                    Built for USDC settlement on <strong>Solana</strong> and <strong>Base</strong> (EVM L2),
+                    with PostgreSQL idempotency, on-chain payment verification, and signed merchant webhooks.
                   </p>
                 </div>
 
@@ -233,7 +233,7 @@ export default function DocsPage() {
         ┌─────────────────────┐      ┌────────────────────┐   ┌─────────────────────────┐
         │   SOLANA SEALEVEL   │      │   EVM L2 RAILS     │   │  RECONCILIATION ENGINE  │
         │ • Idempotent ATA    │      │ • Base (8453)      │   │ • Background Cron Sweep │
-        │ • Ephemeral Ref Keys│      │ • Arbitrum (42161) │   │ • EVM & Solana RPC Poll │
+        │ • Ephemeral Ref Keys│      │ • Base (8453/84532) │  │ • EVM & Solana RPC Poll │
         │ • Dynamic Pri-Fees  │      │ • ERC-4337 Gasless │   │ • Immutable Audit Logs  │
         └──────────┬──────────┘      └──────────┬─────────┘   └─────────────┬───────────┘
                    │                            │                           │

@@ -80,8 +80,8 @@ export function FeatureGrid() {
           />
           <FeatureCard
             title="EVM Account Abstraction"
-            description="Gasless onboarding and instant social login via Privy MPC on Base Mainnet, Base Sepolia, and Arbitrum One."
-            badge="Base &amp; Arb"
+            description="Gasless payments and instant social login via Privy MPC on Base Mainnet and Base Sepolia."
+            badge="Base"
             icon={<Shield size={28} />}
           />
           <FeatureCard

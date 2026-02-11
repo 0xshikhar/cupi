@@ -93,8 +93,8 @@ export function ProductShowcase() {
               </h2>
               <p className="text-black font-bold text-lg opacity-85 leading-snug">
                 {selectedRail === 'solana' && "Solana Pay v1.0 engine with cluster priority fee auto-tuning and WebSocket confirmation."}
-                {selectedRail === 'escrow' && "Client-side encrypted ephemeral keys in URL fragments. Non-custodial, gasless claiming on Base & Arbitrum."}
-                {selectedRail === 'cards' && "Powered by Rain Cards. Live card freeze toggle, $2,500 spend limits, and zero bank intermediaries."}
+                {selectedRail === 'escrow' && "Client-side generated claim keys in URL fragments. Non-custodial, gasless claiming on Base."}
+                {selectedRail === 'cards' && "Card spending powered by a Rain Cards integration (sandbox). Freeze, limits and auth checks are wired end-to-end."}
               </p>
 
               {/* Upcoming India Notice */}

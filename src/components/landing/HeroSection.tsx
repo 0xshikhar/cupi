@@ -63,11 +63,11 @@ export function HeroSection() {
           <div className="pt-6 flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto text-xs font-bold text-muted-foreground">
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
-              Base L2 &amp; Arbitrum
+              Base L2
             </span>
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Solana Pay (Sub-Second)
+              Solana Pay
             </span>
             <span className="px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-purple-500" />
@@ -89,8 +89,6 @@ export function HeroSection() {
           <div>USDC</div>
           <div>BASE</div>
           <div>SOLANA</div>
-          <div>ARBITRUM</div>
-          <div>ETHEREUM</div>
           <div>FIAT RAILS</div>
         </div>
       </div>

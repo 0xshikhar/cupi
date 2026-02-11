@@ -1,9 +1,10 @@
 /**
- * cUPI Ingress & Financial Idempotency Benchmark
- * 
- * Verifies the 100k requests/minute ingress baseline and sub-15ms conflict resolution.
- * Simulates high-concurrency burst traffic with duplicate collision injection.
- * 
+ * In-process microbenchmark of the idempotency guard (conflict + replay latency).
+ *
+ * NOTE: this measures the in-memory fallback path inside a single Bun process —
+ * it does NOT measure HTTP throughput. For end-to-end numbers use
+ * test/load/http-benchmark.ts against a running server.
+ *
  * Usage:
  *   bun test/load/ingress-benchmark.ts
  */
@@ -174,8 +175,6 @@ runBenchmark(2000, 50).then((report) => {
     console.log(`⚠️ Note: p99 latency (${report.latenciesMs.p99}ms) exceeded 15ms.`);
   }
 
-  if (report.requestsPerMinute >= 90000) {
-    console.log(`✅ VERIFIED: Throughput (${report.requestsPerMinute.toLocaleString()} RPM) satisfies the 100k RPM baseline.`);
-  }
+  // NOTE: RPM here is in-process op throughput, not HTTP ingress — do not cite as system throughput.
   console.log(`=======================================================\n`);
 });

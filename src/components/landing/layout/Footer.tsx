@@ -49,7 +49,7 @@ export function Footer() {
           </div>
           <div className="space-y-6">
             <h4 className="font-bold text-sm uppercase tracking-wider text-brand-green">Launch App</h4>
-            <p className="text-xs text-gray-400">Experience instant self-custodial payments on Base, Solana, and Arbitrum.</p>
+            <p className="text-xs text-gray-400">Experience instant self-custodial payments on Base and Solana.</p>
             <Link
               href="/get-started"
               className="inline-flex items-center justify-center bg-brand-green text-black hover:bg-brand-green-dark w-full py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all"

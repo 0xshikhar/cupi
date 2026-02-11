@@ -3,7 +3,7 @@ import { Marquee } from '@/components/ui/marquee';
 
 export function SocialProof() {
   const partners = [
-    "Solana", "Base", "Arbitrum", "Privy", "Uniswap", "Rain Cards", "Bridge.xyz", "Moonwell", "Ethereum"
+    "Solana", "Base", "Privy", "Uniswap", "Rain Cards", "Bridge.xyz", "Moonwell", "Sumsub"
   ];
 
   return (

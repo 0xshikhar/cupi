@@ -14,7 +14,7 @@ const createRequestSchema = z.object({
   payeeIdentifier: z.string().min(1, "Payee handle, phone, or address is required"),
   amount: z.string().refine((val) => Number(val) > 0, "Amount must be greater than 0"),
   currency: z.enum(["USDC", "EURC", "ETH", "SOL"]).default("USDC"),
-  network: z.enum(["base", "solana", "arbitrum"]).default("base"),
+  network: z.enum(["base", "solana"]).default("base"),
   description: z.string().max(280).optional(),
   expiresInDays: z.number().min(1).max(30).optional(),
 });

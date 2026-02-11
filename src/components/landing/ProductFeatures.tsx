@@ -48,7 +48,7 @@ export function ProductFeatures() {
               <div className="flex justify-center gap-3">
                 <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Base L2</span>
                 <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Solana</span>
-                <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Arbitrum</span>
+                <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-bold">Base Sepolia</span>
               </div>
             </div>
           </div>

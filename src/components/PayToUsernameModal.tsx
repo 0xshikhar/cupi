@@ -31,7 +31,7 @@ interface User {
   walletAddress: string;
 }
 
-export type SupportedBlockchain = "base" | "arbitrum" | "solana" | "polygon";
+export type SupportedBlockchain = "base" | "solana";
 
 interface BlockchainOption {
   id: SupportedBlockchain;
@@ -60,18 +60,6 @@ const BLOCKCHAINS: BlockchainOption[] = [
     status: "active",
   },
   {
-    id: "arbitrum",
-    name: "Arbitrum One",
-    badge: "Nitro L2",
-    badgeColor: "bg-sky-500/10 text-sky-500 border-sky-500/20",
-    iconBg: "bg-sky-600",
-    textColor: "text-sky-500",
-    speed: "1-2s",
-    feeText: "< $0.01",
-    isGasless: false,
-    status: "active",
-  },
-  {
     id: "solana",
     name: "Solana",
     badge: "SPL Pay",
@@ -80,18 +68,6 @@ const BLOCKCHAINS: BlockchainOption[] = [
     textColor: "text-teal-400",
     speed: "400ms",
     feeText: "< $0.001",
-    isGasless: false,
-    status: "active",
-  },
-  {
-    id: "polygon",
-    name: "Polygon",
-    badge: "PoS",
-    badgeColor: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-    iconBg: "bg-purple-600",
-    textColor: "text-purple-600",
-    speed: "2s",
-    feeText: "< $0.01",
     isGasless: false,
     status: "active",
   },

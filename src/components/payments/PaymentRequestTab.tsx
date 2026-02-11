@@ -52,7 +52,7 @@ export default function PaymentRequestTab() {
   const [payeeIdentifier, setPayeeIdentifier] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("USDC");
-  const [network, setNetwork] = useState<"base" | "solana" | "arbitrum">("base");
+  const [network, setNetwork] = useState<"base" | "solana">("base");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdShareUrl, setCreatedShareUrl] = useState<string | null>(null);
@@ -326,7 +326,7 @@ export default function PaymentRequestTab() {
                 Network
               </label>
               <div className="grid grid-cols-3 gap-2">
-                {(["base", "solana", "arbitrum"] as const).map((net) => (
+                {(["base", "solana"] as const).map((net) => (
                   <button
                     key={net}
                     type="button"

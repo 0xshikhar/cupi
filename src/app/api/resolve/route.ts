@@ -4,6 +4,7 @@ import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 import { PublicKey } from "@solana/web3.js";
 import { prisma } from "@/lib/prisma";
+import { TtlCache } from "@/lib/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +14,36 @@ const publicEthClient = createPublicClient({
   transport: http("https://eth.llamarpc.com"),
 });
 
+// Resolution results are lookup-heavy and hot-keyed (same recipients resolve
+// repeatedly). Positive hits: 30s TTL; misses: 10s so newly-registered users
+// become resolvable quickly.
+const resolveCache = new TtlCache<{ body: unknown; status: number }>(5_000);
+
 /**
  * GET /api/resolve?identifier=@alice or +919876543210 or 0x123... or vitalik.eth or solanaAddress
  * High-performance resolver for usernames, handles, phone numbers, ENS names, and EVM/Solana addresses.
  * Enables UPI-like directory resolution for instant messaging and P2P transfers.
  */
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const key = (searchParams.get("identifier") || searchParams.get("q") || "").trim().toLowerCase();
+
+  if (key) {
+    const hit = resolveCache.get(key);
+    if (hit) return NextResponse.json(hit.body, { status: hit.status });
+  }
+
+  const res = await resolveIdentifier(request);
+  const body = await res.json();
+
+  if (key && res.status < 500) {
+    resolveCache.set(key, { body, status: res.status }, res.status === 200 ? 30_000 : 10_000);
+  }
+
+  return NextResponse.json(body, { status: res.status });
+}
+
+async function resolveIdentifier(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const rawIdentifier = searchParams.get("identifier") || searchParams.get("q");

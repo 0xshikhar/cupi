@@ -20,7 +20,7 @@ const checkoutCreateSchema = z.object({
   orderId: z.string().min(1, "orderId is required"),
   amount: z.string().refine((val) => Number(val) > 0, "Amount must be greater than 0"),
   currency: z.enum(["USDC", "EURC", "SOL"]).default("USDC"),
-  network: z.enum(["solana", "base", "arbitrum"]).default("solana"),
+  network: z.enum(["solana", "base"]).default("solana"),
   description: z.string().optional(),
   callbackUrl: z.string().url("Valid callbackUrl required for webhook notification"),
   successUrl: z.string().url().optional(),
