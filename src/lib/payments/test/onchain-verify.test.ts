@@ -1,16 +1,27 @@
 /** @jest-environment node */
-import { encodeAbiParameters, keccak256, toHex, type Address } from "viem";
+import { encodeAbiParameters, keccak256, toHex, parseEther, type Address } from "viem";
 import { Keypair } from "@solana/web3.js";
 
+jest.mock("@/lib/prisma", () => ({
+  prisma: {
+    payment: { findFirst: jest.fn() },
+    paymentRequest: { findFirst: jest.fn() },
+  },
+}));
+
+import { prisma } from "@/lib/prisma";
 import {
   deriveSolanaPayReference,
   getSolanaUsdcMint,
   isEvmAddress,
   isSolanaAddress,
   toUsdcBaseUnits,
+  verifyEvmNativeTransfer,
   verifyEvmUsdcTransfer,
+  verifySolanaNativeTransfer,
   verifySolanaUsdcTransfer,
 } from "../onchain-verify";
+import { assertTxHashUnused } from "../tx-hash-guard";
 
 const BASE_SEPOLIA_USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as Address;
 const MERCHANT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as Address;
@@ -181,6 +192,136 @@ describe("On-chain payment verification", () => {
       expect(
         await verifySolanaUsdcTransfer({ reference, recipient: merchant, amount: "10", connection })
       ).toMatchObject({ valid: false, pending: true });
+    });
+  });
+
+  describe("verifyEvmNativeTransfer", () => {
+    const baseParams = { txHash: TX_HASH, recipient: MERCHANT, amount: "0.5", chainId: 84532 };
+    const sendTx = (to: Address, value: bigint) => ({
+      to, from: PAYER, value, blockHash: `0x${"22".repeat(32)}`,
+    });
+
+    function mockNativeClient(receipt: unknown, tx: unknown) {
+      return {
+        getTransactionReceipt: jest.fn().mockResolvedValue(receipt),
+        getTransaction: jest.fn().mockResolvedValue(tx),
+        waitForTransactionReceipt: jest.fn().mockRejectedValue(new Error("timeout")),
+      } as never;
+    }
+
+    it("accepts a native transfer with sufficient value to the recipient", async () => {
+      const client = mockNativeClient(
+        { status: "success", logs: [] },
+        sendTx(MERCHANT, parseEther("0.5"))
+      );
+      expect(await verifyEvmNativeTransfer({ ...baseParams, client }))
+        .toMatchObject({ valid: true, txHash: TX_HASH, payer: PAYER });
+    });
+
+    it("rejects when the value is below the expected amount", async () => {
+      const client = mockNativeClient(
+        { status: "success", logs: [] },
+        sendTx(MERCHANT, parseEther("0.499999"))
+      );
+      expect(await verifyEvmNativeTransfer({ ...baseParams, client }))
+        .toMatchObject({ valid: false, reason: "Transfer amount mismatch" });
+    });
+
+    it("rejects transfers to a different recipient", async () => {
+      const client = mockNativeClient(
+        { status: "success", logs: [] },
+        sendTx(PAYER, parseEther("0.5"))
+      );
+      expect(await verifyEvmNativeTransfer({ ...baseParams, client }))
+        .toMatchObject({ valid: false, reason: "Recipient mismatch" });
+    });
+
+    it("rejects reverted transactions and reports pending before mining", async () => {
+      const reverted = mockNativeClient({ status: "reverted", logs: [] }, sendTx(MERCHANT, parseEther("1")));
+      expect((await verifyEvmNativeTransfer({ ...baseParams, client: reverted })).valid).toBe(false);
+
+      const pending = mockNativeClient(null, null);
+      expect(await verifyEvmNativeTransfer({ ...baseParams, client: pending }))
+        .toMatchObject({ valid: false, pending: true });
+    });
+
+    it("rejects malformed transaction hashes and unsafe amount formats", async () => {
+      expect(
+        (await verifyEvmNativeTransfer({ ...baseParams, txHash: "0x1234", client: mockNativeClient(null, null) })).valid
+      ).toBe(false);
+      expect(
+        (await verifyEvmNativeTransfer({ ...baseParams, amount: "1e-3", client: mockNativeClient(null, null) })).valid
+      ).toBe(false);
+    });
+  });
+
+  describe("verifySolanaNativeTransfer", () => {
+    const payer = Keypair.generate().publicKey.toBase58();
+    const recipient = Keypair.generate().publicKey.toBase58();
+
+    function solNativeTx(opts: { err?: unknown; deltaLamports: bigint; includeRecipient?: boolean }) {
+      const keys = [payer, ...(opts.includeRecipient === false ? [] : [recipient])];
+      const idx = keys.indexOf(recipient);
+      const pre = idx === -1 ? [0] : [0, 5_000_000_000];
+      const post = idx === -1 ? [0] : [0, 5_000_000_000 + Number(opts.deltaLamports)];
+      return {
+        meta: { err: opts.err ?? null, preBalances: pre, postBalances: post },
+        transaction: { message: { accountKeys: keys.map((k) => ({ pubkey: { toBase58: () => k } })) } },
+      };
+    }
+    const mockConn = (tx: unknown) =>
+      ({ getParsedTransaction: jest.fn().mockResolvedValue(tx) } as never);
+
+    it("accepts a native SOL transfer crediting the recipient", async () => {
+      const conn = mockConn(solNativeTx({ deltaLamports: BigInt(1_000_000_000) }));
+      expect(
+        await verifySolanaNativeTransfer({ recipient, amount: "1", signature: "sig_1", connection: conn })
+      ).toMatchObject({ valid: true, txHash: "sig_1", payer });
+    });
+
+    it("rejects underpayment and failed transactions", async () => {
+      const underpay = mockConn(solNativeTx({ deltaLamports: BigInt(1_000) }));
+      expect(
+        (await verifySolanaNativeTransfer({ recipient, amount: "1", signature: "sig_1", connection: underpay })).valid
+      ).toBe(false);
+
+      const failed = mockConn(solNativeTx({ deltaLamports: BigInt(1_000_000_000), err: { InstructionError: [0, "Custom"] } }));
+      expect(
+        (await verifySolanaNativeTransfer({ recipient, amount: "1", signature: "sig_1", connection: failed }))
+      ).toMatchObject({ valid: false, reason: "Transaction failed on-chain" });
+    });
+
+    it("rejects a transaction that does not touch the recipient and reports pending when unfetched", async () => {
+      const notPayer = mockConn(solNativeTx({ deltaLamports: BigInt(1_000_000_000), includeRecipient: false }));
+      expect(
+        (await verifySolanaNativeTransfer({ recipient, amount: "1", signature: "sig_1", connection: notPayer }))
+      ).toMatchObject({ valid: false, reason: "Recipient not found in transaction" });
+
+      const pending = mockConn(null);
+      expect(
+        await verifySolanaNativeTransfer({ recipient, amount: "1", signature: "sig_1", connection: pending })
+      ).toMatchObject({ valid: false, pending: true });
+    });
+  });
+
+  describe("assertTxHashUnused (tx reuse guard)", () => {
+    beforeEach(() => {
+      (prisma.payment.findFirst as jest.Mock).mockResolvedValue(null);
+      (prisma.paymentRequest.findFirst as jest.Mock).mockResolvedValue(null);
+    });
+
+    it("passes when the hash has never settled a payment or request", async () => {
+      await expect(assertTxHashUnused(TX_HASH)).resolves.toBeUndefined();
+    });
+
+    it("rejects when the hash already settled a payment", async () => {
+      (prisma.payment.findFirst as jest.Mock).mockResolvedValue({ id: "pay_1" });
+      await expect(assertTxHashUnused(TX_HASH)).rejects.toThrow(/already been used/);
+    });
+
+    it("rejects when the hash already settled a payment request", async () => {
+      (prisma.paymentRequest.findFirst as jest.Mock).mockResolvedValue({ id: "pr_1" });
+      await expect(assertTxHashUnused(TX_HASH)).rejects.toThrow(/already been used/);
     });
   });
 });

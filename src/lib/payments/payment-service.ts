@@ -3,19 +3,16 @@ import crypto from "crypto";
 import { Prisma, PaymentLinkStatus, PaymentStatus } from "@prisma/client";
 import {
   Address,
-  createPublicClient,
-  http,
   isAddress,
 } from "viem";
-import { baseSepolia } from "viem/chains";
 
 import { prisma } from "@/lib/prisma";
+import { canonicalWalletAddress } from "@/lib/address";
 import { DEFAULT_CHAIN, getContractAddress } from "@/config/chains";
 import { verifyClaimSignature } from "@/lib/escrow/claim-crypto";
 import { getEscrowVaultAddress, encodeEscrowRefundCalldata } from "@/lib/contracts/escrow-vault";
-
-// Use the default chain's RPC URL
-const RPC_URL = DEFAULT_CHAIN.rpcUrls.default.http[0];
+import { verifyEvmUsdcTransfer, verifyEvmNativeTransfer } from "@/lib/payments/onchain-verify";
+import { assertTxHashUnused } from "@/lib/payments/tx-hash-guard";
 
 export type PaymentToken = "ETH" | "USDC";
 
@@ -71,9 +68,7 @@ export interface PaymentTransferResult {
   } | null;
 }
 
-function normalizeWalletAddress(address: string) {
-  return address.trim();
-}
+const normalizeWalletAddress = canonicalWalletAddress;
 
 function getTokenAddress(token: PaymentToken) {
   return token === "USDC"
@@ -308,28 +303,49 @@ export async function executePaymentTransfer(
 
   const txHash = input.txHash as `0x${string}`;
 
-  const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(RPC_URL),
-  });
+  // One on-chain transfer can only settle one payment
+  await assertTxHashUnused(txHash);
 
-  const receipt = await publicClient.waitForTransactionReceipt({
-    hash: txHash,
-  });
+  // Verify the transfer on-chain: success status, correct recipient, token, and amount
+  const verifyParams = {
+    txHash,
+    recipient: receiver.walletAddress as Address,
+    amount: input.amount,
+    waitMs: 20_000,
+  };
+  const verification =
+    input.token === "USDC"
+      ? await verifyEvmUsdcTransfer(verifyParams)
+      : await verifyEvmNativeTransfer(verifyParams);
 
-  const payment = await prisma.payment.create({
-    data: {
-      senderId: sender.id,
-      receiverId: receiver.id,
-      paymentLinkId: input.paymentLinkId || null,
-      chainId: DEFAULT_CHAIN.id,
-      tokenAddress: getTokenAddress(input.token),
-      tokenSymbol: input.token,
-      amount: new Prisma.Decimal(input.amount),
-      txHash,
-      status: receipt.status === "success" ? PaymentStatus.CONFIRMED : PaymentStatus.FAILED,
-    },
-  });
+  if (!verification.valid) {
+    if (verification.pending) {
+      throw new Error(`Transaction not yet confirmed on-chain — retry shortly (${verification.reason})`);
+    }
+    throw new Error(`On-chain verification failed: ${verification.reason}`);
+  }
+
+  let payment;
+  try {
+    payment = await prisma.payment.create({
+      data: {
+        senderId: sender.id,
+        receiverId: receiver.id,
+        paymentLinkId: input.paymentLinkId || null,
+        chainId: DEFAULT_CHAIN.id,
+        tokenAddress: getTokenAddress(input.token),
+        tokenSymbol: input.token,
+        amount: new Prisma.Decimal(input.amount),
+        txHash,
+        status: PaymentStatus.CONFIRMED,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new Error("Transaction hash has already been used to settle a payment");
+    }
+    throw error;
+  }
 
   await prisma.transaction.createMany({
     data: [
@@ -341,7 +357,7 @@ export async function executePaymentTransfer(
         tokenAddress: getTokenAddress(input.token),
         txHash: `${txHash}:sent`,
         chainId: DEFAULT_CHAIN.id,
-        status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
+        status: "CONFIRMED",
         fromAddress: sender.walletAddress,
         toAddress: receiver.walletAddress,
       },
@@ -351,9 +367,9 @@ export async function executePaymentTransfer(
         amount: input.amount,
         tokenSymbol: input.token,
         tokenAddress: getTokenAddress(input.token),
-        txHash: `${txHash}:recv`,
+        txHash: txHash ? `${txHash}:recv` : null,
         chainId: DEFAULT_CHAIN.id,
-        status: receipt.status === "success" ? "CONFIRMED" : "FAILED",
+        status: "CONFIRMED",
         fromAddress: sender.walletAddress,
         toAddress: receiver.walletAddress,
       },
@@ -441,27 +457,82 @@ export async function claimPaymentLink(input: {
     if (!recipient) {
       recipient = await prisma.user.create({
         data: {
-          walletAddress: input.recipientAddress.toLowerCase(),
+          walletAddress: canonicalWalletAddress(input.recipientAddress),
         },
       });
     }
 
-    const txHash = input.txHash || `0xclaim_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
     const amountStr = link.amount?.toString() || "0";
 
-    const payment = await prisma.payment.create({
-      data: {
-        senderId: link.creatorId,
-        receiverId: recipient.id,
-        paymentLinkId: link.id,
-        chainId: link.chainId,
-        tokenAddress: link.tokenAddress,
-        tokenSymbol: link.tokenSymbol,
-        amount: link.amount || new Prisma.Decimal(0),
-        txHash,
-        status: PaymentStatus.CONFIRMED,
+    // When a real settlement tx is supplied, it must verify on-chain and be unused
+    if (input.txHash) {
+      await assertTxHashUnused(input.txHash);
+      const verification =
+        link.tokenSymbol === "USDC"
+          ? await verifyEvmUsdcTransfer({
+              txHash: input.txHash,
+              recipient: input.recipientAddress as Address,
+              amount: amountStr,
+              waitMs: 15_000,
+            })
+          : await verifyEvmNativeTransfer({
+              txHash: input.txHash,
+              recipient: input.recipientAddress as Address,
+              amount: amountStr,
+              waitMs: 15_000,
+            });
+
+      if (!verification.valid) {
+        if (verification.pending) {
+          throw new Error(`Settlement transaction not yet confirmed — retry shortly (${verification.reason})`);
+        }
+        throw new Error(`On-chain verification failed: ${verification.reason}`);
+      }
+    }
+
+    // LEDGER settlement (PAY-03): when no on-chain settlement tx is supplied the
+    // claim is recorded as an internal ledger entry — txHash stays null and
+    // settlementLayer marks it off-chain until EscrowVault settlement lands.
+    const txHash = input.txHash ?? null;
+    const settlementLayer = input.txHash ? "ONCHAIN" : "LEDGER";
+
+    // Atomically claim a use slot before writing any settlement records — a
+    // concurrent claim either loses here (count=0) or trips the Payment.txHash
+    // unique constraint below. Prevents double-claim races.
+    const slot = await prisma.paymentLink.updateMany({
+      where: {
+        id: link.id,
+        status: PaymentLinkStatus.ACTIVE,
+        ...(link.maxUses ? { usedCount: { lt: link.maxUses } } : {}),
       },
+      data: { usedCount: { increment: 1 } },
     });
+    if (slot.count === 0) {
+      throw new Error("Payment link is no longer active");
+    }
+
+    let payment;
+    try {
+      payment = await prisma.payment.create({
+        data: {
+          senderId: link.creatorId,
+          receiverId: recipient.id,
+          paymentLinkId: link.id,
+          chainId: link.chainId,
+          tokenAddress: link.tokenAddress,
+          tokenSymbol: link.tokenSymbol,
+          amount: link.amount || new Prisma.Decimal(0),
+          txHash,
+          settlementLayer,
+          status: PaymentStatus.CONFIRMED,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new Error("Transaction hash has already been used to settle a payment");
+      }
+      throw error;
+    }
 
     await prisma.transaction.createMany({
       data: [
@@ -471,7 +542,7 @@ export async function claimPaymentLink(input: {
           amount: amountStr,
           tokenSymbol: link.tokenSymbol,
           tokenAddress: link.tokenAddress,
-          txHash: `${txHash}:claim`,
+          txHash: txHash ? `${txHash}:claim` : null,
           chainId: link.chainId,
           status: "CONFIRMED",
           fromAddress: link.creator.walletAddress,
@@ -483,7 +554,7 @@ export async function claimPaymentLink(input: {
           amount: amountStr,
           tokenSymbol: link.tokenSymbol,
           tokenAddress: link.tokenAddress,
-          txHash: `${txHash}:recv`,
+          txHash: txHash ? `${txHash}:recv` : null,
           chainId: link.chainId,
           status: "CONFIRMED",
           fromAddress: link.creator.walletAddress,
@@ -514,16 +585,21 @@ export async function claimPaymentLink(input: {
       ],
     });
 
-    const updated = await prisma.paymentLink.update({
-      where: { id: link.id },
-      data: {
-        usedCount: { increment: 1 },
-        status:
-          link.maxUses && link.usedCount + 1 >= link.maxUses
-            ? PaymentLinkStatus.DISABLED
-            : PaymentLinkStatus.ACTIVE,
-      },
-    });
+    // The use slot was already claimed atomically above. If that pushed the
+    // link to its maxUses cap, disable it — conditionally, so a concurrent
+    // status change can't be clobbered.
+    if (link.maxUses) {
+      await prisma.paymentLink.updateMany({
+        where: {
+          id: link.id,
+          status: PaymentLinkStatus.ACTIVE,
+          usedCount: { gte: link.maxUses },
+        },
+        data: { status: PaymentLinkStatus.DISABLED },
+      });
+    }
+
+    const updated = await prisma.paymentLink.findUniqueOrThrow({ where: { id: link.id } });
 
     return {
       payment: {
@@ -533,6 +609,7 @@ export async function claimPaymentLink(input: {
         status: payment.status,
       },
       txHash,
+      settlementLayer,
       sender: {
         id: link.creator.id,
         walletAddress: normalizeWalletAddress(link.creator.walletAddress),
@@ -631,21 +708,27 @@ export async function refundPaymentLink(input: {
     throw new Error("Cannot refund an active payment link before expiration");
   }
 
-  if (link.status === PaymentLinkStatus.DISABLED) {
+  // Atomic transition — only one caller flips the link to refunded/disabled
+  const disabled = await prisma.paymentLink.updateMany({
+    where: {
+      id: link.id,
+      status: { not: PaymentLinkStatus.DISABLED },
+    },
+    data: { status: PaymentLinkStatus.DISABLED },
+  });
+  if (disabled.count === 0) {
     throw new Error("Payment link is already completed or refunded");
   }
 
-  const txHash = `0xrefund_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
+  const amountStr = link.amount?.toString() || "0";
+
+  // LEDGER refund: no on-chain refund tx exists until EscrowVault is deployed —
+  // txHash stays null so the record is honest about being an internal entry.
   const calldata = link.claimKeyHash
     ? encodeEscrowRefundCalldata({ claimKeyHash: link.claimKeyHash as `0x${string}` })
     : "0x";
 
-  const updated = await prisma.paymentLink.update({
-    where: { id: link.id },
-    data: { status: PaymentLinkStatus.DISABLED },
-  });
-
-  const amountStr = link.amount?.toString() || "0";
+  const updated = await prisma.paymentLink.findUniqueOrThrow({ where: { id: link.id } });
 
   await prisma.transaction.create({
     data: {
@@ -654,7 +737,7 @@ export async function refundPaymentLink(input: {
       amount: amountStr,
       tokenSymbol: link.tokenSymbol,
       tokenAddress: link.tokenAddress,
-      txHash,
+      txHash: null,
       chainId: link.chainId,
       status: "CONFIRMED",
       fromAddress: getEscrowVaultAddress(link.chainId),
@@ -675,7 +758,8 @@ export async function refundPaymentLink(input: {
 
   return {
     success: true,
-    txHash,
+    txHash: null,
+    settlementLayer: "LEDGER",
     calldata,
     paymentLink: updated,
   };

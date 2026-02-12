@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAddress } from 'viem';
 import { withAuth } from "@/modules/auth/server";
+import { canonicalWalletAddress } from "@/lib/address";
 
 export const GET = withAuth(async (request, { auth }) => {
   try {
     const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('walletAddress');
+    const walletAddressParam = searchParams.get('walletAddress');
+    const walletAddress = walletAddressParam ? canonicalWalletAddress(walletAddressParam) : null;
 
     if (!walletAddress || !isAddress(walletAddress)) {
       return NextResponse.json(
@@ -58,14 +60,16 @@ export const GET = withAuth(async (request, { auth }) => {
 export const PATCH = withAuth(async (request, { auth }) => {
   try {
     const body = await request.json();
-    const { walletAddress, basicWalletAddress, proWalletAddress, riskProfile, otherUserInfo, preferences } = body;
+    const { walletAddress: rawWalletAddress, basicWalletAddress, proWalletAddress, riskProfile, otherUserInfo, preferences } = body;
 
-    if (!walletAddress || !isAddress(walletAddress)) {
+    if (!rawWalletAddress || !isAddress(rawWalletAddress)) {
       return NextResponse.json(
         { error: 'Valid walletAddress is required' },
         { status: 400 }
       );
     }
+    // Normalize casing — User.walletAddress / userWalletAddress are stored lowercase
+    const walletAddress = canonicalWalletAddress(rawWalletAddress);
 
     const updateData: any = {};
 
@@ -141,14 +145,16 @@ export const PATCH = withAuth(async (request, { auth }) => {
 export const POST = withAuth(async (request, { auth }) => {
   try {
     const body = await request.json();
-    const { walletAddress, riskProfile = '', otherUserInfo = '', preferences } = body;
+    const { walletAddress: rawWalletAddress, riskProfile = '', otherUserInfo = '', preferences } = body;
 
-    if (!walletAddress || !isAddress(walletAddress)) {
+    if (!rawWalletAddress || !isAddress(rawWalletAddress)) {
       return NextResponse.json(
         { error: 'Valid walletAddress is required' },
         { status: 400 }
       );
     }
+    // Normalize casing — User.walletAddress / userWalletAddress are stored lowercase
+    const walletAddress = canonicalWalletAddress(rawWalletAddress);
 
     const userProfile = await prisma.userProfile.upsert({
       where: { userWalletAddress: walletAddress },

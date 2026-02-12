@@ -1,11 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { canonicalWalletAddress } from "@/lib/address";
 
 export async function getUserProfile(walletAddress: string) {
     if (!walletAddress) {
         return { error: "Wallet address is required" };
     }
+    // Normalize casing — User.walletAddress is stored lowercase
+    walletAddress = canonicalWalletAddress(walletAddress);
 
     try {
         let user = await prisma.user.findFirst({
@@ -85,6 +88,8 @@ export async function updateUserProfile(walletAddress: string, data: any) {
     if (!walletAddress) {
         return { error: "Wallet address is required" };
     }
+    // Normalize casing — User.walletAddress is stored lowercase
+    walletAddress = canonicalWalletAddress(walletAddress);
 
     try {
         // If username is provided, check if it's already claimed by another wallet

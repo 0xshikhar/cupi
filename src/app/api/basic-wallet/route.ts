@@ -46,6 +46,14 @@ export const GET = withAuth(async (req, { auth }) => {
         { status: 400 }
       );
     }
+    // Ownership: the queried wallet must be the authenticated session's wallet
+    if (!auth.walletAddress || auth.walletAddress.toLowerCase() !== userWalletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Cannot access a wallet that does not belong to the authenticated session" },
+        { status: 403 }
+      );
+    }
+
 
     // Check for basic agent wallet
     const basicWalletService = BasicAgentWalletService.getInstance();
@@ -108,6 +116,14 @@ export const POST = withAuth(async (req, { auth }) => {
         { status: 400 }
       );
     }
+    // Ownership: the queried wallet must be the authenticated session's wallet
+    if (!auth.walletAddress || auth.walletAddress.toLowerCase() !== userWalletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Cannot access a wallet that does not belong to the authenticated session" },
+        { status: 403 }
+      );
+    }
+
 
     // Handle basic wallet creation
     const basicWalletService = BasicAgentWalletService.getInstance();

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export interface CachedResponse {
@@ -30,30 +31,53 @@ export function _setForceMemoryFallback(force: boolean) {
  */
 export async function handleIdempotency(
   key: string | null | undefined,
-  executor: () => Promise<NextResponse>
+  executor: () => Promise<NextResponse>,
+  scope?: string
 ): Promise<NextResponse> {
   if (!key || !key.trim()) {
     return executor();
   }
 
   const normalizedKey = key.trim();
+  // Scoped keys prevent cross-merchant / cross-endpoint collisions —
+  // one caller's key can never block or replay another's.
+  const storedKey = scope ? `${scope}::${normalizedKey}` : normalizedKey;
 
   if (forceMemory || process.env.IDEMPOTENCY_DRIVER === "memory") {
-    return handleMemoryFallback(normalizedKey, executor);
+    return handleMemoryFallback(storedKey, executor, normalizedKey);
   }
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + TTL_MS);
 
-  // 1. Try Distributed PostgreSQL Idempotency Lock
   try {
-    const existing = await prisma.idempotencyRecord.findUnique({
-      where: { key: normalizedKey },
-    });
+    // Atomic claim: INSERT is the lock — a second concurrent request gets
+    // P2002 and falls through to replay / 409 / stale-lock reclaim.
+    let claimed = false;
+    try {
+      await prisma.idempotencyRecord.create({
+        data: {
+          key: storedKey,
+          status: "PENDING",
+          lockedAt: now,
+          expiresAt,
+        },
+      });
+      claimed = true;
+    } catch (error) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")
+      ) {
+        throw error;
+      }
+    }
 
-    if (existing) {
-      // If completed, return identical cached response
-      if (existing.status === "COMPLETED" && existing.response) {
+    if (!claimed) {
+      const existing = await prisma.idempotencyRecord.findUnique({
+        where: { key: storedKey },
+      });
+
+      if (existing?.status === "COMPLETED" && existing.response) {
         const replay = NextResponse.json(existing.response, {
           status: existing.statusCode || 200,
         });
@@ -62,9 +86,27 @@ export async function handleIdempotency(
         return replay;
       }
 
-      // If pending and lock is active, reject concurrent collision
-      const lockAge = now.getTime() - new Date(existing.lockedAt).getTime();
-      if (existing.status === "PENDING" && lockAge < LOCK_TIMEOUT_MS) {
+      const lockAge = existing ? now.getTime() - new Date(existing.lockedAt).getTime() : 0;
+      if (existing?.status === "PENDING" && lockAge < LOCK_TIMEOUT_MS) {
+        return NextResponse.json(
+          {
+            error: "Conflict: A request with this Idempotency-Key is currently in progress",
+            code: "IDEMPOTENCY_IN_FLIGHT",
+          },
+          { status: 409 }
+        );
+      }
+
+      // Stale lock: reclaim atomically — only if lockedAt is still what we read
+      const reclaimed = await prisma.idempotencyRecord.updateMany({
+        where: {
+          key: storedKey,
+          status: "PENDING",
+          lockedAt: existing?.lockedAt,
+        },
+        data: { lockedAt: now, expiresAt },
+      });
+      if (reclaimed.count === 0) {
         return NextResponse.json(
           {
             error: "Conflict: A request with this Idempotency-Key is currently in progress",
@@ -74,22 +116,6 @@ export async function handleIdempotency(
         );
       }
     }
-
-    // Acquire lock (upsert handles reclaiming stale locks)
-    await prisma.idempotencyRecord.upsert({
-      where: { key: normalizedKey },
-      create: {
-        key: normalizedKey,
-        status: "PENDING",
-        lockedAt: now,
-        expiresAt,
-      },
-      update: {
-        status: "PENDING",
-        lockedAt: now,
-        expiresAt,
-      },
-    });
 
     // Execute the real payment/transfer
     const result = await executor();
@@ -104,7 +130,7 @@ export async function handleIdempotency(
     }
 
     await prisma.idempotencyRecord.update({
-      where: { key: normalizedKey },
+      where: { key: storedKey },
       data: {
         status: "COMPLETED",
         statusCode: result.status,
@@ -126,7 +152,8 @@ export async function handleIdempotency(
  */
 async function handleMemoryFallback(
   key: string,
-  executor: () => Promise<NextResponse>
+  executor: () => Promise<NextResponse>,
+  responseKey?: string
 ): Promise<NextResponse> {
   const existing = memoryStore.get(key);
   const now = Date.now();
@@ -146,7 +173,7 @@ async function handleMemoryFallback(
         status: existing.response.status,
       });
       replay.headers.set("X-Idempotent-Replay", "true");
-      replay.headers.set("X-Idempotency-Key", key);
+      replay.headers.set("X-Idempotency-Key", responseKey ?? key);
       return replay;
     }
   }
@@ -169,7 +196,7 @@ async function handleMemoryFallback(
       createdAt: Date.now(),
     });
 
-    result.headers.set("X-Idempotency-Key", key);
+    result.headers.set("X-Idempotency-Key", responseKey ?? key);
     return result;
   } catch (err) {
     memoryStore.delete(key);

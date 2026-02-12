@@ -283,7 +283,7 @@ export default function MerchantPortalPage() {
             <ShieldCheck size={16} className="text-emerald-400" />
             Solana & Base
           </p>
-          <p className="text-[11px] text-muted-foreground">Instant Finality (&lt;1.2s)</p>
+          <p className="text-[11px] text-muted-foreground">On-Chain Settlement</p>
         </div>
       </div>
 

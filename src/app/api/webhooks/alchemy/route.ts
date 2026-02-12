@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get("x-alchemy-signature");
     const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
 
-    // In production with a configured key, reject invalid signatures
+    // Fail closed: unsigned webhook traffic is only tolerated in non-production.
     if (signingKey) {
       const isValid = isValidAlchemySignature(rawBody, signature, signingKey);
       if (!isValid) {
@@ -56,7 +56,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
       }
     } else if (process.env.NODE_ENV === "production") {
-      console.warn("[ALCHEMY WEBHOOK] Warning: ALCHEMY_WEBHOOK_SIGNING_KEY is not configured");
+      console.error("[ALCHEMY WEBHOOK] Rejecting request: ALCHEMY_WEBHOOK_SIGNING_KEY is not configured");
+      return NextResponse.json(
+        { error: "Webhook signature verification is not configured" },
+        { status: 503 }
+      );
+    } else {
+      console.warn("[ALCHEMY WEBHOOK] Skipping signature check — no signing key configured (non-production)");
     }
 
     let payload: AlchemyWebhookPayload;

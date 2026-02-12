@@ -1,19 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withAuth, requireUser, isUser } from '@/modules/auth/server/with-auth';
 
-export const POST = async (request: Request) => {
+export const POST = withAuth(async (request: NextRequest, { auth }) => {
     try {
-        const body = await request.json();
-        const { walletAddress, username } = body;
+        const user = requireUser(auth);
+        if (!isUser(user)) return user;
 
-        if (!walletAddress || !username) {
+        const body = await request.json();
+        const { username } = body;
+
+        if (!username) {
             return NextResponse.json(
-                { error: 'Wallet address and username are required' },
+                { error: 'Username is required' },
                 { status: 400 }
             );
         }
 
-        // Validate username format
         const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
         if (!usernameRegex.test(username)) {
             return NextResponse.json(
@@ -21,8 +24,6 @@ export const POST = async (request: Request) => {
                 { status: 400 }
             );
         }
-
-        console.log('[UPDATE USERNAME] Updating username for:', walletAddress, 'to:', username);
 
         // Check if username is already taken by another user
         const existingUser = await prisma.user.findFirst({
@@ -32,7 +33,7 @@ export const POST = async (request: Request) => {
                     mode: 'insensitive',
                 },
                 NOT: {
-                    walletAddress: walletAddress,
+                    id: user.id,
                 },
             },
         });
@@ -44,29 +45,25 @@ export const POST = async (request: Request) => {
             );
         }
 
-        // Update user's username
-        const user = await prisma.user.update({
-            where: { walletAddress },
+        // Update the authenticated user's username
+        const updated = await prisma.user.update({
+            where: { id: user.id },
             data: { username },
         });
-
-        console.log('[UPDATE USERNAME] Username updated successfully');
 
         return NextResponse.json({
             success: true,
             user: {
-                id: user.id,
-                username: user.username,
+                id: updated.id,
+                walletAddress: updated.walletAddress,
+                username: updated.username,
             },
         });
     } catch (error) {
         console.error('[UPDATE USERNAME] Error:', error);
         return NextResponse.json(
-            {
-                error: 'Failed to update username',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
+            { error: 'Failed to update username' },
             { status: 500 }
         );
     }
-};
+});

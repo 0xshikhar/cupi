@@ -7,11 +7,16 @@ jest.mock("@/lib/prisma", () => ({
       findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
+    payment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     paymentRequest: {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn(),
     },
     notification: {
       create: jest.fn().mockResolvedValue({ id: "mock_notif_1" }),
@@ -20,6 +25,18 @@ jest.mock("@/lib/prisma", () => ({
       create: jest.fn().mockResolvedValue({ id: "mock_audit_1" }),
     },
   },
+}));
+
+// Mock on-chain verification — settlement validity is covered by onchain-verify tests
+jest.mock("@/lib/payments/onchain-verify", () => ({
+  verifyEvmUsdcTransfer: jest.fn().mockResolvedValue({ valid: true, txHash: "0xabc123" }),
+  verifyEvmNativeTransfer: jest.fn().mockResolvedValue({ valid: true, txHash: "0xabc123" }),
+  verifySolanaUsdcTransfer: jest.fn().mockResolvedValue({ valid: true, txHash: "5abc" }),
+  verifySolanaNativeTransfer: jest.fn().mockResolvedValue({ valid: true, txHash: "5abc" }),
+}));
+
+jest.mock("@/lib/payments/tx-hash-guard", () => ({
+  assertTxHashUnused: jest.fn().mockResolvedValue(undefined),
 }));
 
 import {
@@ -135,9 +152,11 @@ describe("Peer-to-Peer Payment Request Flow", () => {
         currency: "USDC",
         network: "base",
         status: "REQUESTED",
+        requester: { id: "user_alice", walletAddress: "0x1111111111111111111111111111111111111111" },
+        payee: { id: "user_bob", walletAddress: "0x2222222222222222222222222222222222222222" },
       });
 
-      (prisma.paymentRequest.update as jest.Mock).mockResolvedValueOnce({
+      (prisma.paymentRequest.findUniqueOrThrow as jest.Mock).mockResolvedValueOnce({
         id: "req_101",
         status: "PAID",
         txHash: "0xabc123",
@@ -151,13 +170,13 @@ describe("Peer-to-Peer Payment Request Flow", () => {
       });
 
       expect(updated.status).toBe("PAID");
-      expect(prisma.paymentRequest.update).toHaveBeenCalledWith({
-        where: { id: "req_101" },
+      // Settlement must be an atomic conditional transition — not read-check-then-write
+      expect(prisma.paymentRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: "req_101", status: "REQUESTED" },
         data: expect.objectContaining({
           status: "PAID",
           txHash: "0xabc123",
         }),
-        include: expect.any(Object),
       });
 
       expect(prisma.notification.create).toHaveBeenCalledWith({
@@ -194,7 +213,7 @@ describe("Peer-to-Peer Payment Request Flow", () => {
         status: "REQUESTED",
       });
 
-      (prisma.paymentRequest.update as jest.Mock).mockResolvedValueOnce({
+      (prisma.paymentRequest.findUniqueOrThrow as jest.Mock).mockResolvedValueOnce({
         id: "req_103",
         status: "DECLINED",
         declinedAt: new Date(),

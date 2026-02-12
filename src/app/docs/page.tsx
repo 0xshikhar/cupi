@@ -70,7 +70,7 @@ export default function DocsPage() {
     { id: "webhooks", label: "Webhooks & Replay Defense", icon: Webhook, badge: "HMAC-SHA256" },
     { id: "mpc-security", label: "Self-Custody MPC & Export", icon: Key, badge: "Zero-Custody" },
     { id: "fiat-ramps", label: "Fiat Ramps & Rain Cards", icon: CreditCard, badge: "Bridge.xyz" },
-    { id: "benchmarks", label: "Tests & 100k RPM Benchmark", icon: Cpu, badge: "87 Tests" },
+    { id: "benchmarks", label: "Tests & Benchmark", icon: Cpu, badge: "87 Tests" },
     { id: "curl-quickstart", label: "60-Second cURL Cheatsheet", icon: Terminal, badge: "cURL" },
   ];
 

@@ -11,14 +11,26 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: [
-          "var(--font-share-tech-mono)",
-          "IBM Plex Mono",
-          "monospace",
+          "var(--font-inter)",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "sans-serif",
         ],
         mono: [
-          "var(--font-share-tech-mono)",
-          "IBM Plex Mono",
+          "var(--font-mono)",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
           "monospace",
+        ],
+        display: [
+          "var(--font-orbitron)",
+          "sans-serif",
         ],
       },
       borderRadius: {

@@ -178,7 +178,7 @@ function SendContent() {
               />
               <input
                 type="text"
-                placeholder="Enter @username, phone, or 0x address..."
+                placeholder="@handle, phone, or 0x address..."
                 value={quickInput}
                 onChange={(e) => setQuickInput(e.target.value)}
                 className="w-full pl-10 pr-24 py-3.5 bg-secondary/30 border border-border rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-foreground transition-all"

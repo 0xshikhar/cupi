@@ -4,13 +4,11 @@ import {
   createPaymentRequest,
   getUserPaymentRequests,
 } from "@/lib/payments/payment-request-service";
-import { prisma } from "@/lib/prisma";
+import { withAuth, requireUser, isUser } from "@/modules/auth/server/with-auth";
 
 export const dynamic = "force-dynamic";
 
 const createRequestSchema = z.object({
-  requesterId: z.string().optional(),
-  requesterWalletAddress: z.string().optional(),
   payeeIdentifier: z.string().min(1, "Payee handle, phone, or address is required"),
   amount: z.string().refine((val) => Number(val) > 0, "Amount must be greater than 0"),
   currency: z.enum(["USDC", "EURC", "ETH", "SOL"]).default("USDC"),
@@ -21,33 +19,20 @@ const createRequestSchema = z.object({
 
 /**
  * POST /api/payment-requests
- * Creates an institutional/P2P payment request (Request-to-Pay).
+ * Creates an institutional/P2P payment request (Request-to-Pay) for the
+ * authenticated user — the requester is derived from the session, never from
+ * client-supplied identifiers.
  */
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req: NextRequest, { auth }) => {
   try {
+    const user = requireUser(auth);
+    if (!isUser(user)) return user;
+
     const body = await req.json();
     const input = createRequestSchema.parse(body);
 
-    let requesterId = input.requesterId;
-
-    // Fallback: lookup user by wallet address if requesterId is not directly passed
-    if (!requesterId && input.requesterWalletAddress) {
-      const user = await prisma.user.findFirst({
-        where: { walletAddress: { equals: input.requesterWalletAddress, mode: "insensitive" } },
-        select: { id: true },
-      });
-      requesterId = user?.id;
-    }
-
-    if (!requesterId) {
-      return NextResponse.json(
-        { error: "requesterId or valid requesterWalletAddress is required" },
-        { status: 400 }
-      );
-    }
-
     const paymentRequest = await createPaymentRequest({
-      requesterId,
+      requesterId: user.id,
       payeeIdentifier: input.payeeIdentifier,
       amount: input.amount,
       currency: input.currency,
@@ -83,35 +68,21 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
- * GET /api/payment-requests?userId=...&walletAddress=...&filter=incoming|outgoing|all
- * Retrieves incoming or outgoing payment requests for a user.
+ * GET /api/payment-requests?filter=incoming|outgoing|all
+ * Lists the authenticated user's payment requests.
  */
-export async function GET(req: NextRequest) {
+export const GET = withAuth(async (_req: NextRequest, { auth }) => {
   try {
-    const { searchParams } = new URL(req.url);
-    let userId = searchParams.get("userId");
-    const walletAddress = searchParams.get("walletAddress") || searchParams.get("address");
+    const user = requireUser(auth);
+    if (!isUser(user)) return user;
+
+    const { searchParams } = new URL(_req.url);
     const filter = (searchParams.get("filter") as "incoming" | "outgoing" | "all") || "all";
 
-    if (!userId && walletAddress) {
-      const user = await prisma.user.findFirst({
-        where: { walletAddress: { equals: walletAddress, mode: "insensitive" } },
-        select: { id: true },
-      });
-      userId = user?.id || null;
-    }
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId or walletAddress parameter is required" },
-        { status: 400 }
-      );
-    }
-
-    const requests = await getUserPaymentRequests(userId, filter);
+    const requests = await getUserPaymentRequests(user.id, filter);
 
     return NextResponse.json({
       success: true,
@@ -125,4 +96,4 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

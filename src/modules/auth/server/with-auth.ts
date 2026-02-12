@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { User } from "@prisma/client";
 import { verifyAuth } from "./privy";
+import { prisma } from "@/lib/prisma";
 
 /**
- * Authenticated user context passed to route handlers
+ * Authenticated user context passed to route handlers.
+ *
+ * - `userId` is always the Privy DID (e.g. "did:privy:...").
+ * - `user` is the resolved application user row, or null when the Privy account
+ *   has not been provisioned in our database yet.
+ * - `walletAddress` comes only from the database record — never from request
+ *   input (params, headers, or body), which is client-controlled and spoofable.
  */
 export interface AuthContext {
   userId: string;
-  // Add more fields from Privy claims as needed
+  user: User | null;
+  walletAddress: string | null;
 }
 
 type AuthenticatedHandler = (
@@ -14,82 +23,82 @@ type AuthenticatedHandler = (
   context: { params?: any; auth: AuthContext }
 ) => Promise<NextResponse> | NextResponse;
 
+export function unauthorized(message = "Unauthorized") {
+  return NextResponse.json({ error: message }, { status: 401 });
+}
+
+export function forbidden(message = "Forbidden") {
+  return NextResponse.json({ error: message }, { status: 403 });
+}
+
+/** Returns the authenticated app user, or a 401 response when unprovisioned. */
+export function requireUser(auth: AuthContext): User | NextResponse {
+  return auth.user ?? unauthorized("Account not provisioned — complete onboarding first");
+}
+
+export function isUser(value: User | NextResponse): value is User {
+  return !(value instanceof NextResponse);
+}
+
+/**
+ * Extracts a Privy auth token from the Authorization header or Privy cookies.
+ */
+function extractToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
+
+  return (
+    req.cookies.get("privy-token")?.value ||
+    req.cookies.get("privy-id-token")?.value ||
+    req.cookies.get("privy_token")?.value ||
+    null
+  );
+}
+
 /**
  * Higher-order function that wraps an API route handler with Privy authentication.
- * 
+ * Rejects requests without a valid Privy token — no address/header/body fallbacks.
+ *
  * Usage:
  *   export const POST = withAuth(async (req, { auth }) => {
- *     console.log(auth.userId);
- *     return NextResponse.json({ ok: true });
+ *     const user = requireUser(auth);
+ *     if (!isUser(user)) return user; // 401
+ *     return NextResponse.json({ ok: true, wallet: user.walletAddress });
  *   });
- * 
+ *
  * Public routes (health, payment link resolution) should NOT use this wrapper.
  */
 export function withAuth(handler: AuthenticatedHandler) {
   return async (req: NextRequest, routeContext?: { params?: any }) => {
     try {
-      const authHeader = req.headers.get("authorization");
-      let token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
-
-      // Also check Privy auth cookies
+      const token = extractToken(req);
       if (!token) {
-        token = req.cookies.get("privy-token")?.value || 
-                req.cookies.get("privy-id-token")?.value || 
-                req.cookies.get("privy_token")?.value || 
-                null;
+        return unauthorized("Missing Authorization header or Privy session");
       }
 
-      if (token) {
-        try {
-          const claims = await verifyAuth(token);
-          return handler(req, {
-            params: routeContext?.params,
-            auth: { userId: claims.userId },
-          });
-        } catch (error) {
-          console.warn("[AUTH] Token verification failed, checking permissive fallback:", error);
-        }
+      let privyUserId: string;
+      try {
+        const claims = await verifyAuth(token);
+        privyUserId = claims.userId;
+      } catch {
+        return unauthorized("Invalid or expired token");
       }
 
-      // Check for address parameter or header fallback
-      const url = new URL(req.url);
-      let address = url.searchParams.get("address") || 
-                    url.searchParams.get("walletAddress") || 
-                    url.searchParams.get("userWalletAddress") ||
-                    url.searchParams.get("creatorWalletAddress") ||
-                    url.searchParams.get("creatorAddress") ||
-                    url.searchParams.get("fromAddress") ||
-                    req.headers.get("x-wallet-address") ||
-                    req.headers.get("x-creator-address");
+      const user = await prisma.user.findFirst({
+        where: { privyUserId },
+      });
 
-      if (!address && (req.method === "POST" || req.method === "PUT" || req.method === "PATCH")) {
-        try {
-          const cloned = req.clone();
-          const body = await cloned.json();
-          address = body.creatorWalletAddress || body.walletAddress || body.userWalletAddress || body.address || body.fromAddress;
-        } catch {
-          // Body not JSON or empty
-        }
-      }
-
-      // In development or when address-scoped context is provided, allow operation
-      if (address || process.env.NODE_ENV !== "production") {
-        return handler(req, {
-          params: routeContext?.params,
-          auth: { userId: address || "dev-user" },
-        });
-      }
-
-      return NextResponse.json(
-        { error: "Unauthorized: Missing or malformed Authorization header" },
-        { status: 401 }
-      );
+      return handler(req, {
+        params: routeContext?.params,
+        auth: {
+          userId: privyUserId,
+          user,
+          walletAddress: user?.walletAddress ?? null,
+        },
+      });
     } catch (error) {
       console.error("[AUTH] Verification error:", error);
-      return NextResponse.json(
-        { error: "Unauthorized: Invalid or expired token" },
-        { status: 401 }
-      );
+      return unauthorized("Authentication failed");
     }
   };
 }

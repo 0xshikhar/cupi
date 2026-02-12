@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleIdempotency, getIdempotencyKey } from "@/lib/payments/idempotency";
 import {
-  extractMerchantKeyFromRequest,
-  validateMerchantApiKey,
+  resolveMerchantAuth,
   verifyHmacSignature,
 } from "@/lib/merchant/auth";
 import {
@@ -11,7 +10,6 @@ import {
   createCheckoutSession,
   getCheckoutSession,
 } from "@/lib/merchant/merchant-service";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +35,27 @@ const checkoutCreateSchema = z.object({
 export async function POST(request: Request) {
   const idempotencyKey = getIdempotencyKey(request);
 
-  return handleIdempotency(idempotencyKey, async () => {
+  // Authenticate BEFORE the idempotency guard so keys are scoped per-merchant —
+  // one merchant's Idempotency-Key can never collide with or replay another's.
+  const authResult = await resolveMerchantAuth(request);
+  if (!authResult) {
+    return NextResponse.json(
+      { error: "Authentication required: Provide X-Merchant-Key header or a valid session" },
+      { status: 401 }
+    );
+  }
+  if (authResult.kind === "user") {
+    return NextResponse.json(
+      { error: "No merchant account for this user" },
+      { status: 404 }
+    );
+  }
+  const merchantId = authResult.merchant.id;
+  const merchantSecret = authResult.merchant.webhookSecret;
+
+  return handleIdempotency(
+    idempotencyKey,
+    async () => {
     try {
       const rawBody = await request.text();
       let body: unknown;
@@ -48,40 +66,6 @@ export async function POST(request: Request) {
       }
 
       const input = checkoutCreateSchema.parse(body);
-
-      // Authenticate via X-Merchant-Key or Bearer token
-      const rawApiKey = extractMerchantKeyFromRequest(request);
-      let merchantId = input.merchantId;
-      let merchantSecret: string | null = null;
-
-      if (rawApiKey) {
-        const authResult = await validateMerchantApiKey(rawApiKey);
-        if (!authResult) {
-          return NextResponse.json(
-            { error: "Unauthorized: Invalid or revoked merchant API key" },
-            { status: 401 }
-          );
-        }
-        merchantId = authResult.merchant.id;
-        merchantSecret = authResult.merchant.webhookSecret;
-      } else if (merchantId) {
-        // Direct merchantId fallback
-        const existingMerchant = await prisma.merchant.findUnique({
-          where: { id: merchantId },
-        });
-        if (!existingMerchant) {
-          return NextResponse.json(
-            { error: `Merchant with id '${merchantId}' not found` },
-            { status: 404 }
-          );
-        }
-        merchantSecret = existingMerchant.webhookSecret;
-      } else {
-        return NextResponse.json(
-          { error: "Authentication required: Provide X-Merchant-Key header or valid merchantId" },
-          { status: 401 }
-        );
-      }
 
       // Optional payload HMAC signature verification if X-Signature header is provided
       const signatureHeader = request.headers.get("x-signature");
@@ -153,7 +137,9 @@ export async function POST(request: Request) {
         { status: error instanceof CheckoutError ? error.status : 500 }
       );
     }
-  });
+    },
+    `merchant:${merchantId}:checkout`
+  );
 }
 
 /**

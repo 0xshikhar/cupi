@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { assertSafeWebhookUrl } from "@/lib/net/ssrf";
 import { WebhookEvent, WebhookPayload, WebhookDeliveryResult } from "./types";
 
 /**
@@ -10,7 +11,6 @@ export function createSignedWebhookPayload<T>(
   data: T,
   secret: string
 ): { payload: WebhookPayload<T>; payloadString: string; signatureHeader: string } {
-  const timestamp = Math.floor(Date.now() / 1000);
   const payload: WebhookPayload<T> = {
     id: `evt_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`,
     event,
@@ -20,14 +20,17 @@ export function createSignedWebhookPayload<T>(
   };
 
   const payloadString = JSON.stringify(payload);
+  return { payload, payloadString, signatureHeader: signPayload(payloadString, secret) };
+}
+
+/** Signs a payload string with a fresh timestamp — call per delivery attempt. */
+function signPayload(payloadString: string, secret: string): string {
+  const timestamp = Math.floor(Date.now() / 1000);
   const hmac = crypto
     .createHmac("sha256", secret)
     .update(`${timestamp}.${payloadString}`, "utf8")
     .digest("hex");
-
-  const signatureHeader = `t=${timestamp},v1=${hmac}`;
-
-  return { payload, payloadString, signatureHeader };
+  return `t=${timestamp},v1=${hmac}`;
 }
 
 export interface DispatchWebhookOptions<T = unknown> {
@@ -55,7 +58,34 @@ export async function dispatchWebhook<T>({
   maxAttempts = 3,
   initialBackoffMs = 500,
 }: DispatchWebhookOptions<T>): Promise<WebhookDeliveryResult> {
-  const { payload, payloadString, signatureHeader } = createSignedWebhookPayload(event, data, secret);
+  const { payload, payloadString } = createSignedWebhookPayload(event, data, secret);
+
+  // SSRF guard: never POST merchant-controlled URLs that resolve to private,
+  // loopback, link-local (cloud metadata), or otherwise non-public addresses.
+  try {
+    await assertSafeWebhookUrl(callbackUrl);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`[WEBHOOK DISPATCH] Blocked unsafe webhook URL ${callbackUrl}: ${errorMessage}`);
+    if (prisma.webhookDeliveryLog?.create) {
+      await prisma.webhookDeliveryLog.create({
+        data: {
+          merchantId,
+          sessionId: sessionId || null,
+          event,
+          url: callbackUrl,
+          requestPayload: payload as unknown as object,
+          signature: signPayload(payloadString, secret),
+          responseStatus: 0,
+          attemptNumber: 1,
+          success: false,
+          errorMessage: `SSRF blocked: ${errorMessage}`,
+          durationMs: 0,
+        },
+      }).catch(() => undefined);
+    }
+    return { success: false, attempts: 1, lastErrorMessage: errorMessage };
+  }
 
   let attempt = 0;
   let delivered = false;
@@ -65,6 +95,8 @@ export async function dispatchWebhook<T>({
   while (attempt < maxAttempts && !delivered) {
     attempt++;
     const startTime = Date.now();
+    // Re-sign per attempt — receivers rejecting stale timestamps must not break retries
+    const signatureHeader = signPayload(payloadString, secret);
 
     try {
       const response = await fetch(callbackUrl, {

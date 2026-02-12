@@ -1,47 +1,23 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { withAuth, requireUser, isUser } from '@/modules/auth/server/with-auth';
 
 export const dynamic = "force-dynamic";
 
-export const GET = async (request: Request) => {
+/**
+ * GET /api/users/profile
+ * Returns the authenticated user's own profile — identity comes from the
+ * Privy session, never from a client-supplied address parameter.
+ */
+export const GET = withAuth(async (_request, { auth }) => {
     try {
-        const { searchParams } = new URL(request.url);
-        const address = searchParams.get('address');
+        const user = requireUser(auth);
+        if (!isUser(user)) return user;
 
-        if (!address) {
-            return NextResponse.json(
-                { error: 'Wallet address is required' },
-                { status: 400 }
-            );
-        }
+        const { id, username, fullName, walletAddress, email, region, bio, jobTitle, twitter, linkedin, website } = user;
 
-        console.log('[USER PROFILE] Fetching profile for:', address);
-
-        const user = await prisma.user.findUnique({
-            where: { walletAddress: address },
-            select: {
-                id: true,
-                username: true,
-                fullName: true,
-                walletAddress: true,
-                email: true,
-                region: true,
-                bio: true,
-                jobTitle: true,
-                twitter: true,
-                linkedin: true,
-                website: true,
-            },
+        return NextResponse.json({
+            user: { id, username, fullName, walletAddress, email, region, bio, jobTitle, twitter, linkedin, website },
         });
-
-        if (!user) {
-            return NextResponse.json(
-                { error: 'User not found' },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json({ user });
     } catch (error) {
         console.error('[USER PROFILE] Error:', error);
         return NextResponse.json(
@@ -52,4 +28,4 @@ export const GET = async (request: Request) => {
             { status: 500 }
         );
     }
-};
+});

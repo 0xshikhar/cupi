@@ -97,7 +97,8 @@ function solanaRecipientDelta(tx: ParsedTransactionWithMeta, recipient: string, 
  * Valid only if the tx succeeded, includes the reference, and credits the recipient >= amount.
  */
 export async function verifySolanaUsdcTransfer(params: {
-  reference: string;
+  /** Solana Pay reference key — required for discovery mode, optional when `signature` is given. */
+  reference?: string;
   recipient: string;
   amount: string;
   signature?: string;
@@ -105,28 +106,35 @@ export async function verifySolanaUsdcTransfer(params: {
 }): Promise<TransferVerification> {
   const expected = toUsdcBaseUnits(params.amount);
   if (expected === null) return { valid: false, reason: "Invalid amount" };
+  if (!params.signature && !params.reference) {
+    return { valid: false, reason: "Either a reference key or a transaction signature is required" };
+  }
 
   const connection = params.connection || getSolanaConnection();
   const mint = getSolanaUsdcMint();
-  const referenceKey = new PublicKey(params.reference);
+  const referenceKey = params.reference ? new PublicKey(params.reference) : null;
 
   const signatures = params.signature
     ? [params.signature]
-    : (await connection.getSignaturesForAddress(referenceKey, { limit: 10 }, "confirmed"))
+    : (await connection.getSignaturesForAddress(referenceKey!, { limit: 10 }, "confirmed"))
         .filter((s) => !s.err)
         .map((s) => s.signature);
 
-  if (signatures.length === 0) return { valid: false, pending: true, reason: "No transaction found for reference" };
+  if (signatures.length === 0) return { valid: false, pending: true, reason: "No transaction found" };
 
   for (const signature of signatures) {
     const tx = await connection.getParsedTransaction(signature, {
       commitment: "confirmed",
       maxSupportedTransactionVersion: 0,
     });
-    if (!tx || tx.meta?.err) continue;
+    if (!tx) {
+      if (params.signature) return { valid: false, pending: true, reason: "Transaction not yet confirmed" };
+      continue;
+    }
+    if (tx.meta?.err) continue;
 
     const accountKeys = tx.transaction.message.accountKeys.map((k) => k.pubkey.toBase58());
-    if (!accountKeys.includes(params.reference)) continue;
+    if (params.reference && !accountKeys.includes(params.reference)) continue;
 
     if (solanaRecipientDelta(tx, params.recipient, mint) >= expected) {
       return { valid: true, txHash: signature, payer: accountKeys[0] };
@@ -134,6 +142,41 @@ export async function verifySolanaUsdcTransfer(params: {
   }
 
   return { valid: false, reason: "No matching USDC transfer to the settlement address" };
+}
+
+/**
+ * Validates a native SOL transfer by transaction signature. Valid only if the tx
+ * succeeded and the recipient's lamport balance increased by >= amount (SOL, 9 decimals).
+ */
+export async function verifySolanaNativeTransfer(params: {
+  recipient: string;
+  amount: string;
+  signature: string;
+  connection?: Connection;
+}): Promise<TransferVerification> {
+  const trimmed = params.amount.trim();
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return { valid: false, reason: "Invalid amount" };
+  const expectedLamports = BigInt(Math.round(Number(trimmed) * 1e9));
+
+  const connection = params.connection || getSolanaConnection();
+  const tx = await connection.getParsedTransaction(params.signature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0,
+  });
+
+  if (!tx) return { valid: false, pending: true, reason: "Transaction not yet confirmed" };
+  if (tx.meta?.err) return { valid: false, reason: "Transaction failed on-chain" };
+
+  const accountKeys = tx.transaction.message.accountKeys.map((k) => k.pubkey.toBase58());
+  const recipientIndex = accountKeys.indexOf(params.recipient);
+  if (recipientIndex === -1) return { valid: false, reason: "Recipient not found in transaction" };
+
+  const delta =
+    BigInt(tx.meta?.postBalances?.[recipientIndex] ?? 0) -
+    BigInt(tx.meta?.preBalances?.[recipientIndex] ?? 0);
+  if (delta < expectedLamports) return { valid: false, reason: "Transfer amount or recipient mismatch" };
+
+  return { valid: true, txHash: params.signature, payer: accountKeys[0] };
 }
 
 /**
@@ -174,4 +217,45 @@ export async function verifyEvmUsdcTransfer(params: {
 
   if (received < expected) return { valid: false, reason: "Transfer amount or recipient mismatch" };
   return { valid: true, txHash: params.txHash, payer: transfers[0]?.args.from };
+}
+
+/**
+ * Validates a native ETH transfer on Base. Valid only if the tx succeeded,
+ * `to` equals the recipient, and `value` covers the expected amount (18 decimals).
+ */
+export async function verifyEvmNativeTransfer(params: {
+  txHash: string;
+  recipient: Address;
+  amount: string;
+  chainId?: number;
+  waitMs?: number;
+  client?: Pick<PublicClient, "getTransaction" | "getTransactionReceipt" | "waitForTransactionReceipt">;
+}): Promise<TransferVerification> {
+  const trimmed = params.amount.trim();
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return { valid: false, reason: "Invalid amount" };
+  const expected = parseUnits(trimmed, 18);
+  if (!/^0x[0-9a-fA-F]{64}$/.test(params.txHash)) return { valid: false, reason: "Invalid transaction hash" };
+
+  const chainId = params.chainId ?? DEFAULT_CHAIN.id;
+  const chain = chainId === base.id ? base : baseSepolia;
+  const client = params.client ?? createPublicClient({ chain, transport: http(chain.rpcUrls.default.http[0]) });
+
+  const hash = params.txHash as Hex;
+  const receipt =
+    (await client.getTransactionReceipt({ hash }).catch(() => null)) ??
+    (params.waitMs
+      ? await client.waitForTransactionReceipt({ hash, timeout: params.waitMs }).catch(() => null)
+      : null);
+
+  if (!receipt) return { valid: false, pending: true, reason: "Transaction not yet mined" };
+  if (receipt.status !== "success") return { valid: false, reason: "Transaction reverted" };
+
+  const tx = await client.getTransaction({ hash }).catch(() => null);
+  if (!tx) return { valid: false, reason: "Could not fetch transaction" };
+  if (!tx.to || !isAddressEqual(tx.to, params.recipient)) {
+    return { valid: false, reason: "Recipient mismatch" };
+  }
+  if (tx.value < expected) return { valid: false, reason: "Transfer amount mismatch" };
+
+  return { valid: true, txHash: params.txHash, payer: tx.from };
 }

@@ -143,6 +143,7 @@ model Payment {
   tokenSymbol   String
   amount        Decimal       @db.Decimal(38, 18)
   txHash        String?       @unique
+  settlementLayer String      @default("ONCHAIN") // "ONCHAIN" | "LEDGER" (off-chain IOU)
   status        PaymentStatus @default(PENDING)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -317,7 +318,7 @@ model Transaction {
   tokenSymbol   String
   tokenAddress  String?
   
-  txHash        String   @unique
+  txHash        String?  @unique // null = ledger-recorded, not yet settled on-chain
   chainId       Int
   status        String   // "PENDING" | "CONFIRMED" | "FAILED"
   
@@ -349,7 +350,7 @@ model IdempotencyRecord {
 
 model Merchant {
   id                String               @id @default(uuid())
-  userId            String?
+  userId            String?              @unique
   user              User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   name              String
   email             String?
@@ -364,7 +365,6 @@ model Merchant {
   checkoutSessions  CheckoutSession[]
   webhookLogs       WebhookDeliveryLog[]
 
-  @@index([userId])
   @@index([status])
 }
 

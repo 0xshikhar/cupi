@@ -1,0 +1,27 @@
+# Reconciliation sweep trigger.
+#
+# Vercel Hobby only allows one cron run per day (see vercel.json), so this
+# workflow calls the same protected endpoint on a 15-minute cadence instead.
+# The route stays secret-gated: POST /api/cron/reconcile with
+# `Authorization: Bearer $CRON_SECRET`.
+#
+# Required repo config:
+#   secrets.CRON_SECRET   — same value as the Vercel env var
+#   vars.CUPI_APP_URL     — e.g. https://cupi.vercel.app
+name: Reconcile payments
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reconciliation sweep
+        run: |
+          curl -sfS -X POST "${{ vars.CUPI_APP_URL }}/api/cron/reconcile" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --max-time 120

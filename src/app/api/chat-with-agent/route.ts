@@ -5,16 +5,19 @@ import { decrypt } from "@/lib/crypto-utils";
 import { rateLimit } from "@/lib/rate-limiter";
 import { ApiError, ErrorCode, withErrorHandling } from "@/lib/error-handler";
 import { withAuth } from "@/modules/auth/server";
+import type { AuthContext } from "@/modules/auth/server";
 
 /**
  * Handles chat interaction with an agent
  *
  * Requirements:
  * - User must have connected their wallet
+ * - `userWalletAddress` must equal the authenticated session's wallet —
+ *   a session can only drive its own agent wallet.
  * - Agent must exist for the specified agent_id
  * - Retrieves agent wallet from database and uses CDP/AgentKit for interactions
  */
-export const POST = withAuth(withErrorHandling(async (request: NextRequest) => {
+export const POST = withAuth(withErrorHandling(async (request: NextRequest, { auth }: { auth: AuthContext }) => {
   // Apply rate limiting
   const rateLimitResponse = rateLimit(request);
   if (rateLimitResponse) return rateLimitResponse;
@@ -34,6 +37,14 @@ export const POST = withAuth(withErrorHandling(async (request: NextRequest) => {
     throw new ApiError(
       ErrorCode.VALIDATION_ERROR,
       "Missing required parameter: userWalletAddress"
+    );
+  }
+
+  // Ownership: the session wallet must be the wallet whose agent is driven.
+  if (!auth.walletAddress || auth.walletAddress.toLowerCase() !== userWalletAddress.toLowerCase()) {
+    throw new ApiError(
+      ErrorCode.FORBIDDEN,
+      "Cannot operate an agent wallet that does not belong to the authenticated session"
     );
   }
 

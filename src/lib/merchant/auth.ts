@@ -1,5 +1,7 @@
 import crypto from "crypto";
+import type { Merchant, MerchantApiKey, User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { verifyAuth } from "@/modules/auth/server/privy";
 
 export const API_KEY_PREFIX = "cupi_live_";
 export const TEST_KEY_PREFIX = "cupi_test_";
@@ -158,7 +160,8 @@ export function verifyHmacSignature({
 
 /**
  * Helper to extract Merchant API Key from Request headers.
- * Supports `X-Merchant-Key` and `Authorization: Bearer <key>`.
+ * Supports `X-Merchant-Key` and `Authorization: Bearer <cupi_key>`.
+ * Non-cupi Bearer tokens (e.g. Privy session tokens) are NOT treated as keys.
  */
 export function extractMerchantKeyFromRequest(request: Request): string | null {
   const headerKey = request.headers.get("x-merchant-key");
@@ -166,8 +169,58 @@ export function extractMerchantKeyFromRequest(request: Request): string | null {
 
   const authHeader = request.headers.get("authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.substring(7).trim();
+    const value = authHeader.substring(7).trim();
+    if (value.startsWith(API_KEY_PREFIX) || value.startsWith(TEST_KEY_PREFIX)) {
+      return value;
+    }
   }
 
   return null;
+}
+
+/**
+ * Unified merchant authentication for API consumers and portal sessions.
+ *
+ * - API consumers: `X-Merchant-Key` / `Authorization: Bearer cupi_*` → validates
+ *   the key (active, unexpired, merchant ACTIVE).
+ * - Portal sessions: Privy token (Bearer or `privy-token` cookie) → resolves the
+ *   caller's `User`, then the merchant they own via `Merchant.userId`.
+ *
+ * Returns a discriminated result so callers can distinguish "unauthenticated"
+ * from "authenticated user with no merchant account" (onboarding states).
+ */
+export async function resolveMerchantAuth(request: Request): Promise<
+  | { kind: "merchant"; merchant: Merchant; apiKey: MerchantApiKey | null }
+  | { kind: "user"; user: User | null }
+  | null
+> {
+  const rawKey = extractMerchantKeyFromRequest(request);
+  if (rawKey) {
+    const auth = await validateMerchantApiKey(rawKey);
+    return auth ? { kind: "merchant", merchant: auth.merchant, apiKey: auth.apiKey } : null;
+  }
+
+  // Session path — Authorization Bearer or privy cookies
+  const authHeader = request.headers.get("authorization");
+  let token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) {
+    const cookie = request.headers.get("cookie") || "";
+    const match = cookie.match(/(?:^|;\s*)privy-(?:id-)?token=([^;]+)/);
+    token = match?.[1] ?? null;
+  }
+  if (!token) return null;
+
+  try {
+    const claims = await verifyAuth(token);
+    const user = await prisma.user.findFirst({ where: { privyUserId: claims.userId } });
+    // Valid session but no user/merchant rows yet → authenticated, no merchant
+    if (!user) return { kind: "user", user: null };
+
+    const merchant = await prisma.merchant.findUnique({ where: { userId: user.id } });
+    return merchant
+      ? { kind: "merchant", merchant, apiKey: null }
+      : { kind: "user", user };
+  } catch {
+    return null;
+  }
 }

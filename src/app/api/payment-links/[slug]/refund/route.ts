@@ -1,31 +1,40 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { refundPaymentLink, sanitizeSlug } from "@/lib/payments/payment-service";
+import { prisma } from "@/lib/prisma";
+import { withAuth, requireUser, isUser, forbidden } from "@/modules/auth/server/with-auth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/payment-links/[slug]/refund
- * Allows creator to claim back deposited funds from expired escrow links.
+ * Allows the link creator to reclaim funds from expired escrow links.
+ * The creator is derived from the authenticated session — body-supplied
+ * addresses are never trusted.
  */
-export async function POST(
-  request: Request,
-  { params }: { params: { slug: string } }
-) {
+export const POST = withAuth(async (
+  request: NextRequest,
+  { auth, params }: any
+) => {
   try {
-    const body = await request.json().catch(() => ({}));
-    const creatorWalletAddress = body.creatorWalletAddress;
-
-    if (!creatorWalletAddress) {
-      return NextResponse.json(
-        { error: "creatorWalletAddress is required in request body" },
-        { status: 400 }
-      );
-    }
+    const user = requireUser(auth);
+    if (!isUser(user)) return user;
 
     const cleanSlug = sanitizeSlug(params.slug);
+
+    const link = await prisma.paymentLink.findUnique({
+      where: { slug: cleanSlug },
+      select: { creatorId: true },
+    });
+    if (!link) {
+      return NextResponse.json({ error: "Payment link not found" }, { status: 404 });
+    }
+    if (link.creatorId !== user.id) {
+      return forbidden("Only the link creator can refund this link");
+    }
+
     const result = await refundPaymentLink({
       slug: cleanSlug,
-      creatorWalletAddress,
+      creatorWalletAddress: user.walletAddress,
     });
 
     return NextResponse.json({
@@ -41,4 +50,4 @@ export async function POST(
       { status: 400 }
     );
   }
-}
+});

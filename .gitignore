@@ -46,7 +46,6 @@
 **/.env.local/
 **/.env.test/
 .env
-.env.local.example
 
 
 # Logs
@@ -149,4 +148,4 @@ typescript/.pnp.*
 .env
 
 # Prisma generated files
-generated/
+generated/test-results/

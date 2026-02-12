@@ -25,6 +25,12 @@ jest.mock("@/lib/prisma", () => ({
   },
 }));
 
+// Mock the SSRF guard — dispatch semantics are tested here, DNS is not
+jest.mock("@/lib/net/ssrf", () => ({
+  assertSafeWebhookUrl: jest.fn(async (url: string) => new URL(url)),
+  SsrfBlockedError: class SsrfBlockedError extends Error {},
+}));
+
 import {
   generateApiKey,
   hashApiKey,

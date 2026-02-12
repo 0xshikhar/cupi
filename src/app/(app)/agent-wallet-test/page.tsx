@@ -1,5 +1,7 @@
 "use client";
 
+import { notFound } from "next/navigation";
+
 import { useState, useEffect } from "react";
 import { usePrivyWallet } from "@/modules/wallet/hooks/usePrivyWallet";
 
@@ -13,6 +15,7 @@ type WalletStatus = {
 };
 
 export default function AgentWalletTestPage() {
+  if (process.env.NODE_ENV === "production") notFound();
   const { walletAddress } = usePrivyWallet();
   const [status, setStatus] = useState<WalletStatus>({
     userWalletAddress: null,

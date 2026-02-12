@@ -169,7 +169,7 @@ function ConfigureAgentForm() {
           createdAt: new Date(), 
           updatedAt: new Date()
         });
-        toast.success(`Autonomous Agent "${formData.name}" deployed!`);
+        toast.success(`Agent "${formData.name}" created — it now responds in chat.`);
       }
       
       router.push('/agent');
@@ -221,6 +221,7 @@ function ConfigureAgentForm() {
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
                 {agentId ? 'Edit Agent Strategy' : 'Deploy Autonomous Agent'}
+                <span className="ml-2 align-middle text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-black text-white">Beta</span>
               </h1>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
                 ERC-7715 Scoped

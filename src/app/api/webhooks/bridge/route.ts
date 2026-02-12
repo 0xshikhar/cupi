@@ -42,8 +42,18 @@ export async function POST(req: NextRequest) {
 
     const webhookSecret = process.env.BRIDGE_WEBHOOK_SECRET;
 
-    // Verify HMAC-SHA256 signature when secret is configured or signature is provided
-    if (webhookSecret || signature) {
+    // Fail closed: every request must carry a valid signature against a
+    // configured secret. Unsigned traffic is only tolerated in non-production.
+    if (!webhookSecret) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("[BRIDGE WEBHOOK] Rejecting request: BRIDGE_WEBHOOK_SECRET is not configured");
+        return NextResponse.json(
+          { error: "Webhook signature verification is not configured" },
+          { status: 503 }
+        );
+      }
+      console.warn("[BRIDGE WEBHOOK] Skipping signature check — no secret configured (non-production)");
+    } else {
       const isValid = BridgeRampService.verifyWebhookSignature(rawBody, signature);
       if (!isValid) {
         console.warn("[BRIDGE WEBHOOK] Unauthorized: Signature mismatch or missing");

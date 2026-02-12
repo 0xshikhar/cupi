@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Copy, Share, ChevronRight, Award, Sparkles, User, Globe, Eye, Cloud, ShieldCheck, Edit2, Settings, Key, HelpCircle, LogOut, CreditCard, FileText, Bot, Store } from "lucide-react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
+import { usePoints } from "@/modules/activity/hooks/usePoints";
 import { usePrivy } from "@privy-io/react-auth";
 import { getUserProfile } from "@/app/actions/user";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ export default function ProfilePage() {
         tab: "terms"
     });
     const [isRewardsModalOpen, setIsRewardsModalOpen] = useState(false);
+    const { total: pointsTotal, breakdown: pointsBreakdown } = usePoints();
 
     useEffect(() => {
         // Load showFullName preference from localStorage
@@ -98,7 +100,7 @@ export default function ProfilePage() {
 
     const menuItems = [
         { icon: Award, label: "Your Badges", onClick: () => setIsRewardsModalOpen(true), badge: "Active" },
-        { icon: Sparkles, label: "Points & Rewards", onClick: () => setIsRewardsModalOpen(true), value: profile?.points || "250" },
+        { icon: Sparkles, label: "Points & Rewards", onClick: () => setIsRewardsModalOpen(true), value: String(pointsTotal) },
     ];
 
     const settingsItems = [
@@ -396,7 +398,8 @@ export default function ProfilePage() {
             <RewardsModal
                 isOpen={isRewardsModalOpen}
                 onClose={() => setIsRewardsModalOpen(false)}
-                points={profile?.points || 250}
+                points={pointsTotal}
+                breakdown={pointsBreakdown}
                 username={username}
             />
         </div>

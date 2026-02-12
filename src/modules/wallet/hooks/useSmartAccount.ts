@@ -201,13 +201,21 @@ export function useSmartAccount(): SmartAccountState {
         }
       }
 
-      // Pre-flight balance check to prevent cryptic contract reverts
-      const availableBalance = token === "USDC" ? parseFloat(balances.usdc || "0") : parseFloat(balances.eth || "0");
-      const transferAmount = parseFloat(normalizedAmount);
+      // Pre-flight balance check to prevent cryptic contract reverts.
+      // Compare in base units — never parseFloat on money.
+      const tokenDecimals = token === "USDC" ? 6 : 18;
+      const balanceStr = token === "USDC" ? balances.usdc || "0" : balances.eth || "0";
+      let availableBase: bigint, requiredBase: bigint;
+      try {
+        availableBase = parseUnits(balanceStr, tokenDecimals);
+        requiredBase = parseUnits(normalizedAmount, tokenDecimals);
+      } catch {
+        throw new Error(`Invalid ${token} amount: ${normalizedAmount}`);
+      }
 
-      if (transferAmount > availableBalance) {
+      if (requiredBase > availableBase) {
         throw new Error(
-          `Insufficient ${token} balance. Your wallet has ${availableBalance.toFixed(4)} ${token} on Base Sepolia, but the transfer requires ${normalizedAmount} ${token}. Please top up your wallet with testnet ${token}.`
+          `Insufficient ${token} balance. Your wallet has ${balanceStr} ${token} on Base Sepolia, but the transfer requires ${normalizedAmount} ${token}. Please top up your wallet with testnet ${token}.`
         );
       }
 

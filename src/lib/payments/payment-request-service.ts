@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { PaymentRequestStatus } from "@prisma/client";
 import { recordStatusTransition } from "@/lib/reconciliation/audit";
+import {
+  verifyEvmUsdcTransfer,
+  verifyEvmNativeTransfer,
+  verifySolanaUsdcTransfer,
+  verifySolanaNativeTransfer,
+} from "@/lib/payments/onchain-verify";
+import { assertTxHashUnused } from "@/lib/payments/tx-hash-guard";
 
 export interface CreatePaymentRequestInput {
   requesterId: string;
@@ -185,6 +192,36 @@ export async function getPaymentRequestById(requestId: string) {
 }
 
 /**
+ * Verifies a payment-request settlement transfer on the request's declared
+ * network/currency against the requester's wallet.
+ */
+async function verifyRequestSettlement(
+  request: { network: string; currency: string; amount: any; requester?: { walletAddress: string } | null },
+  txHash: string
+) {
+  const recipient = request.requester?.walletAddress;
+  if (!recipient) {
+    return { valid: false, reason: "Cannot verify settlement without a requester wallet" };
+  }
+  const amount = String(request.amount);
+
+  if (request.network === "solana") {
+    return request.currency === "SOL"
+      ? verifySolanaNativeTransfer({ recipient, amount, signature: txHash })
+      : verifySolanaUsdcTransfer({ recipient, amount, signature: txHash });
+  }
+
+  // base / EVM
+  if (request.currency === "ETH") {
+    return verifyEvmNativeTransfer({ txHash, recipient: recipient as `0x${string}`, amount });
+  }
+  if (request.currency === "USDC") {
+    return verifyEvmUsdcTransfer({ txHash, recipient: recipient as `0x${string}`, amount });
+  }
+  return { valid: false, reason: `On-chain verification not supported for ${request.currency} on ${request.network}` };
+}
+
+/**
  * Settles/marks a payment request as PAID when transaction hash is provided.
  */
 export async function markPaymentRequestPaid({
@@ -213,14 +250,41 @@ export async function markPaymentRequestPaid({
     throw new Error(`Cannot pay request with status '${request.status}'`);
   }
 
-  const updated = await prisma.paymentRequest.update({
-    where: { id: requestId },
+  // Verify the settlement transfer on-chain before marking paid — a client-
+  // supplied hash alone is not proof of payment.
+  await assertTxHashUnused(txHash);
+  const verification = await verifyRequestSettlement(request, txHash);
+  if (!verification.valid) {
+    if (verification.pending) {
+      throw new Error(`Transaction not yet confirmed on-chain — retry shortly (${verification.reason})`);
+    }
+    throw new Error(`On-chain verification failed: ${verification.reason}`);
+  }
+
+  // Atomic settlement: only one caller can flip REQUESTED → PAID. A racing
+  // request sees count=0 and gets the already-settled row (idempotent), never
+  // a second settlement write.
+  const settled = await prisma.paymentRequest.updateMany({
+    where: { id: requestId, status: "REQUESTED" },
     data: {
       status: "PAID",
       txHash,
       payeeId: payerUserId || request.payeeId,
       paidAt: new Date(),
     },
+  });
+
+  if (settled.count === 0) {
+    const current = await prisma.paymentRequest.findUnique({
+      where: { id: requestId },
+      include: { requester: true, payee: true },
+    });
+    if (current?.status === "PAID") return current;
+    throw new Error(`Cannot pay request with status '${current?.status ?? "UNKNOWN"}'`);
+  }
+
+  const updated = await prisma.paymentRequest.findUniqueOrThrow({
+    where: { id: requestId },
     include: {
       requester: { select: { id: true, username: true, fullName: true, walletAddress: true } },
       payee: { select: { id: true, username: true, fullName: true, walletAddress: true } },
@@ -269,12 +333,21 @@ export async function declinePaymentRequest(requestId: string, userId?: string) 
     throw new Error(`Cannot decline request with status '${request.status}'`);
   }
 
-  const updated = await prisma.paymentRequest.update({
-    where: { id: requestId },
+  // Atomic transition — a concurrent pay/decline sees count=0, not a clobbered write
+  const declined = await prisma.paymentRequest.updateMany({
+    where: { id: requestId, status: "REQUESTED" },
     data: {
       status: "DECLINED",
       declinedAt: new Date(),
     },
+  });
+  if (declined.count === 0) {
+    const current = await prisma.paymentRequest.findUnique({ where: { id: requestId } });
+    throw new Error(`Cannot decline request with status '${current?.status ?? "UNKNOWN"}'`);
+  }
+
+  const updated = await prisma.paymentRequest.findUniqueOrThrow({
+    where: { id: requestId },
     include: {
       requester: { select: { id: true, username: true, fullName: true, walletAddress: true } },
       payee: { select: { id: true, username: true, fullName: true, walletAddress: true } },

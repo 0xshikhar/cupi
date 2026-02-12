@@ -46,6 +46,7 @@ export default function ClaimPaymentLinkPage() {
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claimPrivateKey, setClaimPrivateKey] = useState<string | null>(null);
   const [manualKeyInput, setManualKeyInput] = useState("");
@@ -190,7 +191,8 @@ export default function ClaimPaymentLinkPage() {
         throw new Error(data.error || "Failed to claim funds from vault");
       }
 
-      setTxHash(data.txHash || "0xclaimed");
+      setTxHash(data.txHash && /^0x[0-9a-fA-F]{64}$/.test(data.txHash) ? data.txHash : null);
+      setClaimed(true);
       setLink((current) =>
         current
           ? {
@@ -241,6 +243,7 @@ export default function ClaimPaymentLinkPage() {
       }
 
       setTxHash(executedTxHash);
+      setClaimed(true);
       setLink((current) =>
         current
           ? {
@@ -331,7 +334,7 @@ export default function ClaimPaymentLinkPage() {
       <section className="bg-white rounded-3xl border border-border shadow-sm sm:border-2 sm:border-black sm:shadow-[6px_6px_0_0_#000] p-6 space-y-5">
         <div className="text-center py-2">
           <p className="text-sm text-muted-foreground">
-            {isEscrowClaim ? (txHash ? "Claimed" : "Ready to claim") : "Amount"}
+            {isEscrowClaim ? (claimed ? "Claimed" : "Ready to claim") : "Amount"}
           </p>
           <p className="text-5xl font-black tracking-tighter tabular-nums mt-1">
             {link.amount}
@@ -460,17 +463,17 @@ export default function ClaimPaymentLinkPage() {
           ) : (
             <button
               onClick={handleEscrowClaim}
-              disabled={claiming || isExpired || !!txHash}
+              disabled={claiming || isExpired || claimed}
               className="btn-primary w-full inline-flex items-center justify-center gap-2 py-3.5 text-base font-bold shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
             >
               {claiming ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
-              ) : txHash ? (
+              ) : claimed ? (
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
               ) : (
                 <Gift className="h-5 w-5" />
               )}
-              {txHash
+              {claimed
                 ? "Funds Successfully Claimed"
                 : isExpired
                 ? link.status === "DISABLED" || link.usedCount >= (link.maxUses || 1)
@@ -482,17 +485,17 @@ export default function ClaimPaymentLinkPage() {
         ) : (
           <button
             onClick={handlePay}
-            disabled={claiming || isExpired || !!txHash}
+            disabled={claiming || isExpired || claimed}
             className="btn-primary w-full inline-flex items-center justify-center gap-2 py-3.5 text-base font-bold shadow-lg disabled:opacity-50"
           >
             {claiming ? (
               <Loader2 className="h-5 w-5 animate-spin" />
-            ) : txHash ? (
+            ) : claimed ? (
               <CheckCircle2 className="h-5 w-5 text-emerald-400" />
             ) : (
               <CheckCircle2 className="h-5 w-5" />
             )}
-            {txHash
+            {claimed
               ? "Payment Completed"
               : isExpired
               ? "Link Expired"
@@ -520,7 +523,7 @@ export default function ClaimPaymentLinkPage() {
               <span>${link.amount} {link.tokenSymbol} Returned to Your Wallet</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Escrow deposit was unlocked and returned to creator wallet. Transaction ID: {refundTx.slice(0, 18)}...
+              Escrow deposit was unlocked and returned to creator wallet.{refundTx && /^0x[0-9a-fA-F]{64}$/.test(refundTx) ? ` Transaction: ${refundTx.slice(0, 10)}…${refundTx.slice(-8)}` : ""}
             </p>
             <div className="pt-2 flex gap-3">
               <Link
@@ -533,7 +536,7 @@ export default function ClaimPaymentLinkPage() {
           </div>
         )}
 
-        {txHash && (
+        {claimed && (
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50 p-5 space-y-3">
             <div className="flex items-center gap-2 text-emerald-400 font-bold">
               <CheckCircle2 size={18} />

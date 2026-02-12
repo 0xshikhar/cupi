@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { getPaymentLinkBySlug, sanitizeSlug } from "@/lib/payments/payment-service";
 import { prisma } from "@/lib/prisma";
+import { withAuth, requireUser, isUser, forbidden } from "@/modules/auth/server/with-auth";
 
 export async function GET(
   _request: Request,
@@ -25,11 +26,14 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { slug: string } }
-) {
+export const PATCH = withAuth(async (
+  request: NextRequest,
+  { auth, params }: any
+) => {
   try {
+    const user = requireUser(auth);
+    if (!isUser(user)) return user;
+
     const body = await request.json().catch(() => ({}));
     const { status } = body as { status?: "ACTIVE" | "EXPIRED" | "DISABLED" };
 
@@ -48,6 +52,19 @@ export async function PATCH(
     }
 
     const cleanSlug = sanitizeSlug(params.slug);
+
+    // Ownership: only the link creator may change its status
+    const link = await prisma.paymentLink.findUnique({
+      where: { slug: cleanSlug },
+      select: { creatorId: true },
+    });
+    if (!link) {
+      return NextResponse.json({ error: "Payment link not found" }, { status: 404 });
+    }
+    if (link.creatorId !== user.id) {
+      return forbidden("Only the link creator can modify this link");
+    }
+
     const updated = await prisma.paymentLink.update({
       where: { slug: cleanSlug },
       data: { status },
@@ -61,4 +78,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

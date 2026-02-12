@@ -1,5 +1,7 @@
 "use client";
 
+import { notFound } from "next/navigation";
+
 import { useState, useEffect, useRef } from "react";
 import { useAgent } from "@/modules/agent/hooks/useAgent";
 import ReactMarkdown from "react-markdown";
@@ -12,6 +14,7 @@ import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
  * @returns {React.ReactNode} The home page
  */
 export default function Home() {
+  if (process.env.NODE_ENV === "production") notFound();
   const [input, setInput] = useState("");
   const { userWalletAddress } = useAuthWallet();
   const { messages, sendMessage, isThinking } = useAgent(userWalletAddress || undefined);

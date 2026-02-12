@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AgentWalletService } from "@/lib/services/agent-wallet-service";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/modules/auth/server";
+import { isAdmin } from "@/lib/auth/admin";
+import { withAuth, requireUser, isUser } from "@/modules/auth/server";
 
 // Use the existing Prisma client from lib/prisma
 
@@ -55,6 +56,16 @@ export const GET = withAuth(async (req, { auth }) => {
                 { status: 400 }
             );
         }
+            // Ownership: the queried wallet must be the authenticated session's wallet
+            if (!auth.walletAddress || auth.walletAddress.toLowerCase() !== userWalletAddress.toLowerCase()) {
+                return NextResponse.json(
+                    {
+                        error: "Cannot access a wallet that does not belong to the authenticated session",
+                    },
+                    { status: 403 }
+                );
+            }
+
 
         // Check for existing agent wallet
         const directMapping = await prisma.agentWalletMap.findUnique({
@@ -148,6 +159,16 @@ export const POST = withAuth(async (req, { auth }) => {
                 { status: 400 }
             );
         }
+            // Ownership: the queried wallet must be the authenticated session's wallet
+            if (!auth.walletAddress || auth.walletAddress.toLowerCase() !== userWalletAddress.toLowerCase()) {
+                return NextResponse.json(
+                    {
+                        error: "Cannot access a wallet that does not belong to the authenticated session",
+                    },
+                    { status: 403 }
+                );
+            }
+
 
         // Create new agent wallet (EOA)
         console.log("[AGENT WALLET API] Creating new App Wallet (EOA)...");
@@ -189,6 +210,17 @@ export const POST = withAuth(async (req, { auth }) => {
 export const DELETE = withAuth(async (req, { auth }) => {
     console.log("[AGENT WALLET API] DELETE request received");
     try {
+        // Mass-deletion requires admin authorization — any authenticated user
+        // must not be able to wipe every agent wallet.
+        const user = requireUser(auth);
+        if (!isUser(user)) return user;
+        if (!isAdmin(user)) {
+            return NextResponse.json(
+                { error: "Administrator access required" },
+                { status: 403 }
+            );
+        }
+
         // Only delete in development or test environments
         if (process.env.NODE_ENV === "production" && !process.env.ALLOW_DELETE_WALLETS) {
             return NextResponse.json(

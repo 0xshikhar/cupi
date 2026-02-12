@@ -693,15 +693,19 @@ export function LegalModal({
 // ==========================================
 // 7. REWARDS & BADGES MODAL
 // ==========================================
+export type PointsBreakdown = { key: string; label: string; unit: number; count: number; points: number };
+
 export function RewardsModal({
   isOpen,
   onClose,
-  points = 250,
+  points = 0,
+  breakdown = [],
   username
 }: {
   isOpen: boolean;
   onClose: () => void;
   points?: number | string;
+  breakdown?: PointsBreakdown[];
   username?: string | null;
 }) {
   if (!isOpen) return null;
@@ -732,6 +736,23 @@ export function RewardsModal({
             <div className="text-4xl font-black text-primary">{points} PTS</div>
             <span className="text-xs bg-primary/20 text-primary px-2.5 py-1 rounded-full font-bold">Tier: Silver Pioneer</span>
           </div>
+
+          {breakdown.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">How you earned them</h4>
+              <div className="space-y-1.5 text-xs">
+                {breakdown.map((row) => (
+                  <div key={row.key} className="p-2.5 bg-secondary/30 rounded-xl border border-border flex items-center justify-between">
+                    <p className="font-semibold">
+                      {row.label}
+                      <span className="text-muted-foreground font-medium"> ×{row.count}</span>
+                    </p>
+                    <span className="text-emerald-600 font-bold">+{row.points}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Earn More Points</h4>

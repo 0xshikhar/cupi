@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { ACTIONS_CORS_HEADERS } from "@/lib/solana/solana-usdc";
+import { verifySolanaUsdcTransfer } from "@/lib/payments/onchain-verify";
 
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/solana/verify?reference=<pubkey>
+ * GET /api/solana/verify?reference=<pubkey>[&recipient=<pubkey>&amount=<usdc>]
  * Real-time transaction confirmation listener for Solana Pay payments.
- * Queries Solana RPC for signatures matching the ephemeral reference key.
+ *
+ * Only `confirmed` when a transaction referencing the key exists AND succeeded
+ * on-chain. When `recipient` and `amount` are supplied, additionally verifies a
+ * USDC credit of >= amount to the recipient via verifySolanaUsdcTransfer.
  */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const reference = searchParams.get("reference");
+    const recipient = searchParams.get("recipient");
+    const amount = searchParams.get("amount");
 
     if (!reference) {
       return NextResponse.json(
@@ -22,11 +28,28 @@ export async function GET(request: Request) {
     }
 
     const referencePublicKey = new PublicKey(reference);
+
+    // Full credit verification when recipient + amount are provided
+    if (recipient && amount) {
+      const result = await verifySolanaUsdcTransfer({ reference, recipient, amount });
+      return NextResponse.json(
+        {
+          confirmed: result.valid,
+          pending: result.pending ?? false,
+          reference,
+          status: result.valid ? "confirmed" : result.pending ? "pending" : "unverified",
+          signature: result.txHash,
+          reason: result.reason,
+        },
+        { headers: ACTIONS_CORS_HEADERS }
+      );
+    }
+
+    // Discovery-only mode: signature exists AND the transaction succeeded
     const rpcUrl =
       process.env.SOLANA_RPC_URL ||
       process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
       "https://api.mainnet-beta.solana.com";
-
     const connection = new Connection(rpcUrl, "confirmed");
 
     const signatures = await connection.getSignaturesForAddress(referencePublicKey, {
@@ -35,25 +58,31 @@ export async function GET(request: Request) {
 
     if (signatures.length === 0) {
       return NextResponse.json(
-        {
-          confirmed: false,
-          reference,
-          status: "pending",
-        },
+        { confirmed: false, reference, status: "pending" },
         { headers: ACTIONS_CORS_HEADERS }
       );
     }
 
     const latest = signatures[0];
+
+    // A signature is only "confirmed" if the transaction didn't fail on-chain
+    const tx = latest.err
+      ? null
+      : await connection.getParsedTransaction(latest.signature, {
+          commitment: "confirmed",
+          maxSupportedTransactionVersion: 0,
+        });
+    const succeeded = latest.err === null && tx !== null && !tx.meta?.err;
+
     return NextResponse.json(
       {
-        confirmed: true,
+        confirmed: succeeded,
         reference,
-        status: "confirmed",
+        status: succeeded ? "confirmed" : "failed",
         signature: latest.signature,
         slot: latest.slot,
         blockTime: latest.blockTime,
-        err: latest.err,
+        ...(latest.err ? { err: latest.err } : {}),
       },
       { headers: ACTIONS_CORS_HEADERS }
     );

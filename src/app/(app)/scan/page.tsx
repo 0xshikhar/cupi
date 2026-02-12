@@ -517,7 +517,7 @@ export default function ScanPage() {
                     Start Camera
                   </button>
                   <p className="text-[11px] text-neutral-400">
-                    Point camera at any UPI or Web3 QR code
+                    Point the camera at a Solana Pay, cUPI or Web3 QR code
                   </p>
                 </div>
               )}

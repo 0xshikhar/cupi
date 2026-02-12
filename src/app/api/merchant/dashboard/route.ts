@@ -1,103 +1,95 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { extractMerchantKeyFromRequest, validateMerchantApiKey } from "@/lib/merchant/auth";
+import { resolveMerchantAuth } from "@/lib/merchant/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/merchant/dashboard
- * Aggregates complete merchant portal data: credentials, recent checkout sessions,
- * delivery logs, and settlement statistics.
+ * Aggregates merchant portal data: recent checkout sessions, webhook delivery
+ * logs, and settlement statistics.
+ *
+ * Authentication (either):
+ *   - `X-Merchant-Key` / `Authorization: Bearer cupi_*` (API consumers)
+ *   - Privy session token for the merchant's owning user (`Merchant.userId`)
+ *
+ * The webhook secret is never returned — it is only disclosed once at creation
+ * via POST /api/merchant.
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const merchantIdParam = searchParams.get("merchantId");
-    const rawApiKey = extractMerchantKeyFromRequest(request);
+    const auth = await resolveMerchantAuth(request);
 
-    let merchant: any = null;
-
-    if (rawApiKey) {
-      const auth = await validateMerchantApiKey(rawApiKey);
-      if (auth) {
-        merchant = auth.merchant;
-      }
-    } else if (merchantIdParam) {
-      merchant = await prisma.merchant.findUnique({
-        where: { id: merchantIdParam },
-      });
+    if (!auth) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+    if (auth.kind === "user") {
+      return NextResponse.json({ error: "No merchant account for this user" }, { status: 404 });
+    }
+    const merchantId = auth.merchant.id;
 
-    // If no specific merchant is authenticated, find or provision default primary merchant for seamless review
+    const merchant = await prisma.merchant.findUnique({
+      where: { id: merchantId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        webhookUrl: true,
+        settlementAddress: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
     if (!merchant) {
-      merchant = await prisma.merchant.findFirst({
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (!merchant) {
-        // Auto-provision demo merchant so reviewer sees real live infrastructure immediately
-        merchant = await prisma.merchant.create({
-          data: {
-            name: "Acme Global Commerce",
-            email: "payments@acme.com",
-            webhookUrl: "https://httpbin.org/post",
-            webhookSecret: "whsec_live_99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4",
-            settlementAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-            apiKeys: {
-              create: {
-                keyPrefix: "cupi_live_8f3a2b",
-                keyHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                name: "Primary Production Key",
-              },
-            },
-          },
-        });
-      }
+      return NextResponse.json({ error: "Merchant not found" }, { status: 404 });
     }
 
-    // Fetch keys, sessions, and webhook delivery logs
-    const [apiKeys, recentSessions, webhookLogs, totalVolumeAgg] = await Promise.all([
+    const [apiKeys, recentSessions, webhookLogs, paidCount, totalSessions] = await Promise.all([
       prisma.merchantApiKey.findMany({
-        where: { merchantId: merchant.id, isActive: true },
-        select: {
-          id: true,
-          keyPrefix: true,
-          name: true,
-          lastUsedAt: true,
-          createdAt: true,
-        },
+        where: { merchantId, isActive: true },
+        select: { id: true, keyPrefix: true, name: true, lastUsedAt: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       }),
       prisma.checkoutSession.findMany({
-        where: { merchantId: merchant.id },
+        where: { merchantId },
         orderBy: { createdAt: "desc" },
         take: 15,
       }),
       prisma.webhookDeliveryLog.findMany({
-        where: { merchantId: merchant.id },
+        where: { merchantId },
         orderBy: { createdAt: "desc" },
         take: 15,
       }),
-      prisma.checkoutSession.aggregate({
-        where: { merchantId: merchant.id, status: "PAID" },
-        _count: { id: true },
-      }),
+      prisma.checkoutSession.count({ where: { merchantId, status: "PAID" } }),
+      prisma.checkoutSession.count({ where: { merchantId } }),
     ]);
 
-    const totalSessions = await prisma.checkoutSession.count({
-      where: { merchantId: merchant.id },
-    });
+    // Aggregate per webhook event (one payload id spans all retry attempts),
+    // not per attempt row — otherwise a delivered event shows RETRYING forever
+    // because its first attempt failed.
+    const byEvent = new Map<string, typeof webhookLogs[number]>();
+    for (const log of webhookLogs) {
+      const eventId =
+        (log.requestPayload as { id?: string } | null)?.id ??
+        `${log.event}:${log.sessionId ?? log.url}`;
+      const prev = byEvent.get(eventId);
+      if (!prev || log.attemptNumber > prev.attemptNumber) {
+        byEvent.set(eventId, log);
+      }
+    }
+    const events = Array.from(byEvent.values());
 
-    const successfulWebhooks = webhookLogs.filter((log) => log.success).length;
-    const webhookSuccessRate = webhookLogs.length > 0
-      ? Math.round((successfulWebhooks / webhookLogs.length) * 100)
+    const deliveredCount = events.filter((log) => log.success).length;
+    const webhookSuccessRate = events.length > 0
+      ? Math.round((deliveredCount / events.length) * 100)
       : 100;
 
-    const formattedWebhookLogs = webhookLogs.map((log) => ({
+    const formattedWebhookLogs = events.map((log) => ({
       id: log.id,
       event: log.event,
       url: log.url,
-      status: log.success ? "DELIVERED" : log.attemptNumber < 3 ? "RETRYING" : "FAILED",
+      status: log.success ? "DELIVERED" : log.attemptNumber >= 3 ? "FAILED" : "RETRYING",
       statusCode: log.responseStatus,
       attempts: log.attemptNumber,
       durationMs: log.durationMs,
@@ -106,19 +98,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      merchant: {
-        id: merchant.id,
-        name: merchant.name,
-        email: merchant.email,
-        webhookUrl: merchant.webhookUrl,
-        webhookSecret: merchant.webhookSecret,
-        settlementAddress: merchant.settlementAddress,
-        status: merchant.status,
-        createdAt: merchant.createdAt,
-      },
+      merchant,
       stats: {
         totalSessions,
-        paidSessions: totalVolumeAgg._count.id,
+        paidSessions: paidCount,
         webhookSuccessRate,
       },
       apiKeys,

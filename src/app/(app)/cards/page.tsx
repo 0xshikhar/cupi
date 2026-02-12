@@ -34,7 +34,7 @@ export default function CardsPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [spendingLimit, setSpendingLimit] = useState(2500);
-  const [currentSpend, setCurrentSpend] = useState(148.50);
+  const [currentSpend] = useState(0);
 
   const [cardData, setCardData] = useState<any>(null);
 
@@ -68,31 +68,11 @@ export default function CardsPage() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const handleToggleFreeze = async () => {
-    const nextState = !isFrozen;
-    setIsFrozen(nextState);
-    if (nextState) {
-      toast.warning("Virtual Card is now FROZEN. Any incoming authorization will be declined.");
-    } else {
-      toast.success("Virtual Card is ACTIVE and ready for point-of-sale spending!");
-    }
-
-    if (userWalletAddress) {
-      try {
-        await fetch("/api/cards", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "toggle_freeze",
-            address: userWalletAddress,
-            freeze: nextState,
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to sync freeze state:", err);
-      }
-    }
+  const handleToggleFreeze = () => {
+    toast.info("Rain sandbox — card controls aren’t live yet. This is a preview of the freeze flow.");
   };
+
+
 
   const cardholderName = profile?.fullName 
     ? profile.fullName.toUpperCase() 
@@ -303,27 +283,8 @@ export default function CardsPage() {
 
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span>${(spendingLimit - currentSpend).toFixed(2)} remaining</span>
-          <button 
-            onClick={async () => {
-              const newLimit = spendingLimit === 2500 ? 5000 : 2500;
-              setSpendingLimit(newLimit);
-              toast.success(`Spending limit updated to $${newLimit}!`);
-              if (userWalletAddress) {
-                try {
-                  await fetch("/api/cards", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      action: "update_limit",
-                      address: userWalletAddress,
-                      limitUsd: newLimit,
-                    }),
-                  });
-                } catch (e) {
-                  console.error("Failed to sync limit:", e);
-                }
-              }
-            }}
+          <button
+            onClick={() => toast.info("Rain sandbox — spend limits can’t be changed yet.")}
             className="text-primary font-bold hover:underline"
           >
             Adjust Limit
@@ -343,7 +304,7 @@ export default function CardsPage() {
           </div>
         </div>
         <button
-          onClick={() => toast.info("Apple Wallet / Google Pay token provisioning initiated via Rain SDK.")}
+          onClick={() => toast.info("Coming soon — wallet provisioning isn\u2019t live in the Rain sandbox yet.")}
           className="shrink-0 whitespace-nowrap px-3.5 py-2 rounded-xl bg-black text-white font-bold text-xs hover:bg-zinc-800 transition-colors"
         >
           Add Card
@@ -362,7 +323,7 @@ export default function CardsPage() {
       <TopUpModal
         isOpen={isTopUpOpen}
         onClose={() => setIsTopUpOpen(false)}
-        onSuccess={() => toast.success("Card balance funded successfully!")}
+        onSuccess={() => toast.success("Funds added to your wallet.")}
       />
     </div>
   );

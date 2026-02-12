@@ -1,45 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/modules/auth/server";
 import { RainCardsService } from "@/lib/integrations/rain";
-import { prisma } from "@/lib/prisma";
 
-// GET /api/cards?address=0x... - Retrieve card state or issue initial card
+// GET /api/cards[?address=0x...] - Retrieve card state or issue initial card
+// Cards are scoped to the authenticated session's wallet — the optional
+// `address` param is honored only when it matches the session wallet.
 export const GET = withAuth(async (request: NextRequest, { auth }) => {
   try {
-    const { searchParams } = new URL(request.url);
-    const address = searchParams.get("address");
-
-    let user = null;
-    if (address) {
-      user = await prisma.user.findFirst({
-        where: {
-          walletAddress: {
-            equals: address,
-            mode: "insensitive",
-          },
-        },
-      });
-    }
-
+    const user = auth.user;
     if (!user) {
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [{ id: auth.userId }, { privyUserId: auth.userId }],
-        },
-      });
+      return NextResponse.json({ error: "Account not provisioned" }, { status: 401 });
     }
 
-    const walletAddress = address || user?.walletAddress;
-    if (!walletAddress) {
-      return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
+    const address = new URL(request.url).searchParams.get("address");
+    const walletAddress = user.walletAddress;
+
+    if (address && address.toLowerCase() !== walletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Cannot access a card for a wallet you do not own" },
+        { status: 403 }
+      );
     }
 
     let card = await RainCardsService.getCard(walletAddress);
     if (!card) {
       // Auto-provision initial virtual card for Cupi member
-      const cardholder = user?.fullName || (user?.username ? `@${user.username}` : "CUPI MEMBER");
+      const cardholder = user.fullName || (user.username ? `@${user.username}` : "CUPI MEMBER");
       card = await RainCardsService.issueVirtualCard({
-        userId: user?.id || "usr_member",
+        userId: user.id,
         userWalletAddress: walletAddress,
         cardholderName: cardholder.toUpperCase(),
         spendingLimitMonthlyUsd: 2500,
@@ -57,34 +45,23 @@ export const GET = withAuth(async (request: NextRequest, { auth }) => {
 });
 
 // POST /api/cards - Manage card (toggle freeze, update limit)
+// Session-scoped: only the authenticated user's own card can be managed.
 export const POST = withAuth(async (request: NextRequest, { auth }) => {
   try {
+    const user = auth.user;
+    if (!user) {
+      return NextResponse.json({ error: "Account not provisioned" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { action, address, freeze, limitUsd } = body;
+    const walletAddress = user.walletAddress;
 
-    let user = null;
-    if (address) {
-      user = await prisma.user.findFirst({
-        where: {
-          walletAddress: {
-            equals: address,
-            mode: "insensitive",
-          },
-        },
-      });
-    }
-
-    if (!user) {
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [{ id: auth.userId }, { privyUserId: auth.userId }],
-        },
-      });
-    }
-
-    const walletAddress = address || user?.walletAddress;
-    if (!walletAddress) {
-      return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
+    if (address && address.toLowerCase() !== walletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Cannot manage a card for a wallet you do not own" },
+        { status: 403 }
+      );
     }
 
     switch (action) {

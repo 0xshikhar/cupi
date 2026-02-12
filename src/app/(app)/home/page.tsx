@@ -2,16 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuthWallet } from "@/modules/wallet/hooks/useAuthWallet";
+import { usePoints } from "@/modules/activity/hooks/usePoints";
 import { ArrowUpRight, ArrowDownLeft, Plus, Minus, CheckCircle, MoreHorizontal, Sparkles, Zap, Shield, Wallet, Loader2, Copy, CreditCard, QrCode, Link as LinkIcon, Bot, MessageSquare, Store } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { RewardsModal } from "@/components/profile/ProfileModals";
 
 const TopUpModal = dynamic(() => import("@/components/TopUpModal"), { ssr: false });
 import { toast } from "sonner";
 
 import { getUserNotifications } from "@/app/actions/user";
 import { useActivityFeed, ActivityItem } from "@/modules/activity/hooks/useActivityFeed";
-import { RewardsModal } from "@/components/profile/ProfileModals";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 
 const CURRENCY_CONFIG: Record<string, { symbol: string; rate: number }> = {
@@ -30,12 +31,13 @@ export default function DashboardPage() {
   } = useAuthWallet();
 
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [isRewardsOpen, setIsRewardsOpen] = useState(false);
+  const { total: pointsTotal, breakdown: pointsBreakdown, refresh: refreshPoints } = usePoints();
 
   // Deep link: /home?topup=1 opens "Add money" (used by insufficient-balance prompts)
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("topup") === "1") setIsTopUpOpen(true);
   }, []);
-  const [isRewardsOpen, setIsRewardsOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [balance, setBalance] = useState<string>(() => {
@@ -144,6 +146,7 @@ export default function DashboardPage() {
 
 
   const handleTopUpSuccess = (amount: string, token: string) => {
+    refreshPoints();
     toast.success(`Successfully added ${amount} to your account!`);
     setIsTopUpOpen(false);
     // Refresh balance after deposit
@@ -226,12 +229,16 @@ export default function DashboardPage() {
             <Bot size={17} className="text-foreground" />
           </Link>
 
-          <div 
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setIsRewardsOpen(true)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsRewardsOpen(true); } }}
             className="flex items-center gap-1.5 font-bold cursor-pointer hover:opacity-70 bg-secondary/30 px-3 py-1.5 rounded-full border border-border transition-all"
+            aria-label="View points and rewards"
           >
             <Sparkles size={14} className="text-primary fill-primary" />
-            <span className="text-sm">Points</span>
+            <span className="text-sm">{pointsTotal} pts</span>
           </div>
         </div>
       </header>
@@ -394,11 +401,12 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Rewards Modal */}
+
       <RewardsModal
         isOpen={isRewardsOpen}
         onClose={() => setIsRewardsOpen(false)}
-        points={250}
+        points={pointsTotal}
+        breakdown={pointsBreakdown}
         username={username}
       />
     </div>

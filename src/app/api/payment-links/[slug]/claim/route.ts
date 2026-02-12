@@ -7,6 +7,8 @@ import { paymentLinkClaimSchema } from "@/lib/payments/payment-schemas";
 function mapClaimErrorStatus(message: string) {
   const normalized = message.toLowerCase();
   if (normalized.includes("not found")) return 404;
+  if (normalized.includes("not yet confirmed")) return 409;
+  if (normalized.includes("verification failed") || normalized.includes("already been used")) return 422;
   if (normalized.includes("invalid") || normalized.includes("validation")) return 400;
   if (normalized.includes("inactive") || normalized.includes("expired")) return 409;
   return 500;
@@ -29,6 +31,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       txHash: result.txHash,
+      settlementLayer: result.settlementLayer,
       payment: result.payment,
       paymentLink: result.paymentLink,
     });

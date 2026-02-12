@@ -15,6 +15,14 @@ export const POST = withAuth(async (request, { auth }) => {
         { status: 400 }
       );
     }
+    // Ownership: the queried wallet must be the authenticated session's wallet
+    if (!auth.walletAddress || auth.walletAddress.toLowerCase() !== userWalletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Cannot access a wallet that does not belong to the authenticated session" },
+        { status: 403 }
+      );
+    }
+
 
     // Create basic wallet
     const walletInfo = await basicAgentWalletService.createBasicWallet({

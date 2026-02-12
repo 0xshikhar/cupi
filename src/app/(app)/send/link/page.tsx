@@ -223,18 +223,18 @@ export default function PaymentLinkCreatePage() {
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
               <Zap size={12} />
-              Gasless Escrow
+              Gasless Claims
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Generate cryptographic escrow links shareable anywhere on WhatsApp, Telegram, or SMS.
+            Generate claim links shareable anywhere — WhatsApp, Telegram, or SMS.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium px-3 py-1.5 rounded-xl border border-border bg-secondary/30 text-muted-foreground flex items-center gap-1.5">
             <ShieldCheck size={14} className="text-emerald-500" />
-            cUPI Self-Custodial Escrow
+            Self-Custodial Claim Link
           </span>
         </div>
       </div>
@@ -412,7 +412,7 @@ export default function PaymentLinkCreatePage() {
               ) : (
                 <>
                   <Lock size={16} />
-                  Create Escrow Payment Link
+                  Create Payment Link
                 </>
               )}
             </button>
@@ -486,7 +486,7 @@ export default function PaymentLinkCreatePage() {
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-primary">
                       <ShieldCheck size={14} />
-                      cUPI Escrow Payment
+                      cUPI PAYMENT
                     </span>
                     <span className="text-[10px] opacity-75 font-mono">0 Gas Claim</span>
                   </div>
@@ -586,7 +586,7 @@ export default function PaymentLinkCreatePage() {
             ) : (
               <div className="p-4 rounded-xl border border-border/50 bg-secondary/10 text-center">
                 <p className="text-xs text-muted-foreground">
-                  Fill in the details and click <span className="font-semibold text-foreground">Create Escrow Payment Link</span> to generate your shareable claim URL.
+                  Fill in the details and click <span className="font-semibold text-foreground">Create Payment Link</span> to generate your shareable claim URL.
                 </p>
               </div>
             )}

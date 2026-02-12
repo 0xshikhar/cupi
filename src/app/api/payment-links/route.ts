@@ -8,7 +8,7 @@ import {
   paymentLinkCreateSchema,
 } from "@/lib/payments/payment-schemas";
 import { prisma } from "@/lib/prisma";
-import { withAuth } from "@/modules/auth/server";
+import { withAuth, requireUser, isUser, forbidden } from "@/modules/auth/server";
 
 function mapLinkErrorStatus(message: string) {
   const normalized = message.toLowerCase();
@@ -17,25 +17,13 @@ function mapLinkErrorStatus(message: string) {
   return 500;
 }
 
-export const GET = withAuth(async (request, { auth }) => {
+export const GET = withAuth(async (_request, { auth }) => {
   try {
-    const { searchParams } = new URL(request.url);
-    const creatorWalletAddress = searchParams.get("creatorWalletAddress");
+    const user = requireUser(auth);
+    if (!isUser(user)) return user;
 
-    if (!creatorWalletAddress) {
-      return NextResponse.json(
-        { error: "creatorWalletAddress is required" },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.findFirst({
-      where: {
-        walletAddress: {
-          equals: creatorWalletAddress,
-          mode: "insensitive",
-        },
-      },
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
       include: {
         paymentLinks: {
           orderBy: { createdAt: "desc" },
@@ -48,11 +36,7 @@ export const GET = withAuth(async (request, { auth }) => {
       },
     });
 
-    if (!user) {
-      return NextResponse.json({ links: [] });
-    }
-
-    return NextResponse.json({ links: user.paymentLinks });
+    return NextResponse.json({ links: fullUser?.paymentLinks ?? [] });
   } catch (error) {
     console.error("[PAYMENT LINKS] GET error:", error);
     return NextResponse.json(
@@ -64,8 +48,17 @@ export const GET = withAuth(async (request, { auth }) => {
 
 export const POST = withAuth(async (request, { auth }) => {
   try {
+    const user = requireUser(auth);
+    if (!isUser(user)) return user;
+
     const body = await request.json();
     const input = paymentLinkCreateSchema.parse(body);
+
+    // The creator must be the authenticated user's own wallet
+    if (input.creatorWalletAddress.toLowerCase() !== user.walletAddress.toLowerCase()) {
+      return forbidden("creatorWalletAddress does not match the authenticated wallet");
+    }
+
     const result = await createPaymentLink(input, {
       baseUrl: new URL(request.url).origin,
     });

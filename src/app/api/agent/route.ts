@@ -4,6 +4,7 @@ import { createAgent } from "./create-agent";
 import { Message, generateId, generateText } from "ai";
 import { formatResponseWithMarkdown } from "@/lib/utils/format";
 import { withAuth } from "@/modules/auth/server";
+import type { AuthContext } from "@/modules/auth/server";
 
 // Transaction tracking for detecting successful backend operations despite UI errors
 interface TransactionStatus {
@@ -36,8 +37,9 @@ const messages: Message[] = [];
  *     body: JSON.stringify({ userMessage: input }),
  * });
  */
-export async function POST(
+export const POST = withAuth(async function agentPostHandler(
   req: Request & { json: () => Promise<AgentRequest> },
+  { auth }: { auth: AuthContext }
 ): Promise<NextResponse<AgentResponse>> {
   console.log('[AGENT API] Received request to /api/agent');
   const startTime = Date.now();
@@ -58,8 +60,17 @@ export async function POST(
       console.error('[AGENT API] Missing user wallet address');
       throw new Error("User wallet address is required to interact with the agent");
     }
+
+    // Ownership: a session can only drive the agent wallet bound to its own wallet
+    if (!auth.walletAddress || auth.walletAddress.toLowerCase() !== userWalletAddress.toLowerCase()) {
+      console.error('[AGENT API] Wallet ownership check failed');
+      return NextResponse.json(
+        { error: "Cannot operate an agent wallet that does not belong to the authenticated session" },
+        { status: 403 }
+      ) as NextResponse<AgentResponse>;
+    }
     console.log('[AGENT API] User wallet address:', userWalletAddress);
-    
+
     // Validate wallet address format
     if (!/^0x[a-fA-F0-9]{40}$/.test(userWalletAddress)) {
       console.error('[AGENT API] Invalid wallet address format:', userWalletAddress);
@@ -213,4 +224,4 @@ export async function POST(
       { status: statusCode }
     );
   }
-}
+})

@@ -1,48 +1,33 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiKeyForMerchant } from "@/lib/merchant/merchant-service";
-import { extractMerchantKeyFromRequest, validateMerchantApiKey } from "@/lib/merchant/auth";
+import { resolveMerchantAuth } from "@/lib/merchant/auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 const createKeySchema = z.object({
-  merchantId: z.string().optional(),
   name: z.string().min(1).default("Secondary Secret Key"),
 });
 
 /**
  * POST /api/merchant/keys
- * Issues a new API key for the authenticated merchant.
+ * Issues a new API key for the authenticated merchant
+ * (X-Merchant-Key or owning-user session).
  */
 export async function POST(request: Request) {
   try {
-    const rawKey = extractMerchantKeyFromRequest(request);
     const body = await request.json().catch(() => ({}));
     const input = createKeySchema.parse(body);
 
-    let targetMerchantId: string | null = null;
-
-    if (rawKey) {
-      const auth = await validateMerchantApiKey(rawKey);
-      if (!auth) {
-        return NextResponse.json({ error: "Invalid or inactive API key" }, { status: 401 });
-      }
-      targetMerchantId = auth.merchant.id;
-    } else if (input.merchantId) {
-      const merchant = await prisma.merchant.findUnique({
-        where: { id: input.merchantId },
-      });
-      if (!merchant) {
-        return NextResponse.json({ error: "Merchant not found" }, { status: 404 });
-      }
-      targetMerchantId = merchant.id;
-    } else {
-      return NextResponse.json(
-        { error: "Authentication required: Provide X-Merchant-Key or merchantId" },
-        { status: 401 }
-      );
+    const auth = await resolveMerchantAuth(request);
+    if (!auth) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+    if (auth.kind === "user") {
+      return NextResponse.json({ error: "No merchant account for this user" }, { status: 404 });
+    }
+    const targetMerchantId = auth.merchant.id;
 
     const { apiKeyRecord, rawKey: newRawKey } = await createApiKeyForMerchant(
       targetMerchantId,
@@ -77,14 +62,12 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    const rawKey = extractMerchantKeyFromRequest(request);
-    if (!rawKey) {
-      return NextResponse.json({ error: "X-Merchant-Key header required" }, { status: 401 });
-    }
-
-    const auth = await validateMerchantApiKey(rawKey);
+    const auth = await resolveMerchantAuth(request);
     if (!auth) {
-      return NextResponse.json({ error: "Invalid or inactive API key" }, { status: 401 });
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    if (auth.kind === "user") {
+      return NextResponse.json({ error: "No merchant account for this user" }, { status: 404 });
     }
 
     const keys = await prisma.merchantApiKey.findMany({

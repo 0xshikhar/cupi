@@ -538,7 +538,7 @@ export default function AgentDashboardPage() {
                 className="p-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-left font-bold transition-all flex items-center gap-2"
               >
                 <Shield size={14} className="text-emerald-500" />
-                <span>DeFi Whitelist</span>
+                <span>Allowed apps</span>
               </button>
             </div>
           </div>
