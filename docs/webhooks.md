@@ -1,109 +1,127 @@
-# 🔔 cUPI Institutional Webhook Integration Guide
+# Webhook Integration Guide
 
-**Document Version:** 1.0.0  
-**Security Standard:** HMAC-SHA256 with Timestamp Replay Prevention (Stripe-Compatible `t=...,v1=...`)
+**Document ID:** WHK-001
+**Status:** Current — generated from the live implementation (`src/lib/merchant/webhook.ts`)
+**Related:** [Merchant API Reference](merchant-api.md) · [RFC-001 System Architecture](architecture.md) · [RFC-002 Scaling Roadmap](scaling-1m-rpm.md)
+**Signature standard:** HMAC-SHA256 with timestamped replay prevention (Stripe-compatible `t=...,v1=...`)
 
-cUPI delivers real-time notifications to your server when checkout sessions transition state (e.g. payment confirmed on-chain, session expired, or refund initiated).
+cUPI delivers signed HTTP notifications to a merchant `callbackUrl` whenever a checkout session transitions state — created, paid, expired, or failed. This guide covers signature verification, delivery semantics, event schemas, and inbound partner-webhook ingestion.
 
 ---
 
-## 🔐 1. Webhook Signature Specification
+## 1. Signature Specification
 
-Every webhook HTTP POST request dispatched by cUPI includes a cryptographic signature header:
+Every outbound dispatch carries these headers:
 
 ```http
+Content-Type: application/json
 X-Cupi-Signature: t=1728087600,v1=7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
+X-Cupi-Event: checkout.session.completed
+User-Agent: cUPI-Merchant-Webhook/1.0
 ```
 
-The header contains:
-* `t`: Unix timestamp (in seconds) of when the dispatch was initiated.
-* `v1`: Hex-encoded HMAC-SHA256 signature generated using your merchant **Webhook Secret** (`whsec_...`).
+| Component | Description |
+|---|---|
+| `t` | Unix timestamp (seconds) at dispatch time |
+| `v1` | Hex HMAC-SHA256 over `t + "." + raw_request_body`, keyed by the merchant's webhook secret |
+| `X-Cupi-Event` | Event type — allows routing before payload parsing |
 
-### Signature Construction
-The signed payload string is constructed by concatenating the timestamp, a literal period `.`, and the raw HTTP JSON request body:
+### Signed payload construction
 
 ```
-signed_payload = timestamp + "." + raw_request_body
+signed_payload = <timestamp> + "." + <raw JSON request body>
+expected        = HMAC_SHA256(webhook_secret, signed_payload) → hex
 ```
 
-### Replay Attack Protection
-To prevent replay attacks, your server must reject webhooks if `|current_timestamp - t| > 300` (5 minutes).
+Verify with a **constant-time** comparison and reject when `|now − t| > 300s`.
+
+### Webhook secret
+
+Issued once at onboarding as `whsec_<64 hex>` (`POST /api/merchant`). Rotation requires issuing a new merchant credential set.
 
 ---
 
-## 🔄 2. Delivery Guarantees & Retry Policy
+## 2. Delivery Semantics
 
-* **At-Least-Once Delivery:** Every event is queued and dispatched with automatic exponential backoff.
-* **Retry Schedule:**
-  * **Attempt 1:** Immediate upon on-chain transaction confirmation.
-  * **Attempt 2:** +30 seconds after transient failure (HTTP status $\neq$ 2xx or network timeout).
-  * **Attempt 3:** +120 seconds after second failure.
-* **Timeout Window:** 10,000ms per attempt.
-* **Audit Trail:** Every delivery attempt (response status, execution duration, and timestamp) is immutably logged into `WebhookDeliveryLog`.
-* **Out-of-Band Fallback:** If your server experiences downtime during retries, the multi-chain reconciliation sweep (`/api/cron/reconcile`) catches and processes the payment status independently.
-  > **Note on Vercel Cron Scheduling:** On Vercel Hobby accounts, cron jobs are restricted to running at most once per day (`0 0 * * *`). For 5-minute sweeps (`*/5 * * * *`), upgrade to Vercel Pro or trigger `/api/cron/reconcile` using an external cron scheduler (such as GitHub Actions or Upstash QStash) with `Authorization: Bearer <CRON_SECRET>`.
+| Property | Behavior |
+|---|---|
+| Delivery model | At-least-once, in-request dispatch per state transition |
+| Attempts | Up to **3** per event |
+| Backoff | Exponential: **~500ms** before attempt 2, **~1s** before attempt 3 |
+| Per-attempt timeout | **8,000ms** |
+| Success criterion | Any `2xx` status |
+| Audit trail | Every attempt recorded in `WebhookDeliveryLog` (status, truncated response body ≤2KB, duration, attempt number); session tracks `webhookAttempts`, `webhookLastStatus`, `webhookDeliveredAt` |
+| Durable fallback | The multi-chain reconciliation sweep (`/api/cron/reconcile`) independently reconciles session state if all dispatch attempts fail |
+
+> **Design note:** retries execute inline with short backoffs — the dispatcher favors fast failure over long queues, and durable recovery is delegated to the reconciliation sweep. Queue-based durable redelivery is an RFC-002 (scaling roadmap) concern via the transactional outbox pattern.
+>
+> **Vercel cron note:** Hobby plans restrict cron to once daily. For 5-minute sweeps (`*/5 * * * *`), run `/api/cron/reconcile` on an external scheduler (GitHub Actions, Upstash QStash) with `Authorization: Bearer <CRON_SECRET>`.
+
+**Receiver contract:** respond `2xx` within the 8s window; defer heavy work (email, fulfillment) asynchronously. Treat every event as potentially duplicate — deduplicate on the payload `id` or the session's state before side-effects.
 
 ---
 
-## 📦 3. Event Types & Sample Payloads
+## 3. Event Types & Payload Schema
 
-### `checkout.session.completed`
-Dispatched immediately when payment finality is verified on Solana (via reference key) or EVM (via block receipt).
+Envelope:
 
 ```json
 {
-  "id": "evt_1728087600123_4f8a",
+  "id": "evt_1728087600123_4f8a9b2c1d3e",
   "event": "checkout.session.completed",
+  "apiVersion": "2026-03-01",
+  "createdAt": "2026-10-05T02:00:00.000Z",
+  "data": { /* CheckoutSession object — same shape as the Merchant API session DTO */ }
+}
+```
+
+### `checkout.session.created`
+
+Dispatched asynchronously when a session is created — usable for pre-payment analytics or alerting.
+
+### `checkout.session.completed`
+
+Dispatched when payment finality is verified on-chain (Solana reference-key discovery or Base log-receipt verification). The `data` object carries the full session including `txHash`, `payerAddress`, and `paidAt`:
+
+```json
+{
+  "id": "evt_1728087600123_4f8a9b2c1d3e",
+  "event": "checkout.session.completed",
+  "apiVersion": "2026-03-01",
   "createdAt": "2026-10-05T02:00:00.000Z",
   "data": {
-    "id": "cs_1728087590000_8a9b1c",
-    "merchantId": "mer_cm4b89z0...",
+    "id": "cs_1728087590000_8a9b1c2d3e4f",
+    "merchantId": "mer_cm4b89z0a000108l4abc123",
     "orderId": "order_1001",
     "amount": "25.00",
     "currency": "USDC",
     "network": "solana",
     "description": "Invoice for Premium Tier",
     "status": "PAID",
-    "checkoutUrl": "https://cupi.app/pay/merchant-cs_1728087590000_8a9b1c",
-    "callbackUrl": "https://api.yourstore.com/webhooks/cupi",
-    "successUrl": "https://yourstore.com/checkout/success",
-    "cancelUrl": "https://yourstore.com/checkout/cancel",
-    "txHash": "5KnmZ1eL9m1kH...solana_tx_hash...",
-    "payerAddress": "7nYBqU1...phantom_wallet...",
+    "checkoutUrl": "https://cupi.shikhar.xyz/pay/merchant-cs_1728087590000_8a9b1c2d3e4f",
+    "callbackUrl": "https://api.acme.com/webhooks/cupi",
+    "successUrl": "https://acme.com/checkout/success",
+    "cancelUrl": null,
+    "txHash": "5KnmZ1eL9m1kH...solana_signature...",
+    "payerAddress": "7nYBqU1...payer_wallet...",
     "paidAt": "2026-10-05T02:00:00.000Z",
     "expiresAt": "2026-10-05T02:30:00.000Z",
-    "metadata": {
-      "customerId": "cust_8821",
-      "cartId": "cart_99182"
-    }
+    "createdAt": "2026-10-05T02:00:00.000Z"
   }
 }
 ```
 
 ### `checkout.session.expired`
-Dispatched when a checkout session passes its expiration window without receiving on-chain payment.
 
-```json
-{
-  "id": "evt_1728089400000_2c1e",
-  "event": "checkout.session.expired",
-  "createdAt": "2026-10-05T02:30:00.000Z",
-  "data": {
-    "id": "cs_1728087590000_8a9b1c",
-    "merchantId": "mer_cm4b89z0...",
-    "orderId": "order_1001",
-    "amount": "25.00",
-    "currency": "USDC",
-    "network": "solana",
-    "status": "EXPIRED",
-    "expiresAt": "2026-10-05T02:30:00.000Z"
-  }
-}
-```
+Dispatched when a session passes `expiresAt` unpaid — fired when a stale session is next accessed or swept by the reconciler.
+
+### `checkout.session.failed`
+
+Reserved for verification-failure transitions (`PENDING → FAILED`).
 
 ---
 
-## 💻 4. Signature Verification Code Examples
+## 4. Verification — Reference Implementations
 
 ### Node.js / TypeScript
 
@@ -117,64 +135,53 @@ export function verifyCupiWebhook(
   webhookSecret: string,
   toleranceSeconds = 300
 ): boolean {
-  // Parse t=...,v1=...
   const parts = signatureHeader.split(",");
   const timestampPart = parts.find((p) => p.startsWith("t="));
   const signaturePart = parts.find((p) => p.startsWith("v1="));
-
   if (!timestampPart || !signaturePart) return false;
 
   const timestamp = parseInt(timestampPart.slice(2), 10);
   const signature = signaturePart.slice(3);
 
-  // Check clock drift / replay window
   const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - timestamp) > toleranceSeconds) {
-    return false;
-  }
+  if (Math.abs(now - timestamp) > toleranceSeconds) return false;
 
-  // Compute expected HMAC-SHA256
-  const signedPayload = `${timestamp}.${rawBody}`;
-  const expectedSignature = crypto
+  const expected = crypto
     .createHmac("sha256", webhookSecret)
-    .update(signedPayload)
+    .update(`${timestamp}.${rawBody}`)
     .digest("hex");
 
-  // Constant-time comparison
   return crypto.timingSafeEqual(
     Buffer.from(signature, "hex"),
-    Buffer.from(expectedSignature, "hex")
+    Buffer.from(expected, "hex")
   );
 }
 
-// Express Handler
+// Express — preserve the raw body (express.raw), not the parsed object
 app.post("/webhooks/cupi", (req: Request, res: Response) => {
   const sigHeader = req.headers["x-cupi-signature"] as string;
-  const rawBody = (req as any).rawBody; // Make sure express.raw() or raw body is preserved!
+  const rawBody = (req as any).rawBody;
   const secret = process.env.CUPI_WEBHOOK_SECRET!;
 
   if (!sigHeader || !verifyCupiWebhook(rawBody, sigHeader, secret)) {
-    return res.status(401).send("Invalid Webhook Signature");
+    return res.status(401).send("Invalid webhook signature");
   }
 
   const event = JSON.parse(rawBody);
-
   if (event.event === "checkout.session.completed") {
     const session = event.data;
+    // Idempotent fulfillment: check order status before side-effects
     console.log(`Order ${session.orderId} paid via ${session.network} (${session.txHash})`);
-    // Fulfill order in your database
   }
 
   return res.status(200).json({ received: true });
 });
 ```
 
-### Python (FastAPI / Flask)
+### Python (FastAPI)
 
 ```python
-import hmac
-import hashlib
-import time
+import hmac, hashlib, time
 from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
@@ -185,7 +192,6 @@ TOLERANCE_SECONDS = 300
 async def cupi_webhook_handler(request: Request):
     raw_body = await request.body()
     sig_header = request.headers.get("x-cupi-signature")
-    
     if not sig_header:
         raise HTTPException(status_code=401, detail="Missing signature header")
 
@@ -196,57 +202,53 @@ async def cupi_webhook_handler(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Malformed signature header")
 
-    # Verify replay tolerance
     if abs(int(time.time()) - timestamp) > TOLERANCE_SECONDS:
         raise HTTPException(status_code=401, detail="Timestamp outside tolerance window")
 
-    # Calculate HMAC
-    signed_payload = f"{timestamp}.".encode("utf-8") + raw_body
-    computed_sig = hmac.new(
-        WEBHOOK_SECRET.encode("utf-8"),
-        signed_payload,
-        hashlib.sha256
+    computed = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        f"{timestamp}.".encode() + raw_body,
+        hashlib.sha256,
     ).hexdigest()
 
-    # Constant-time comparison
-    if not hmac.compare_digest(received_sig, computed_sig):
+    if not hmac.compare_digest(received_sig, computed):
         raise HTTPException(status_code=401, detail="Signature mismatch")
 
     event = await request.json()
     if event["event"] == "checkout.session.completed":
-        order_id = event["data"]["orderId"]
-        tx_hash = event["data"]["txHash"]
-        # Handle order fulfillment
+        data = event["data"]
+        # Idempotent fulfillment on data["orderId"]
 
     return {"received": True}
 ```
 
 ---
 
-## 📥 4. Inbound Partner Webhooks (Bridge.xyz & Alchemy)
+## 5. Inbound Partner Webhooks (Bridge.xyz & Alchemy)
 
-In addition to outbound merchant webhooks, `cUPI` ingests and cryptographically reconciles inbound callbacks from infrastructure partners:
+cUPI also ingests cryptographically verified callbacks from infrastructure partners. Every inbound receipt — valid or not — is logged to `WebhookReceiptLog` with its signature-verification outcome, and state changes are journaled in `ReconciliationAuditLog`.
 
-### A. Bridge.xyz Fiat Liquidation & On-Ramp (`POST /api/webhooks/bridge`)
-* **Endpoint:** `https://cupi.shikhar.xyz/api/webhooks/bridge`
-* **Header:** `X-Bridge-Signature: <hex_digest>`
-* **Verification:** HMAC-SHA256 computed over the raw body using `BRIDGE_WEBHOOK_SECRET`, verified via timing-safe buffer comparison.
-* **Handled Events:**
-  * `liquidation.completed`: User's USDC converted to USD and delivered to their external bank account via ACH. Marks transaction `CONFIRMED` and alerts user.
-  * `virtual_account.deposit_succeeded`: Fiat USD wire/ACH received into Lead Bank virtual account, minting USDC into user's self-custodial wallet.
-  * `liquidation.failed`: Declines transaction with reason and informs user of bank rejection.
-* **Audit Trail:** Every inbound receipt is logged into `WebhookReceiptLog` and audit status changes are logged into `ReconciliationAuditLog`.
+> **Security configuration:** inbound verification is enforced **when the signing key is configured**. Deployments must set `ALCHEMY_WEBHOOK_SIGNING_KEY` and `BRIDGE_WEBHOOK_SECRET` in production — with the key absent, payloads cannot be authenticated and the route logs a warning rather than rejecting.
 
-### B. Alchemy Blockchain Activity Webhook (`POST /api/webhooks/alchemy`)
-* **Endpoint:** `https://cupi.shikhar.xyz/api/webhooks/alchemy`
-* **Header:** `X-Alchemy-Signature: <hex_digest>`
-* **Verification:** HMAC-SHA256 signature verification over raw request body using `ALCHEMY_WEBHOOK_SIGNING_KEY`.
-* **Handled Events:**
-  * `ADDRESS_ACTIVITY`: Real-time block confirmation of on-chain USDC / ETH transfers across Base and Arbitrum. Reconciles `PENDING` transactions to `CONFIRMED`.
+### `POST /api/webhooks/bridge` — Fiat on/off-ramp settlement
+
+- **Header:** `X-Bridge-Signature` (or `bridge-signature`) — HMAC-SHA256 over the raw body, verified against `BRIDGE_WEBHOOK_SECRET` with timing-safe comparison; `401` on mismatch.
+- **Handled events:**
+  - `liquidation.completed` — USDC converted to USD and delivered via ACH; transaction marked `CONFIRMED`, user notified.
+  - `virtual_account.deposit_succeeded` — fiat received into a Lead Bank virtual account; USDC minted to the user's self-custodial wallet.
+  - `liquidation.failed` — bank rejection recorded with reason; user notified.
+
+### `POST /api/webhooks/alchemy` — On-chain activity
+
+- **Header:** `X-Alchemy-Signature` — HMAC-SHA256 over the raw body against `ALCHEMY_WEBHOOK_SIGNING_KEY`; `401` on mismatch when configured.
+- **Handled events:**
+  - `ADDRESS_ACTIVITY` — block-level USDC/ETH transfer activity on Base; reconciles `PENDING` transactions to `CONFIRMED` via transaction-hash matching.
 
 ---
 
-## 🛡️ Best Practices
-1. **Always Return HTTP 2xx Fast:** Acknowledge receipt (`200 OK`) immediately after signature validation, then offload heavy processing (e.g. email receipt dispatch) to background workers.
-2. **Idempotent Handlers:** Because webhooks are delivered *at least once*, always check if the order has already been marked paid before triggering shipment or email flows.
+## 6. Receiver Best Practices
 
+1. **Acknowledge fast.** Return `2xx` immediately after signature validation; offload fulfillment to a background worker.
+2. **Deduplicate.** Delivery is at-least-once — key idempotency on the event `id` or session state.
+3. **Verify before parsing.** Compute the HMAC over the raw request body; never re-serialize a parsed JSON object for verification (key ordering breaks the signature).
+4. **Monitor `WebhookDeliveryLog`-equivalent signals.** Repeated non-2xx from a `callbackUrl` surfaces in the session's `webhookAttempts`/`webhookLastStatus` fields.
