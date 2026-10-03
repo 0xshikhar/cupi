@@ -11,7 +11,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "prisma:generate": "XDG_CACHE_HOME=.cache bun prisma generate",
-    "prisma:studio": "XDG_CACHE_HOME=.cache bun prisma studio"
+    "prisma:studio": "XDG_CACHE_HOME=.cache bun prisma studio",
+    "bench:http": "bun test/load/http-benchmark.ts",
+    "bench:idempotency": "bun test/load/ingress-benchmark.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.2.1",
@@ -73,6 +77,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.7.0",
     "@testing-library/react": "^16.3.0",
     "@types/jest": "^30.0.0",
