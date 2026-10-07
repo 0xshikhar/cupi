@@ -1,12 +1,25 @@
 /** @jest-environment node */
-import { describe, expect, it, beforeEach } from "@jest/globals";
+import { describe, expect, it, beforeAll, beforeEach } from "@jest/globals";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import {
   handleIdempotency,
   _clearIdempotencyStore,
+  _setForceMemoryFallback,
 } from "../idempotency";
 
 describe("Financial Idempotency Guard", () => {
+  beforeAll(async () => {
+    // Exercise the real Postgres path when a database is reachable (CI service,
+    // local dev DB); fall back to the in-memory driver otherwise so the suite
+    // stays deterministic on machines without Postgres.
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {
+      _setForceMemoryFallback(true);
+    }
+  }, 30000);
+
   beforeEach(() => {
     _clearIdempotencyStore();
   });

@@ -28,6 +28,14 @@ const customJestConfig = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/e2e/', // Playwright specs — run via `bun run test:e2e`, not Jest
+    '/.cache/', // Bun's install cache (CI runners use a workspace-local cache)
+    '/.next/',
+  ],
+  // Keep jest-haste-map from indexing package caches (duplicate module names
+  // like source-map inside .cache/.bun break the whole run)
+  modulePathIgnorePatterns: [
+    '<rootDir>/.cache/',
+    '<rootDir>/.next/',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

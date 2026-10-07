@@ -12,7 +12,7 @@ The cUPI Merchant API enables e-commerce platforms, payment service providers, a
 
 ## 1. Authentication
 
-All merchant endpoints authenticate with an API key in either header form:
+**API consumers** authenticate merchant endpoints with an API key in either header form:
 
 ```http
 X-Merchant-Key: cupi_live_0123456789abcdef0123456789abcdef01234567
@@ -20,6 +20,8 @@ X-Merchant-Key: cupi_live_0123456789abcdef0123456789abcdef01234567
 ```http
 Authorization: Bearer cupi_live_0123456789abcdef0123456789abcdef01234567
 ```
+
+**Portal sessions** authenticate the same endpoints with a Privy session token (the merchant portal uses this automatically). A session resolves the merchant owned by the calling user via `Merchant.userId` — every merchant has exactly one owning user, enforced by a unique constraint.
 
 | Key prefix | Format | Environment |
 |---|---|---|
@@ -58,13 +60,14 @@ Mutating endpoints honor `Idempotency-Key` headers backed by PostgreSQL row-leve
 
 Registers a merchant and returns credentials **once**. Store the API key and webhook secret immediately; only their SHA-256 hashes are retained.
 
+Requires a **Privy session** (portal sign-in or `Authorization: Bearer <privy-token>`). The merchant is owned by the calling user — `Merchant.userId` is bound automatically. One merchant account per user; a second attempt returns `409` with the existing merchant.
+
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `name` | string | **Yes** (≥2 chars) | Merchant display name |
 | `email` | string | No | Contact email |
 | `webhookUrl` | string (URL) | No | Default event endpoint |
 | `settlementAddress` | string | No | On-chain payout address — **required before checkouts** on the corresponding network (Solana address for `solana`, EVM `0x` address for `base`) |
-| `userId` | string | No | Link to an existing cUPI user account |
 
 ```bash
 curl -X POST https://cupi.shikhar.xyz/api/merchant \
@@ -96,7 +99,7 @@ curl -X POST https://cupi.shikhar.xyz/api/merchant \
 
 ### `GET /api/merchant` — Merchant Profile
 
-Returns the authenticated merchant's profile. Requires `X-Merchant-Key`.
+Returns the authenticated merchant's profile. Requires `X-Merchant-Key` or an owning-user session.
 
 ### `POST /api/merchant/keys` — Issue Additional Key
 
@@ -117,7 +120,7 @@ curl -X POST https://cupi.shikhar.xyz/api/merchant/keys \
 
 ### `GET /api/merchant/keys` — List Keys · `GET /api/merchant/dashboard` — Stats
 
-`GET /api/merchant/keys` lists issued keys (prefixes and metadata only — raw keys are never retrievable). `GET /api/merchant/dashboard` returns aggregate session and settlement statistics. Both require `X-Merchant-Key`.
+`GET /api/merchant/keys` lists issued keys (prefixes and metadata only — raw keys are never retrievable). `GET /api/merchant/dashboard` returns aggregate session and settlement statistics. Both accept `X-Merchant-Key` or an owning-user session.
 
 ---
 
